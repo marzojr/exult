@@ -39,8 +39,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <iomanip>
 #include <iostream>
 
-using EStudio::Alert;
-using EStudio::Prompt;
 using std::cout;
 using std::endl;
 using std::ifstream;
@@ -247,12 +245,12 @@ void Palette_edit::double_clicked() {
  */
 
 gint Palette_edit::configure(
-		GtkWidget*         widget,    // The view window.
-		GdkEventConfigure* event,
-		gpointer           data    // ->Palette_edit
+		GtkWidget* widget,    // The view window.
+		GdkEvent*  event,
+		gpointer   user_data    // ->Palette_edit.
 ) {
 	ignore_unused_variable_warning(event, widget);
-	auto* paled = static_cast<Palette_edit*>(data);
+	auto* paled = static_cast<Palette_edit*>(user_data);
 	if (!paled->width) {    // First time?
 		// Foreground = yellow.
 		paled->drawfg = (255 << 16) + (255 << 8);
@@ -268,13 +266,13 @@ gint Palette_edit::configure(
 gint Palette_edit::expose(
 		GtkWidget* widget,    // The view window.
 		cairo_t*   cairo,
-		gpointer   data    // ->Palette_edit.
+		gpointer   user_data    // ->Palette_edit.
 ) {
 	ignore_unused_variable_warning(widget);
-	auto* paled = static_cast<Palette_edit*>(data);
-	paled->set_graphic_context(cairo);
-	GdkRectangle area = {0, 0, 0, 0};
+	auto*        paled = static_cast<Palette_edit*>(user_data);
+	GdkRectangle area  = {0, 0, 0, 0};
 	gdk_cairo_get_clip_rectangle(cairo, &area);
+	paled->set_graphic_context(cairo);
 	paled->show(area.x, area.y, area.width, area.height);
 	paled->set_graphic_context(nullptr);
 	return true;
@@ -285,14 +283,20 @@ gint Palette_edit::expose(
  */
 
 gint Palette_edit::mouse_press(
-		GtkWidget*      widget,    // The view window.
-		GdkEventButton* event,
-		gpointer        data    // ->Palette_edit.
+		GtkWidget* widget,    // The view window.
+		GdkEvent*  event,
+		gpointer   user_data    // ->Palette_edit.
 ) {
-	ignore_unused_variable_warning(widget);
-	auto* paled = static_cast<Palette_edit*>(data);
+	auto* paled = static_cast<Palette_edit*>(user_data);
 
-	if (event->button == 4 || event->button == 5) {    // mouse wheel
+	GdkEventType event_type = gdk_event_get_event_type(event);
+	guint        event_button_button;
+	gdouble      event_button_x, event_button_y;
+	gdk_event_get_button(event, &event_button_button);
+	gdk_event_get_coords(event, &event_button_x, &event_button_y);
+
+	if (event_button_button == 4
+		|| event_button_button == 5) {    // mouse wheel
 		return true;
 	}
 
@@ -302,8 +306,8 @@ gint Palette_edit::mouse_press(
 	const int old_selected = paled->selected;
 	const int width        = paled->width;
 	const int height       = paled->height;
-	const int eventx       = static_cast<int>(event->x);
-	const int eventy       = static_cast<int>(event->y);
+	const int eventx       = static_cast<int>(event_button_x);
+	const int eventy       = static_cast<int>(event_button_y);
 	// Figure cell size.
 	const int eachw = width / 16;
 	const int eachh = height / 16;
@@ -328,16 +332,25 @@ gint Palette_edit::mouse_press(
 	paled->selected = sely * 16 + selx;
 	if (paled->selected == old_selected) {
 		// Same square.  Check for dbl-click.
-		if (reinterpret_cast<GdkEvent*>(event)->type == GDK_2BUTTON_PRESS) {
+		if (event_type == GDK_2BUTTON_PRESS) {
 			paled->double_clicked();
 		}
 	} else {
 		paled->render();
 	}
-	if (event->button == 3) {
-		gtk_menu_popup_at_pointer(
-				GTK_MENU(paled->create_popup()),
-				reinterpret_cast<GdkEvent*>(event));
+	if (event_button_button == 3) {
+		GMenu* popup = paled->create_popup();
+		paled->popup_widget
+				= gtk_popover_new_from_model(widget, G_MENU_MODEL(popup));
+		g_object_unref(popup);
+		if (paled->selected >= 0) {
+			GdkRectangle target
+					= {paled->selected_box.x, paled->selected_box.y,
+					   paled->selected_box.w, paled->selected_box.h};
+			gtk_popover_set_pointing_to(
+					GTK_POPOVER(paled->popup_widget), &target);
+		}
+		gtk_widget_set_visible(paled->popup_widget, true);
 	}
 	return true;
 }
@@ -351,10 +364,13 @@ void Palette_edit::drag_data_get(
 		GdkDragContext*   context,
 		GtkSelectionData* seldata,    // Fill this in.
 		guint info, guint time,
-		gpointer data    // ->Palette_edit.
+		gpointer user_data    // ->Palette_edit.
 ) {
-	ignore_unused_variable_warning(widget, context, seldata, info, time, data);
-	cout << "In DRAG_DATA_GET" << endl;
+	ignore_unused_variable_warning(
+			widget, context, seldata, info, time, user_data);
+	cout << "In DRAG_DATA_GET of Palette" << endl;
+	// Maybe someday.
+	//	Palette_edit *paled = static_cast<Palette_edit *>(data);
 }
 
 /*
@@ -364,12 +380,12 @@ void Palette_edit::drag_data_get(
 gint Palette_edit::drag_begin(
 		GtkWidget*      widget,    // The view window.
 		GdkDragContext* context,
-		gpointer        data    // ->Palette_edit.
+		gpointer        user_data    // ->Palette_edit.
 ) {
-	ignore_unused_variable_warning(widget, context, data);
+	ignore_unused_variable_warning(widget, context, user_data);
 	cout << "In DRAG_BEGIN of Palette" << endl;
-	// Palette_edit *paled = static_cast<Palette_edit *>(data);
-	//  Maybe someday.
+	// Maybe someday.
+	//	Palette_edit *paled = static_cast<Palette_edit *>(data);
 	return true;
 }
 
@@ -378,10 +394,10 @@ gint Palette_edit::drag_begin(
  */
 
 void Palette_edit::palnum_changed(
-		GtkAdjustment* adj,    // The adjustment.
-		gpointer       data    // ->Shape_chooser.
+		GtkAdjustment* adj,         // The adjustment.
+		gpointer       user_data    // ->Palette_edit.
 ) {
-	auto*      paled  = static_cast<Palette_edit*>(data);
+	auto*      paled  = static_cast<Palette_edit*>(user_data);
 	const gint newnum = static_cast<gint>(gtk_adjustment_get_value(adj));
 	paled->show_palette(newnum);
 	paled->render();
@@ -797,8 +813,9 @@ void Palette_edit::remove_palette() {
 	if (cur_pal < 0 || palettes.size() < 2) {
 		return;
 	}
-	if (Prompt("Do you really want to delete the palette you're viewing?",
-			   "Yes", "No")
+	if (EStudio::Prompt(
+				"Do you really want to delete the palette you're viewing?",
+				"Yes", "No")
 		!= 0) {
 		return;
 	}
@@ -823,7 +840,7 @@ void Palette_edit::export_palette(const char* fname, gpointer user_data) {
 	auto* paled = static_cast<Palette_edit*>(user_data);
 	if (U7exists(fname)) {
 		char* msg = g_strdup_printf("'%s' already exists.  Overwrite?", fname);
-		const int answer = Prompt(msg, "Yes", "No");
+		const int answer = EStudio::Prompt(msg, "Yes", "No");
 		g_free(msg);
 		if (answer != 0) {
 			return;
@@ -858,7 +875,7 @@ void Palette_edit::export_palette(const char* fname, gpointer user_data) {
 void Palette_edit::import_palette(const char* fname, gpointer user_data) {
 	auto* paled = static_cast<Palette_edit*>(user_data);
 	char* msg = g_strdup_printf("Overwrite current palette from '%s'?", fname);
-	const int answer = Prompt(msg, "Yes", "No");
+	const int answer = EStudio::Prompt(msg, "Yes", "No");
 	g_free(msg);
 	if (answer != 0) {
 		return;
@@ -869,7 +886,7 @@ void Palette_edit::import_palette(const char* fname, gpointer user_data) {
 	char          buf[256];
 	in.getline(buf, sizeof(buf));    // Skip 1st line.
 	if (!in.good()) {
-		Alert("Error reading '%s'", fname);
+		EStudio::Alert("Error reading '%s'", fname);
 		return;
 	}
 	int i = 0;    // Color #.

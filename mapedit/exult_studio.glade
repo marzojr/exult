@@ -2,6 +2,223 @@
 <interface>
   <requires lib="gtk+" version="3.16"/>
   <!-- interface-naming-policy toplevel-contextual -->
+  <menu id="main_menu_bar">
+    <submenu>
+      <attribute name="label" translatable="yes">_File</attribute>
+      <section>
+        <item>
+          <attribute name="label" translatable="yes">New game...</attribute>
+          <attribute name="action">app.on-new-game-activate</attribute>
+        </item>
+        <item>
+          <attribute name="label" translatable="yes">New mod...</attribute>
+          <attribute name="action">app.on-new-mod-activate</attribute>
+        </item>
+        <item>
+          <attribute name="label" translatable="yes">_Open game...</attribute>
+          <attribute name="action">app.on-open-game-activate</attribute>
+        </item>
+        <item>
+          <attribute name="label" translatable="yes">Save all</attribute>
+          <attribute name="action">app.on-save-all-activate</attribute>
+          <attribute name="accel">&lt;Control&gt;s</attribute>
+        </item>
+      </section>
+      <section>
+        <submenu>
+          <attribute name="label" translatable="yes">_New...</attribute>
+          <section>
+            <item>
+              <attribute name="label" translatable="yes">Shapes file...</attribute>
+              <attribute name="action">app.on-new-shapes-file-activate</attribute>
+            </item>
+            <item>
+              <attribute name="label" translatable="yes">Single shape file...</attribute>
+              <attribute name="action">app.on-new-shape-file-activate</attribute>
+            </item>
+          </section>
+        </submenu>
+        <submenu>
+          <attribute name="label" translatable="yes">Save...</attribute>
+          <section>
+            <item>
+              <attribute name="label" translatable="yes">_Map</attribute>
+              <attribute name="action">app.on-save-map-menu-activate</attribute>
+            </item>
+            <item>
+              <attribute name="label" translatable="yes">_Shape info</attribute>
+              <attribute name="action">app.on-save-shape-info-activate</attribute>
+            </item>
+            <item>
+              <attribute name="label" translatable="yes">_Groups</attribute>
+              <attribute name="action">app.on-save-groups-activate</attribute>
+            </item>
+            <item>
+              <attribute name="label" translatable="yes">_Combos</attribute>
+              <attribute name="action">app.on-save-combos-activate</attribute>
+            </item>
+          </section>
+        </submenu>
+        <submenu>
+          <attribute name="label" translatable="yes">_Reload...</attribute>
+          <section>
+            <item>
+              <attribute name="label" translatable="yes">_Map</attribute>
+              <attribute name="action">app.on-read-map-menu-activate</attribute>
+              <attribute name="accel">&lt;Control&gt;r</attribute>
+            </item>
+            <item>
+              <attribute name="label" translatable="yes">_Usecode</attribute>
+              <attribute name="action">app.on-reload-usecode-menu-activate</attribute>
+            </item>
+            <item>
+              <attribute name="label" translatable="yes">Style CSS</attribute>
+              <attribute name="action">app.on-reload-css-activate</attribute>
+            </item>
+          </section>
+        </submenu>
+      </section>
+      <section>
+        <item>
+          <attribute name="label" translatable="yes">_Connect</attribute>
+          <attribute name="action">app.on-connect-activate</attribute>
+        </item>
+        <item>
+          <attribute name="label" translatable="yes">_Preferences...</attribute>
+          <attribute name="action">app.on-preferences-activate</attribute>
+        </item>
+        <item>
+          <attribute name="label" translatable="yes">E_xit</attribute>
+          <attribute name="action">app.on-main-window-quit</attribute>
+          <attribute name="accel">&lt;Control&gt;q</attribute>
+        </item>
+      </section>
+    </submenu>
+    <submenu>
+      <attribute name="label" translatable="yes">_Edit</attribute>
+      <section>
+        <item>
+          <attribute name="label" translatable="yes">_Cut</attribute>
+          <attribute name="action">app.on-cut-activate</attribute>
+          <attribute name="accel">&lt;Control&gt;x</attribute>
+        </item>
+        <item>
+          <attribute name="label" translatable="yes">C_opy</attribute>
+          <attribute name="action">app.on-copy-activate</attribute>
+          <attribute name="accel">&lt;Control&gt;c</attribute>
+        </item>
+        <item>
+          <attribute name="label" translatable="yes">_Paste</attribute>
+          <attribute name="action">app.on-paste-activate</attribute>
+          <attribute name="accel">&lt;Control&gt;v</attribute>
+        </item>
+      </section>
+      <section>
+        <item>
+          <attribute name="label" translatable="yes">Properties...</attribute>
+          <attribute name="action">app.on-properties-activate</attribute>
+        </item>
+        <item>
+          <attribute name="label" translatable="yes">Basic properties...</attribute>
+          <attribute name="action">app.on-basic-properties-activate</attribute>
+        </item>
+      </section>
+      <section>
+        <item>
+          <attribute name="label" translatable="yes">Create _egg...</attribute>
+          <attribute name="action">app.on-open-egg-activate</attribute>
+        </item>
+        <item>
+          <attribute name="label" translatable="yes">Create _NPC...</attribute>
+          <attribute name="action">app.on-open-npc-activate</attribute>
+        </item>
+        <item>
+          <attribute name="label" translatable="yes">Create _Barge...</attribute>
+          <attribute name="action">app.on-open-barge-activate</attribute>
+        </item>
+      </section>
+      <section>
+        <item>
+          <attribute name="label" translatable="yes">_Set Game Information</attribute>
+          <attribute name="action">app.on-set-game-information-activate</attribute>
+        </item>
+      </section>
+    </submenu>
+    <submenu>
+      <attribute name="label" translatable="yes">_Mode</attribute>
+      <section>
+        <item>
+          <attribute name="label" translatable="yes">Move</attribute>
+          <attribute name="target">move</attribute>
+          <attribute name="action">app.on-mode-activate</attribute>
+        </item>
+        <item>
+          <attribute name="label" translatable="yes">Paint</attribute>
+          <attribute name="target">paint</attribute>
+          <attribute name="action">app.on-mode-activate</attribute>
+        </item>
+        <item>
+          <attribute name="label" translatable="yes">Paint with chunks</attribute>
+          <attribute name="target">paint-with-chunks</attribute>
+          <attribute name="action">app.on-mode-activate</attribute>
+        </item>
+        <item>
+          <attribute name="label" translatable="yes">Pick for combo</attribute>
+          <attribute name="target">pick-for-combo</attribute>
+          <attribute name="action">app.on-mode-activate</attribute>
+        </item>
+        <item>
+          <attribute name="label" translatable="yes">Select chunks</attribute>
+          <attribute name="target">select-chunks</attribute>
+          <attribute name="action">app.on-mode-activate</attribute>
+        </item>
+      </section>
+    </submenu>
+    <submenu>
+      <attribute name="label" translatable="yes">_Tools</attribute>
+      <section>
+        <item>
+          <attribute name="label" translatable="yes">Locator...</attribute>
+          <attribute name="action">app.on-locator-activate</attribute>
+          <attribute name="accel">&lt;Control&gt;l</attribute>
+        </item>
+        <item>
+          <attribute name="label" translatable="yes">New combo...</attribute>
+          <attribute name="action">app.on-new-combo-activate</attribute>
+        </item>
+        <item>
+          <attribute name="label" translatable="yes">Unused shapes...</attribute>
+          <attribute name="action">app.on-unused-shapes-activate</attribute>
+        </item>
+        <item>
+          <attribute name="label" translatable="yes">Compile usecode...</attribute>
+          <attribute name="action">app.on-compile-usecode-menu-activate</attribute>
+        </item>
+      </section>
+      <section>
+        <item>
+          <attribute name="label" translatable="yes">Fix old shape info</attribute>
+          <attribute name="action">app.on-fix-old-shape-info-activate</attribute>
+        </item>
+      </section>
+    </submenu>
+    <submenu>
+      <attribute name="label" translatable="yes">_Map</attribute>
+      <section>
+        <item>
+          <attribute name="label" translatable="yes">New...</attribute>
+          <attribute name="action">app.on-newmap-activate</attribute>
+        </item>
+      </section>
+      <section id="main_menu_maps">
+        <item>
+          <attribute name="label" translatable="yes">Main</attribute>
+          <attribute name="target">main-map</attribute>
+          <attribute name="action">app.on-map-activate</attribute>
+        </item>
+      </section>
+    </submenu>
+  </menu>
   <object class="GtkImage" id="add_img44">
     <property name="visible">True</property>
     <property name="can-focus">False</property>
@@ -2333,524 +2550,10 @@
     <signal name="destroy-event" handler="on_main_window_destroy_event" swapped="no"/>
     <signal name="focus-in-event" handler="on_main_window_focus_in_event" swapped="no"/>
     <child>
-      <object class="GtkBox" id="vbox1">
+      <object class="GtkBox" id="main_window_vbox">
         <property name="visible">True</property>
         <property name="can-focus">False</property>
         <property name="orientation">vertical</property>
-        <child>
-          <object class="GtkMenuBar" id="menu_bar">
-            <property name="visible">True</property>
-            <property name="can-focus">False</property>
-            <property name="halign">fill</property>
-            <property name="valign">center</property>
-            <property name="margin-start">0</property>
-            <property name="margin-end">0</property>
-            <property name="margin-top">0</property>
-            <property name="margin-bottom">1</property>
-            <property name="hexpand">False</property>
-            <property name="vexpand">False</property>
-            <child>
-              <object class="GtkMenuItem" id="file1">
-                <property name="visible">True</property>
-                <property name="can-focus">False</property>
-                <property name="label" translatable="yes">_File</property>
-                <property name="use-underline">True</property>
-                <child type="submenu">
-                  <object class="GtkMenu" id="file1_menu">
-                    <property name="can-focus">False</property>
-                    <child>
-                      <object class="GtkMenuItem" id="new_game">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">New game...</property>
-                        <property name="use-underline">True</property>
-                        <signal name="activate" handler="on_new_game_activate" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="new_mod">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">New mod...</property>
-                        <property name="use-underline">True</property>
-                        <signal name="activate" handler="on_new_mod_activate" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="open_game">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">_Open game...</property>
-                        <property name="use-underline">True</property>
-                        <signal name="activate" handler="on_open_game_activate" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="save_all1">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">Save all</property>
-                        <property name="use-underline">True</property>
-                        <signal name="activate" handler="on_save_all1_activate" swapped="no"/>
-                        <accelerator key="S" signal="activate" modifiers="GDK_CONTROL_MASK"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkSeparatorMenuItem" id="separator4">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="new">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">_New...</property>
-                        <property name="use-underline">True</property>
-                        <child type="submenu">
-                          <object class="GtkMenu" id="new_menu">
-                            <property name="can-focus">False</property>
-                            <child>
-                              <object class="GtkMenuItem" id="new_shapes_file">
-                                <property name="visible">True</property>
-                                <property name="can-focus">False</property>
-                                <property name="label" translatable="yes">Shapes file...</property>
-                                <property name="use-underline">True</property>
-                                <signal name="activate" handler="on_new_shapes_file_activate" swapped="no"/>
-                              </object>
-                            </child>
-                            <child>
-                              <object class="GtkMenuItem" id="new_shape_file">
-                                <property name="visible">True</property>
-                                <property name="can-focus">False</property>
-                                <property name="label" translatable="yes">Single shape file...</property>
-                                <property name="use-underline">True</property>
-                                <signal name="activate" handler="on_new_shape_file_activate" swapped="no"/>
-                              </object>
-                            </child>
-                          </object>
-                        </child>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="save1">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">Save...</property>
-                        <property name="use-underline">True</property>
-                        <child type="submenu">
-                          <object class="GtkMenu" id="save1_menu">
-                            <property name="can-focus">False</property>
-                            <child>
-                              <object class="GtkMenuItem" id="save_map_menu">
-                                <property name="visible">True</property>
-                                <property name="can-focus">False</property>
-                                <property name="label" translatable="yes">_Map</property>
-                                <property name="use-underline">True</property>
-                                <signal name="activate" handler="on_save_map_menu_activate" swapped="no"/>
-                              </object>
-                            </child>
-                            <child>
-                              <object class="GtkMenuItem" id="save_shape_info1">
-                                <property name="visible">True</property>
-                                <property name="can-focus">False</property>
-                                <property name="label" translatable="yes">_Shape info</property>
-                                <property name="use-underline">True</property>
-                                <signal name="activate" handler="on_save_shape_info1_activate" swapped="no"/>
-                              </object>
-                            </child>
-                            <child>
-                              <object class="GtkMenuItem" id="save_groups1">
-                                <property name="visible">True</property>
-                                <property name="can-focus">False</property>
-                                <property name="label" translatable="yes">_Groups</property>
-                                <property name="use-underline">True</property>
-                                <signal name="activate" handler="on_save_groups1_activate" swapped="no"/>
-                              </object>
-                            </child>
-                            <child>
-                              <object class="GtkMenuItem" id="combos1">
-                                <property name="visible">True</property>
-                                <property name="can-focus">False</property>
-                                <property name="label" translatable="yes">_Combos</property>
-                                <property name="use-underline">True</property>
-                                <signal name="activate" handler="on_save_combos1_activate" swapped="no"/>
-                              </object>
-                            </child>
-                          </object>
-                        </child>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="reload1">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">_Reload...</property>
-                        <property name="use-underline">True</property>
-                        <child type="submenu">
-                          <object class="GtkMenu" id="reload1_menu">
-                            <property name="can-focus">False</property>
-                            <child>
-                              <object class="GtkMenuItem" id="read_map_menu">
-                                <property name="visible">True</property>
-                                <property name="can-focus">False</property>
-                                <property name="label" translatable="yes">_Map</property>
-                                <property name="use-underline">True</property>
-                                <signal name="activate" handler="on_read_map_menu_activate" swapped="no"/>
-                                <accelerator key="R" signal="activate" modifiers="GDK_CONTROL_MASK"/>
-                              </object>
-                            </child>
-                            <child>
-                              <object class="GtkMenuItem" id="reload_usecode_menu">
-                                <property name="visible">True</property>
-                                <property name="can-focus">False</property>
-                                <property name="label" translatable="yes">_Usecode</property>
-                                <property name="use-underline">True</property>
-                                <signal name="activate" handler="on_reload_usecode_menu_activate" swapped="no"/>
-                              </object>
-                            </child>
-                            <child>
-                              <object class="GtkMenuItem" id="reload_css">
-                                <property name="visible">True</property>
-                                <property name="sensitive">False</property>
-                                <property name="can-focus">False</property>
-                                <property name="label" translatable="yes">Style CSS</property>
-                                <property name="use-underline">True</property>
-                                <signal name="activate" handler="on_reload_css_activate" swapped="no"/>
-                              </object>
-                            </child>
-                          </object>
-                        </child>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkSeparatorMenuItem" id="separator3">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="connect">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">_Connect</property>
-                        <property name="use-underline">True</property>
-                        <signal name="activate" handler="on_connect_activate" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="preferences">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">_Preferences...</property>
-                        <property name="use-underline">True</property>
-                        <signal name="activate" handler="on_preferences_activate" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="exit">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">E_xit</property>
-                        <property name="use-underline">True</property>
-                        <signal name="activate" handler="on_main_window_quit" swapped="no"/>
-                        <accelerator key="Q" signal="activate" modifiers="GDK_CONTROL_MASK"/>
-                      </object>
-                    </child>
-                  </object>
-                </child>
-              </object>
-            </child>
-            <child>
-              <object class="GtkMenuItem" id="edit1">
-                <property name="visible">True</property>
-                <property name="can-focus">False</property>
-                <property name="label" translatable="yes">_Edit</property>
-                <property name="use-underline">True</property>
-                <child type="submenu">
-                  <object class="GtkMenu" id="edit1_menu">
-                    <property name="can-focus">False</property>
-                    <child>
-                      <object class="GtkMenuItem" id="cut1">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">_Cut</property>
-                        <property name="use-underline">True</property>
-                        <signal name="activate" handler="on_cut1_activate" swapped="no"/>
-                        <accelerator key="X" signal="activate" modifiers="GDK_CONTROL_MASK"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="copy1">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">C_opy</property>
-                        <property name="use-underline">True</property>
-                        <signal name="activate" handler="on_copy1_activate" swapped="no"/>
-                        <accelerator key="C" signal="activate" modifiers="GDK_CONTROL_MASK"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="paste1">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">_Paste</property>
-                        <property name="use-underline">True</property>
-                        <signal name="activate" handler="on_paste1_activate" swapped="no"/>
-                        <accelerator key="V" signal="activate" modifiers="GDK_CONTROL_MASK"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkSeparatorMenuItem" id="separator5">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="properties1">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">Properties...</property>
-                        <property name="use-underline">True</property>
-                        <signal name="activate" handler="on_properties1_activate" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="basic_properties1">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">Basic properties...</property>
-                        <property name="use-underline">True</property>
-                        <signal name="activate" handler="on_basic_properties1_activate" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkSeparatorMenuItem" id="separator6">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="open_egg">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">Create _egg...</property>
-                        <property name="use-underline">True</property>
-                        <signal name="activate" handler="on_open_egg_activate" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="open_npc">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">Create _NPC...</property>
-                        <property name="use-underline">True</property>
-                        <signal name="activate" handler="on_open_npc_activate" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="open_barge">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">Create _Barge...</property>
-                        <property name="use-underline">True</property>
-                        <signal name="activate" handler="on_open_barge_activate" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkSeparatorMenuItem" id="separator11">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="set_game_information">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">_Set Game Information</property>
-                        <property name="use-underline">True</property>
-                        <signal name="activate" handler="on_set_game_information_activate" swapped="no"/>
-                      </object>
-                    </child>
-                  </object>
-                </child>
-              </object>
-            </child>
-            <child>
-              <object class="GtkMenuItem" id="mode1">
-                <property name="visible">True</property>
-                <property name="can-focus">False</property>
-                <property name="label" translatable="yes">_Mode</property>
-                <property name="use-underline">True</property>
-                <child type="submenu">
-                  <object class="GtkMenu" id="mode1_menu">
-                    <property name="can-focus">False</property>
-                    <child>
-                      <object class="GtkRadioMenuItem" id="move1">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">Move</property>
-                        <property name="use-underline">True</property>
-                        <property name="active">True</property>
-                        <signal name="activate" handler="on_move1_activate" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkRadioMenuItem" id="paint1">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">Paint</property>
-                        <property name="use-underline">True</property>
-                        <property name="active">True</property>
-                        <property name="group">move1</property>
-                        <signal name="activate" handler="on_paint1_activate" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkRadioMenuItem" id="paint_with_chunks1">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">Paint with chunks</property>
-                        <property name="use-underline">True</property>
-                        <property name="active">True</property>
-                        <property name="group">move1</property>
-                        <signal name="activate" handler="on_paint_with_chunks1_activate" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkRadioMenuItem" id="pick_for_combo1">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">Pick for combo</property>
-                        <property name="use-underline">True</property>
-                        <property name="active">True</property>
-                        <property name="group">move1</property>
-                        <signal name="activate" handler="on_pick_for_combo1_activate" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkRadioMenuItem" id="select_chunks1">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">Select chunks</property>
-                        <property name="use-underline">True</property>
-                        <property name="active">True</property>
-                        <property name="group">move1</property>
-                        <signal name="activate" handler="on_select_chunks1_activate" swapped="no"/>
-                      </object>
-                    </child>
-                  </object>
-                </child>
-              </object>
-            </child>
-            <child>
-              <object class="GtkMenuItem" id="tools1">
-                <property name="visible">True</property>
-                <property name="can-focus">False</property>
-                <property name="label" translatable="yes">_Tools</property>
-                <property name="use-underline">True</property>
-                <child type="submenu">
-                  <object class="GtkMenu" id="tools1_menu">
-                    <property name="can-focus">False</property>
-                    <child>
-                      <object class="GtkMenuItem" id="locator1">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">Locator...</property>
-                        <property name="use-underline">True</property>
-                        <signal name="activate" handler="on_locator1_activate" swapped="no"/>
-                        <accelerator key="L" signal="activate" modifiers="GDK_CONTROL_MASK"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="new_combo1">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">New combo...</property>
-                        <property name="use-underline">True</property>
-                        <signal name="activate" handler="on_new_combo1_activate" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="unused_shapes1">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">Unused shapes...</property>
-                        <property name="use-underline">True</property>
-                        <signal name="activate" handler="on_unused_shapes1_activate" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="compileusecode1">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">Compile usecode...</property>
-                        <property name="use-underline">True</property>
-                        <signal name="activate" handler="on_compile_usecode_menu_activate" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkSeparatorMenuItem" id="separator10">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="fix_old_shape_info1">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">Fix old shape info</property>
-                        <property name="use-underline">True</property>
-                        <signal name="activate" handler="on_fix_old_shape_info_activate" swapped="no"/>
-                      </object>
-                    </child>
-                  </object>
-                </child>
-              </object>
-            </child>
-            <child>
-              <object class="GtkMenuItem" id="map1">
-                <property name="visible">True</property>
-                <property name="can-focus">False</property>
-                <property name="label" translatable="yes">_Map</property>
-                <property name="use-underline">True</property>
-                <child type="submenu">
-                  <object class="GtkMenu" id="map1_menu">
-                    <property name="can-focus">False</property>
-                    <child>
-                      <object class="GtkMenuItem" id="newmap">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">New...</property>
-                        <property name="use-underline">True</property>
-                        <signal name="activate" handler="on_newmap_activate" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkSeparatorMenuItem" id="separator7">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkRadioMenuItem" id="main_map">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">Main</property>
-                        <property name="use-underline">True</property>
-                        <property name="active">True</property>
-                        <signal name="activate" handler="on_main_map_activate" swapped="no"/>
-                      </object>
-                    </child>
-                  </object>
-                </child>
-              </object>
-            </child>
-          </object>
-          <packing>
-            <property name="position">0</property>
-          </packing>
-        </child>
         <child>
           <object class="GtkBox" id="vbox17">
             <property name="visible">True</property>

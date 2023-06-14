@@ -39,10 +39,10 @@ using std::endl;
  *  Open locator window.
  */
 
-C_EXPORT void on_locator1_activate(GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
-	ExultStudio* studio = ExultStudio::get_instance();
-	studio->open_locator_window();
+C_EXPORT void on_locator_activate(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	(static_cast<ExultStudio*>(user_data))->open_locator_window();
 }
 
 void ExultStudio::open_locator_window() {
@@ -58,7 +58,7 @@ void ExultStudio::open_locator_window() {
 C_EXPORT void on_loc_close_clicked(GtkButton* btn, gpointer user_data) {
 	ignore_unused_variable_warning(user_data);
 	auto* loc = static_cast<Locator*>(g_object_get_data(
-			G_OBJECT(gtk_widget_get_toplevel(GTK_WIDGET(btn))), "user_data"));
+			G_OBJECT(widget_get_top(GTK_WIDGET(btn))), "user_data"));
 	loc->show(false);
 }
 
@@ -78,14 +78,11 @@ C_EXPORT gboolean on_loc_window_delete_event(
  *  Draw area created, or size changed.
  */
 C_EXPORT gboolean on_loc_draw_configure_event(
-		GtkWidget*         widget,    // The view window.
-		GdkEventConfigure* event,
-		gpointer           data    // ->Shape_chooser
-) {
-	ignore_unused_variable_warning(event, data);
+		GtkWidget* widget,    // The view window.
+		GdkEvent* event, gpointer user_data) {
+	ignore_unused_variable_warning(event, user_data);
 	auto* loc = static_cast<Locator*>(g_object_get_data(
-			G_OBJECT(gtk_widget_get_toplevel(GTK_WIDGET(widget))),
-			"user_data"));
+			G_OBJECT(widget_get_top(GTK_WIDGET(widget))), "user_data"));
 	loc->configure(widget);
 	return true;
 }
@@ -95,11 +92,10 @@ C_EXPORT gboolean on_loc_draw_configure_event(
  */
 gboolean Locator::on_loc_draw_expose_event(
 		GtkWidget* widget,    // The view window.
-		cairo_t* cairo, gpointer data) {
-	ignore_unused_variable_warning(widget, data);
+		cairo_t* cairo, gpointer user_data) {
+	ignore_unused_variable_warning(widget, user_data);
 	auto* loc = static_cast<Locator*>(g_object_get_data(
-			G_OBJECT(gtk_widget_get_toplevel(GTK_WIDGET(widget))),
-			"user_data"));
+			G_OBJECT(widget_get_top(GTK_WIDGET(widget))), "user_data"));
 	loc->set_graphic_context(cairo);
 	GdkRectangle area = {0, 0, 0, 0};
 	gdk_cairo_get_clip_rectangle(cairo, &area);
@@ -112,39 +108,30 @@ gboolean Locator::on_loc_draw_expose_event(
  *  Mouse events in draw area.
  */
 C_EXPORT gboolean on_loc_draw_button_press_event(
-		GtkWidget*      widget,    // The view window.
-		GdkEventButton* event,
-		gpointer        data    // ->Chunk_chooser.
-) {
-	ignore_unused_variable_warning(data);
+		GtkWidget* widget,    // The view window.
+		GdkEvent* event, gpointer user_data) {
+	ignore_unused_variable_warning(user_data);
 	auto* loc = static_cast<Locator*>(g_object_get_data(
-			G_OBJECT(gtk_widget_get_toplevel(GTK_WIDGET(widget))),
-			"user_data"));
-	return loc->mouse_press(event);
+			G_OBJECT(widget_get_top(GTK_WIDGET(widget))), "user_data"));
+	return loc->mouse_press(widget, event);
 }
 
 C_EXPORT gboolean on_loc_draw_button_release_event(
-		GtkWidget*      widget,    // The view window.
-		GdkEventButton* event,
-		gpointer        data    // ->Chunk_chooser.
-) {
-	ignore_unused_variable_warning(data);
+		GtkWidget* widget,    // The view window.
+		GdkEvent* event, gpointer user_data) {
+	ignore_unused_variable_warning(user_data);
 	auto* loc = static_cast<Locator*>(g_object_get_data(
-			G_OBJECT(gtk_widget_get_toplevel(GTK_WIDGET(widget))),
-			"user_data"));
-	return loc->mouse_release(event);
+			G_OBJECT(widget_get_top(GTK_WIDGET(widget))), "user_data"));
+	return loc->mouse_release(widget, event);
 }
 
 C_EXPORT gboolean on_loc_draw_motion_notify_event(
-		GtkWidget*      widget,    // The view window.
-		GdkEventMotion* event,
-		gpointer        data    // ->Chunk_chooser.
-) {
-	ignore_unused_variable_warning(data);
+		GtkWidget* widget,    // The view window.
+		GdkEvent* event, gpointer user_data) {
+	ignore_unused_variable_warning(user_data);
 	auto* loc = static_cast<Locator*>(g_object_get_data(
-			G_OBJECT(gtk_widget_get_toplevel(GTK_WIDGET(widget))),
-			"user_data"));
-	return loc->mouse_motion(event);
+			G_OBJECT(widget_get_top(GTK_WIDGET(widget))), "user_data"));
+	return loc->mouse_motion(widget, event);
 }
 
 /*
@@ -175,8 +162,7 @@ Locator::Locator() {
 	g_signal_emit_by_name(G_OBJECT(hadj), "changed");
 	g_signal_emit_by_name(G_OBJECT(vadj), "changed");
 	g_signal_connect(
-			G_OBJECT(studio->get_widget("loc_draw")), "draw",
-			G_CALLBACK(on_loc_draw_expose_event), this);
+			G_OBJECT(draw), "draw", G_CALLBACK(on_loc_draw_expose_event), this);
 	// Set scrollbar handlers.
 	g_signal_connect(
 			G_OBJECT(hadj), "value-changed", G_CALLBACK(hscrolled), this);
@@ -359,11 +345,11 @@ void Locator::view_changed(
  *  Handle a scrollbar event.
  */
 
-void Locator::vscrolled(       // For vertical scrollbar.
-		GtkAdjustment* adj,    // The adjustment.
-		gpointer       data    // ->Shape_chooser.
+void Locator::vscrolled(            // For vertical scrollbar.
+		GtkAdjustment* adj,         // The adjustment.
+		gpointer       user_data    // ->Shape_chooser.
 ) {
-	auto*     loc   = static_cast<Locator*>(data);
+	auto*     loc   = static_cast<Locator*>(user_data);
 	const int oldty = loc->ty;
 	loc->ty         = static_cast<gint>(gtk_adjustment_get_value(adj))
 			  * c_tiles_per_chunk;
@@ -375,11 +361,11 @@ void Locator::vscrolled(       // For vertical scrollbar.
 	}
 }
 
-void Locator::hscrolled(       // For horizontal scrollbar.
-		GtkAdjustment* adj,    // The adjustment.
-		gpointer       data    // ->Locator.
+void Locator::hscrolled(            // For horizontal scrollbar.
+		GtkAdjustment* adj,         // The adjustment.
+		gpointer       user_data    // ->Locator.
 ) {
-	auto*     loc   = static_cast<Locator*>(data);
+	auto*     loc   = static_cast<Locator*>(user_data);
 	const int oldtx = loc->tx;
 	loc->tx         = static_cast<gint>(gtk_adjustment_get_value(adj))
 			  * c_tiles_per_chunk;
@@ -429,9 +415,9 @@ void Locator::query_location() {
  *  the new location to Exult if the mouse hasn't moved further.
  */
 
-gint Locator::delayed_send_location(gpointer data    // ->locator.
+gint Locator::delayed_send_location(gpointer user_data    // ->Locator.
 ) {
-	auto* loc = static_cast<Locator*>(data);
+	auto* loc = static_cast<Locator*>(user_data);
 	loc->send_location();
 	loc->send_location_timer = -1;
 	return 0;    // Cancels timer.
@@ -501,16 +487,24 @@ void Locator::goto_mouse(
  *  Handle a mouse-press event.
  */
 
-gboolean Locator::mouse_press(GdkEventButton* event) {
+gboolean Locator::mouse_press(GtkWidget* widget, GdkEvent* event) {
+	ignore_unused_variable_warning(widget);
 	dragging = false;
-	if (event->button != 1) {
+
+	GdkEventType event_type = gdk_event_get_event_type(event);
+	guint        event_button_button;
+	gdouble      event_button_x, event_button_y;
+	gdk_event_get_button(event, &event_button_button);
+	gdk_event_get_coords(event, &event_button_x, &event_button_y);
+
+	if (event_button_button != 1) {
 		return false;    // Handling left-click.
 	}
 	// Get mouse position, draw dims.
-	const int mx = static_cast<int>(event->x);
-	const int my = static_cast<int>(event->y);
+	const int mx = static_cast<int>(event_button_x);
+	const int my = static_cast<int>(event_button_y);
 	// Double-click?
-	if (reinterpret_cast<GdkEvent*>(event)->type == GDK_2BUTTON_PRESS) {
+	if (event_type == GDK_2BUTTON_PRESS) {
 		goto_mouse(mx, my);
 		return true;
 	}
@@ -530,8 +524,8 @@ gboolean Locator::mouse_press(GdkEventButton* event) {
  *  Handle a mouse-release event.
  */
 
-gboolean Locator::mouse_release(GdkEventButton* event) {
-	ignore_unused_variable_warning(event);
+gboolean Locator::mouse_release(GtkWidget* widget, GdkEvent* event) {
+	ignore_unused_variable_warning(widget, event);
 	dragging = false;
 	return true;
 }
@@ -540,14 +534,18 @@ gboolean Locator::mouse_release(GdkEventButton* event) {
  *  Handle a mouse-motion event.
  */
 
-gboolean Locator::mouse_motion(GdkEventMotion* event) {
-	int             mx;
-	int             my;
-	GdkModifierType state;
-	mx    = static_cast<int>(event->x);
-	my    = static_cast<int>(event->y);
-	state = static_cast<GdkModifierType>(event->state);
-	if (!dragging || !(state & GDK_BUTTON1_MASK)) {
+gboolean Locator::mouse_motion(GtkWidget* widget, GdkEvent* event) {
+	ignore_unused_variable_warning(widget);
+	GdkModifierType event_button_state;
+	gdouble         event_button_x, event_button_y;
+	gdk_event_get_state(event, &event_button_state);
+	gdk_event_get_coords(event, &event_button_x, &event_button_y);
+
+	int mx;
+	int my;
+	mx = static_cast<int>(event_button_x);
+	my = static_cast<int>(event_button_y);
+	if (!dragging || !(event_button_state & GDK_BUTTON1_MASK)) {
 		return false;    // Not dragging with left button.
 	}
 	// Delay sending location to Exult.

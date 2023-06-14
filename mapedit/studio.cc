@@ -105,8 +105,8 @@ GameManager*   gamemanager       = nullptr;
 
 // Mode menu items:
 constexpr static const std::array mode_names{
-		"move1", "paint1", "paint_with_chunks1", "pick_for_combo1",
-		"select_chunks1"};
+		"move", "paint", "paint-with-chunks", "pick-for-combo",
+		"select-chunks"};
 
 enum ExultFileTypes {
 	ShapeArchive = 1,
@@ -176,77 +176,82 @@ C_EXPORT void on_filelist_tree_cursor_changed(GtkTreeView* treeview) {
 	Filelist_selection(treeview, path);
 }
 
-C_EXPORT void on_open_game_activate(GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
-	ExultStudio::get_instance()->open_game_dialog();
+C_EXPORT void on_open_game_activate(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	(static_cast<ExultStudio*>(user_data))->open_game_dialog();
 }
 
-C_EXPORT void on_new_game_activate(GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
-	ExultStudio::get_instance()->new_game();
+C_EXPORT void on_new_game_activate(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	(static_cast<ExultStudio*>(user_data))->new_game();
 }
 
-C_EXPORT void on_new_mod_activate(GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
-	ExultStudio::get_instance()->open_game_dialog(true);
+C_EXPORT void on_new_mod_activate(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	(static_cast<ExultStudio*>(user_data))->open_game_dialog(true);
 }
 
-C_EXPORT void on_connect_activate(GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
-	ExultStudio::get_instance()->connect_to_server();
+C_EXPORT void on_connect_activate(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	(static_cast<ExultStudio*>(user_data))->connect_to_server();
 }
 
-C_EXPORT void on_save_all1_activate(GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
-	ExultStudio::get_instance()->save_all();
+C_EXPORT void on_save_all_activate(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	(static_cast<ExultStudio*>(user_data))->save_all();
 }
 
 C_EXPORT void on_new_shapes_file_activate(
-		GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
-	ExultStudio::get_instance()->new_shape_file(false);
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	(static_cast<ExultStudio*>(user_data))->new_shape_file(false);
 }
 
 C_EXPORT void on_new_shape_file_activate(
-		GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
-	ExultStudio::get_instance()->new_shape_file(true);
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	(static_cast<ExultStudio*>(user_data))->new_shape_file(true);
 }
 
 C_EXPORT void on_save_map_menu_activate(
-		GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
-	ExultStudio::get_instance()->write_map();
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	(static_cast<ExultStudio*>(user_data))->write_map();
 }
 
 C_EXPORT void on_read_map_menu_activate(
-		GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
-	ExultStudio::get_instance()->read_map();
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	(static_cast<ExultStudio*>(user_data))->read_map();
 }
 
-C_EXPORT void on_save_shape_info1_activate(
-		GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
-	ExultStudio::get_instance()->write_shape_info();
+C_EXPORT void on_save_shape_info_activate(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	(static_cast<ExultStudio*>(user_data))->write_shape_info();
 }
 
 C_EXPORT void on_reload_usecode_menu_activate(
-		GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
-	ExultStudio::get_instance()->reload_usecode();
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	(static_cast<ExultStudio*>(user_data))->reload_usecode();
 }
 
 C_EXPORT void on_compile_usecode_menu_activate(
-		GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
-	ExultStudio::get_instance()->compile();
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	(static_cast<ExultStudio*>(user_data))->compile();
 }
 
 C_EXPORT void on_fix_old_shape_info_activate(
-		GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
-	ExultStudio*     studio = ExultStudio::get_instance();
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	ExultStudio*     studio = (static_cast<ExultStudio*>(user_data));
 	Shape_file_info* vga    = studio->get_vgafile();
 	if (!vga) {
 		return;
@@ -290,112 +295,98 @@ C_EXPORT void on_fix_old_shape_info_activate(
 	studio->write_shape_info(true);
 }
 
-C_EXPORT void on_save_groups1_activate(
-		GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
-	ExultStudio::get_instance()->save_groups();
+C_EXPORT void on_save_groups_activate(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	(static_cast<ExultStudio*>(user_data))->save_groups();
 }
 
-C_EXPORT void on_save_combos1_activate(
-		GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
-	ExultStudio::get_instance()->save_combos();
+C_EXPORT void on_save_combos_activate(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	(static_cast<ExultStudio*>(user_data))->save_combos();
 }
 
 C_EXPORT void on_reload_css_activate(
-		GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
-	ExultStudio::get_instance()->reload_css();
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	(static_cast<ExultStudio*>(user_data))->reload_css();
 }
 
 C_EXPORT void on_preferences_activate(
-		GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
-	ExultStudio::get_instance()->open_preferences();
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	(static_cast<ExultStudio*>(user_data))->open_preferences();
 }
 
-C_EXPORT void on_cut1_activate(GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
+C_EXPORT void on_cut_activate(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
 	unsigned char z = 0;
-	ExultStudio::get_instance()->send_to_server(Exult_server::cut, &z, 1);
+	(static_cast<ExultStudio*>(user_data))
+			->send_to_server(Exult_server::cut, &z, 1);
 }
 
-C_EXPORT void on_copy1_activate(GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
+C_EXPORT void on_copy_activate(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
 	unsigned char o = 1;
-	ExultStudio::get_instance()->send_to_server(Exult_server::cut, &o, 1);
+	(static_cast<ExultStudio*>(user_data))
+			->send_to_server(Exult_server::cut, &o, 1);
 }
 
-C_EXPORT void on_paste1_activate(GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
-	ExultStudio::get_instance()->send_to_server(Exult_server::paste);
+C_EXPORT void on_paste_activate(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	(static_cast<ExultStudio*>(user_data))->send_to_server(Exult_server::paste);
 }
 
-C_EXPORT void on_properties1_activate(
-		GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
+C_EXPORT void on_properties_activate(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
 	unsigned char o = 0;    // 0=npc/egg properties.
-	ExultStudio::get_instance()->send_to_server(
-			Exult_server::edit_selected, &o, 1);
+	(static_cast<ExultStudio*>(user_data))
+			->send_to_server(Exult_server::edit_selected, &o, 1);
 }
 
-C_EXPORT void on_basic_properties1_activate(
-		GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
+C_EXPORT void on_basic_properties_activate(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
 	unsigned char o = 1;    // 1=basic object properties.
-	ExultStudio::get_instance()->send_to_server(
-			Exult_server::edit_selected, &o, 1);
+	(static_cast<ExultStudio*>(user_data))
+			->send_to_server(Exult_server::edit_selected, &o, 1);
 }
 
-C_EXPORT void on_move1_activate(GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(user_data);
-	// NOTE:  modes are defined in cheat.h.
-	if (gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(menuitem))) {
-		ExultStudio::get_instance()->set_edit_mode(0);
+C_EXPORT void on_mode_activate(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	g_simple_action_set_state(action, parameter);
+	const char* modestr = g_variant_get_string(parameter, nullptr);
+	int         modeval = 0;
+	if (strcmp(modestr, "move") == 0) {
+		modeval = 0;
+	} else if (strcmp(modestr, "paint") == 0) {
+		modeval = 1;
+	} else if (strcmp(modestr, "paint-with-chunks") == 0) {
+		modeval = 2;
+	} else if (strcmp(modestr, "pick-for-combo") == 0) {
+		modeval = 3;
+	} else if (strcmp(modestr, "select-chunks") == 0) {
+		modeval = 4;
 	}
+	(static_cast<ExultStudio*>(user_data))->set_edit_mode(modeval);
 }
 
-C_EXPORT void on_paint1_activate(GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(user_data);
-	if (gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(menuitem))) {
-		ExultStudio::get_instance()->set_edit_mode(1);
-	}
-}
-
-C_EXPORT void on_paint_with_chunks1_activate(
-		GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(user_data);
-	if (gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(menuitem))) {
-		ExultStudio::get_instance()->set_edit_mode(2);
-	}
-}
-
-C_EXPORT void on_pick_for_combo1_activate(
-		GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(user_data);
-	if (gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(menuitem))) {
-		ExultStudio::get_instance()->set_edit_mode(3);
-	}
-}
-
-C_EXPORT void on_select_chunks1_activate(
-		GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(user_data);
-	if (gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(menuitem))) {
-		ExultStudio::get_instance()->set_edit_mode(4);
-	}
-}
-
-C_EXPORT void on_unused_shapes1_activate(
-		GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
+C_EXPORT void on_unused_shapes_activate(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
 	if (EStudio::Prompt(
 				"Finding unused shapes may take several minutes\nProceed?",
 				"Yes", "No")
 		!= 0) {
 		return;
 	}
-	ExultStudio::get_instance()->send_to_server(Exult_server::unused_shapes);
+	(static_cast<ExultStudio*>(user_data))
+			->send_to_server(Exult_server::unused_shapes);
 }
 
 C_EXPORT void on_play_button_clicked(
@@ -436,9 +427,9 @@ C_EXPORT void on_edit_terrain_button_toggled(
  *  Configure main window.
  */
 C_EXPORT gboolean on_main_window_configure_event(
-		GtkWidget*         widget,    // The view window.
-		GdkEventConfigure* event, gpointer data) {
-	ignore_unused_variable_warning(widget, event, data);
+		GtkWidget* widget,    // The view window.
+		GdkEvent* event, gpointer user_data) {
+	ignore_unused_variable_warning(widget, event, user_data);
 	ExultStudio* studio = ExultStudio::get_instance();
 	// Configure "Hide lift" spin range.
 	studio->set_spin(
@@ -458,18 +449,24 @@ C_EXPORT gboolean on_main_window_delete_event(
 	return false;
 }
 
-C_EXPORT void on_main_window_destroy_event(GtkWidget* widget, gpointer data) {
-	ignore_unused_variable_warning(widget, data);
-	gtk_main_quit();
+C_EXPORT void on_main_window_destroy_event(
+		GtkWidget* widget, gpointer user_data) {
+	ignore_unused_variable_warning(widget, user_data);
+	//	gtk_main_quit(); replaced by GtkApplication over GApplication.
+	auto* studio = ExultStudio::get_instance();
+	g_application_quit(G_APPLICATION(studio->get_application()));
 }
 
 /*
  *  "Exit" in main window.
  */
-C_EXPORT void on_main_window_quit(GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
-	if (ExultStudio::get_instance()->okay_to_close()) {
-		gtk_main_quit();
+C_EXPORT void on_main_window_quit(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	auto* studio = static_cast<ExultStudio*>(user_data);
+	if (studio->okay_to_close()) {
+		//		gtk_main_quit(); replaced by GtkApplication over GApplication.
+		g_application_quit(G_APPLICATION(studio->get_application()));
 	}
 }
 
@@ -477,7 +474,7 @@ C_EXPORT void on_main_window_quit(GtkMenuItem* menuitem, gpointer user_data) {
  *  Main window got focus.
  */
 C_EXPORT gboolean on_main_window_focus_in_event(
-		GtkWidget* widget, GdkEventFocus* event, gpointer user_data) {
+		GtkWidget* widget, GdkEvent* event, gpointer user_data) {
 	ignore_unused_variable_warning(widget, event, user_data);
 	Shape_chooser::check_editing_files();
 	return false;
@@ -486,6 +483,164 @@ C_EXPORT gboolean on_main_window_focus_in_event(
 /*
  *  Set up everything.
  */
+
+C_EXPORT void on_open_npc_activate(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data);
+C_EXPORT void on_open_egg_activate(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data);
+C_EXPORT void on_open_barge_activate(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data);
+C_EXPORT void on_locator_activate(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data);
+C_EXPORT void on_new_combo_activate(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data);
+C_EXPORT void on_newmap_activate(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data);
+C_EXPORT void on_map_activate(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data);
+C_EXPORT void on_set_game_information_activate(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data);
+
+static GActionEntry app_entries[] = {
+		{			"on-new-game-activate",
+		 on_new_game_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{			 "on-new-mod-activate",
+		 on_new_mod_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{		   "on-open-game-activate",
+		 on_open_game_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{			"on-save-all-activate",
+		 on_save_all_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{     "on-new-shapes-file-activate",
+		 on_new_shapes_file_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{      "on-new-shape-file-activate",
+		 on_new_shape_file_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{       "on-save-map-menu-activate",
+		 on_save_map_menu_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{     "on-save-shape-info-activate",
+		 on_save_shape_info_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{		 "on-save-groups-activate",
+		 on_save_groups_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{		 "on-save-combos-activate",
+		 on_save_combos_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{       "on-read-map-menu-activate",
+		 on_read_map_menu_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{ "on-reload-usecode-menu-activate",
+		 on_reload_usecode_menu_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{		  "on-reload-css-activate",
+		 on_reload_css_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{			 "on-connect-activate",
+		 on_connect_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{		 "on-preferences-activate",
+		 on_preferences_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{			 "on-main-window-quit",
+		 on_main_window_quit, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{				 "on-cut-activate",
+		 on_cut_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{				"on-copy-activate",
+		 on_copy_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{			   "on-paste-activate",
+		 on_paste_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{		  "on-properties-activate",
+		 on_properties_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{    "on-basic-properties-activate",
+		 on_basic_properties_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{			"on-open-egg-activate",
+		 on_open_egg_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{			"on-open-npc-activate",
+		 on_open_npc_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{		  "on-open-barge-activate",
+		 on_open_barge_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{"on-set-game-information-activate",
+		 on_set_game_information_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{				"on-mode-activate",
+		 nullptr,     "s",
+		 "'move'", on_mode_activate,
+		 {0, 0, 0}},
+		{			 "on-locator-activate",
+		 on_locator_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{		   "on-new-combo-activate",
+		 on_new_combo_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{       "on-unused-shapes-activate",
+		 on_unused_shapes_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{"on-compile-usecode-menu-activate",
+		 on_compile_usecode_menu_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{  "on-fix-old-shape-info-activate",
+		 on_fix_old_shape_info_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{			  "on-newmap-activate",
+		 on_newmap_activate, nullptr,
+		 nullptr,		  nullptr,
+		 {0, 0, 0}},
+		{				 "on-map-activate",
+		 nullptr,     "s",
+		 "'main-map'",  on_map_activate,
+		 {0, 0, 0}}
+};
+
+static void on_activate(GtkApplication* app, gpointer user_data) {
+	ignore_unused_variable_warning(app);
+	auto* studio = static_cast<ExultStudio*>(user_data);
+	studio->activate();    // GtkApplication over GApplication.
+}
 
 ExultStudio::ExultStudio(int argc, char** argv)
 		: glade_path(nullptr), css_path(nullptr), css_provider(nullptr),
@@ -531,10 +686,22 @@ ExultStudio::ExultStudio(int argc, char** argv)
 #endif
 	// Initialize the various subsystems
 	self = this;
-	gtk_init(&argc, &argv);
+	//	gtk_init(&argc, &argv); replaced by GtkApplication over GApplication.
+	app_argc    = argc;    // GtkApplication over GApplication
+	app_argv    = argv;    // GtkApplication over GApplication.
+	application = gtk_application_new(
+			"org.Exult.ExultStudio", G_APPLICATION_DEFAULT_FLAGS);
+	g_signal_connect(application, "activate", G_CALLBACK(on_activate), self);
+}
+
+void ExultStudio::activate() {    // GtkApplication over GApplication.
+	int    argc = app_argc;
+	char** argv = app_argv;
+#if 0
 	g_object_set(
 			gtk_settings_get_default(), "gtk-application-prefer-dark-theme",
 			true, nullptr);
+#endif
 #ifdef _WIN32
 	bool portable = false;
 #endif
@@ -748,8 +915,8 @@ ExultStudio::ExultStudio(int argc, char** argv)
 	cout << endl
 		 << "ExultStudio compiled with GTK+ " << GTK_MAJOR_VERSION << "."
 		 << GTK_MINOR_VERSION << "." << GTK_MICRO_VERSION
-		 << " running with GTK+ " << gtk_major_version << "."
-		 << gtk_minor_version << "." << gtk_micro_version << endl
+		 << " running with GTK+ " << gtk_get_major_version() << "."
+		 << gtk_get_minor_version() << "." << gtk_get_micro_version() << endl
 		 << endl;
 	setup_program_paths();
 #ifdef _WIN32
@@ -842,7 +1009,7 @@ ExultStudio::ExultStudio(int argc, char** argv)
 	// Load the CSS provider
 	css_provider = gtk_css_provider_new();
 	assert(css_provider);
-	gtk_widget_set_sensitive(get_widget("reload_css"), true);
+	//	gtk_widget_set_sensitive(get_widget("reload_css"), true);
 	cout << "Looking for CSS at '" << path << "'... ";
 	if (U7exists(path)) {
 		cout << "loading." << endl;
@@ -878,6 +1045,19 @@ ExultStudio::ExultStudio(int argc, char** argv)
 		//++++Used to work  gtk_window_set_default_size(GTK_WINDOW(app), w, h);
 		gtk_window_resize(GTK_WINDOW(app), w, h);
 	}
+	app_group = g_simple_action_group_new();
+	g_action_map_add_action_entries(
+			G_ACTION_MAP(app_group), app_entries, G_N_ELEMENTS(app_entries),
+			this);
+	gtk_widget_insert_action_group(app, "app", G_ACTION_GROUP(app_group));
+	GtkWidget* main_menu = gtk_menu_bar_new_from_model(
+			G_MENU_MODEL(get_gobject("main_menu_bar")));
+	GtkWidget* main_vbox = get_widget("main_window_vbox");
+	gtk_box_pack_start(GTK_BOX(main_vbox), main_menu, false, false, 0);
+	gtk_box_reorder_child(GTK_BOX(main_vbox), main_menu, 0);
+	gtk_widget_set_visible(main_menu, true);
+	gtk_window_set_application(
+			GTK_WINDOW(app), application);    // GtkApplication
 	gtk_widget_set_visible(app, true);
 	g_signal_connect(
 			G_OBJECT(app), "key-press-event", G_CALLBACK(on_app_key_press),
@@ -917,15 +1097,6 @@ ExultStudio::ExultStudio(int argc, char** argv)
 	config->value("config/estudio/image_editor", iedit, "gimp");
 	image_editor = g_strdup(iedit.c_str());
 	config->set("config/estudio/image_editor", iedit, true);
-	// Init. 'Mode' menu, since Glade
-	//   doesn't seem to do it right.
-	GSList* group = nullptr;
-	for (size_t i = 0; i < mode_names.size(); i++) {
-		GtkWidget* item = get_widget(mode_names[i]);
-		gtk_radio_menu_item_set_group(GTK_RADIO_MENU_ITEM(item), group);
-		group = gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(item));
-		gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item), i == 0);
-	}
 	setup_maps_list();    // Init. 'maps' menu.
 }
 
@@ -1139,9 +1310,9 @@ inline bool Is_dir_marker(char c) {
 
 void on_choose_new_game_dir(
 		const char* dir,
-		gpointer    udata    // ->studio.
+		gpointer    user_data    // ->ExultStudio.
 ) {
-	(static_cast<ExultStudio*>(udata))->create_new_game(dir);
+	(static_cast<ExultStudio*>(user_data))->create_new_game(dir);
 }
 
 void ExultStudio::create_new_game(const char* dir    // Directory for new game.
@@ -1410,6 +1581,7 @@ void fill_game_tree(GtkTreeView* treeview, int curr_game) {
  */
 void ExultStudio::open_game_dialog(bool createmod) {
 	GtkWidget* win = get_widget("game_selection");
+	gtk_window_set_transient_for(GTK_WINDOW(win), GTK_WINDOW(app));
 	gtk_window_set_modal(GTK_WINDOW(win), true);
 
 	g_signal_connect(
@@ -1957,8 +2129,10 @@ void ExultStudio::set_edit_terrain(gboolean terrain    // True/false
 		set_sensitive("hide_lift_spin", false);
 	}
 	// Set edit-mode to paint.
-	GtkWidget* mitem = get_widget(terrain ? "paint1" : "move1");
-	gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(mitem), true);
+	GAction* action = g_action_map_lookup_action(
+			G_ACTION_MAP(app_group), "on-mode-activate");
+	g_action_change_state(
+			action, g_variant_new_string(terrain ? "paint" : "move"));
 }
 
 void ExultStudio::set_edit_mode(int md    // 0-2 (drag, paint, pick.
@@ -2048,9 +2222,9 @@ void ExultStudio::new_shape_file(bool single    // Not a FLEX file.
 
 void ExultStudio::create_shape_file(
 		const char* pathname,    // Full path.
-		gpointer    udata        // 1 if NOT a FLEX file.
+		gpointer    user_data    // 1 if NOT a FLEX file.
 ) {
-	const bool oneshape = reinterpret_cast<uintptr>(udata) != 0;
+	const bool oneshape = reinterpret_cast<uintptr>(user_data) != 0;
 	try {                  // Write file.
 		if (oneshape) {    // Single-shape?
 			// Create one here.
@@ -2403,6 +2577,7 @@ int ExultStudio::prompt(
 		set_visible("prompt3_cancel", false);
 	}
 	prompt_choice = -1;
+	gtk_window_set_transient_for(GTK_WINDOW(dlg), GTK_WINDOW(app));
 	gtk_window_set_modal(GTK_WINDOW(dlg), true);
 	gtk_widget_set_visible(dlg, true);    // Should be modal.
 	while (prompt_choice == -1) {         // Spin.
@@ -2440,37 +2615,6 @@ namespace EStudio {
 		va_end(args);
 		Prompt(fullmsg, "Okay");
 		g_free(fullmsg);
-	}
-
-	/*
-	 *  Add a menu item to a menu.
-	 *
-	 *  Output: Menu item.
-	 */
-
-	GtkWidget* Add_menu_item(
-			GtkWidget*  menu,         // Menu to add to.
-			const char* label,        // What to put.  nullptr for separator.
-			GCallback   func,         // Handle menu choice.
-			gpointer    func_data,    // Data passed to func().
-			GSList*     group         // If a radio menu item is wanted.
-	) {
-		GtkWidget* mitem
-				= group
-						  ? (label ? gtk_radio_menu_item_new_with_label(
-									 group, label)
-								   : gtk_radio_menu_item_new(group))
-						  : (label ? gtk_menu_item_new_with_label(label)
-								   : gtk_menu_item_new());
-		gtk_widget_set_visible(mitem, true);
-		gtk_menu_shell_append(GTK_MENU_SHELL(menu), mitem);
-		if (!label) {    // Want separator?
-			gtk_widget_set_sensitive(mitem, false);
-		}
-		if (func) {    // Function?
-			g_signal_connect(G_OBJECT(mitem), "activate", func, func_data);
-		}
-		return mitem;
 	}
 
 	/*
@@ -2514,7 +2658,7 @@ namespace EStudio {
 
 C_EXPORT void on_prefs_cancel_clicked(GtkButton* button, gpointer user_data) {
 	ignore_unused_variable_warning(user_data);
-	gtk_widget_set_visible(gtk_widget_get_toplevel(GTK_WIDGET(button)), false);
+	gtk_widget_set_visible(widget_get_top(GTK_WIDGET(button)), false);
 }
 
 C_EXPORT void on_prefs_apply_clicked(GtkButton* button, gpointer user_data) {
@@ -2525,7 +2669,7 @@ C_EXPORT void on_prefs_apply_clicked(GtkButton* button, gpointer user_data) {
 C_EXPORT void on_prefs_okay_clicked(GtkButton* button, gpointer user_data) {
 	ignore_unused_variable_warning(user_data);
 	ExultStudio::get_instance()->save_preferences();
-	gtk_widget_set_visible(gtk_widget_get_toplevel(GTK_WIDGET(button)), false);
+	gtk_widget_set_visible(widget_get_top(GTK_WIDGET(button)), false);
 }
 
 /*
@@ -2570,9 +2714,9 @@ C_EXPORT void on_prefs_background_choose_clicked(
 gboolean ExultStudio::on_prefs_background_expose_event(
 		GtkWidget* widget,    // The draw area.
 		cairo_t*   cairo,
-		gpointer   data    // -> ExultStudio.
+		gpointer   user_data    // ->ExultStudio.
 ) {
-	ignore_unused_variable_warning(widget, data);
+	ignore_unused_variable_warning(widget, user_data);
 	auto         color = static_cast<guint32>(reinterpret_cast<uintptr>(
             g_object_get_data(G_OBJECT(widget), "user_data")));
 	GdkRectangle area  = {0, 0, 0, 0};
@@ -2656,16 +2800,17 @@ void ExultStudio::save_preferences() {
  *  Main routine.
  */
 void ExultStudio::run() {
-	gtk_main();
+	//	gtk_main(); replaced by GtkApplication over GApplication.
+	g_application_run(G_APPLICATION(application), 0, nullptr);
 }
 
 /*
  *  This is called every few seconds to try to reconnect to Exult.
  */
 
-static gint Reconnect(gpointer data    // ->ExultStudio.
+static gint Reconnect(gpointer user_data    // ->ExultStudio.
 ) {
-	auto* studio = static_cast<ExultStudio*>(data);
+	auto* studio = static_cast<ExultStudio*>(user_data);
 	if (studio->connect_to_server()) {
 		return 0;    // Cancel timer.  We succeeded.
 	} else {
@@ -2695,17 +2840,17 @@ bool ExultStudio::send_to_server(
 #ifndef _WIN32
 static gboolean Read_from_server(
 		GIOChannel* source, GIOCondition condition,
-		gpointer data    // ->ExultStudio.
+		gpointer user_data    // ->ExultStudio.
 ) {
 	ignore_unused_variable_warning(source, condition);
-	ExultStudio* studio = static_cast<ExultStudio*>(data);
+	ExultStudio* studio = static_cast<ExultStudio*>(user_data);
 	studio->read_from_server();
 	return true;
 }
 #else
-static gint Read_from_server(gpointer data    // ->ExultStudio.
+static gint Read_from_server(gpointer user_data    // ->ExultStudio.
 ) {
-	auto* studio = static_cast<ExultStudio*>(data);
+	auto* studio = static_cast<ExultStudio*>(user_data);
 	studio->read_from_server();
 	return true;
 }
@@ -2933,9 +3078,9 @@ void ExultStudio::info_received(
 	set_toggle("play_button", !editing);
 	set_toggle("tile_grid_button", grid);
 	if (edmode >= 0 && static_cast<unsigned>(edmode) < mode_names.size()) {
-		GtkWidget* mitem = get_widget(mode_names[edmode]);
-
-		gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(mitem), true);
+		GAction* action = g_action_map_lookup_action(
+				G_ACTION_MAP(app_group), "on-mode-activate");
+		g_action_change_state(action, g_variant_new_string(mode_names[edmode]));
 	}
 }
 
@@ -2948,11 +3093,26 @@ void ExultStudio::set_edit_menu(
 		bool sel,    // Selection available.
 		bool clip    // Clipboard isn't empty.
 ) {
-	set_sensitive("cut1", sel);
-	set_sensitive("copy1", sel);
-	set_sensitive("paste1", clip);
-	set_sensitive("properties1", sel);
-	set_sensitive("basic_properties1", sel);
+	g_simple_action_set_enabled(
+			G_SIMPLE_ACTION(g_action_map_lookup_action(
+					G_ACTION_MAP(app_group), "on-cut-activate")),
+			sel);
+	g_simple_action_set_enabled(
+			G_SIMPLE_ACTION(g_action_map_lookup_action(
+					G_ACTION_MAP(app_group), "on-copy-activate")),
+			sel);
+	g_simple_action_set_enabled(
+			G_SIMPLE_ACTION(g_action_map_lookup_action(
+					G_ACTION_MAP(app_group), "on-paste-activate")),
+			clip);
+	g_simple_action_set_enabled(
+			G_SIMPLE_ACTION(g_action_map_lookup_action(
+					G_ACTION_MAP(app_group), "on-properties-activate")),
+			sel);
+	g_simple_action_set_enabled(
+			G_SIMPLE_ACTION(g_action_map_lookup_action(
+					G_ACTION_MAP(app_group), "on-basic-properties-activate")),
+			sel);
 }
 
 /*
@@ -3013,9 +3173,9 @@ static inline const char* Get_Encoding(int index) {
 }
 
 C_EXPORT void on_set_game_information_activate(
-		GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
-	ExultStudio::get_instance()->set_game_information();
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	(static_cast<ExultStudio*>(user_data))->set_game_information();
 }
 
 C_EXPORT void on_gameinfo_apply_clicked(
@@ -3572,10 +3732,12 @@ void ExultStudio::on_zoom_down(GtkButton* btn, gpointer user_data) {
 }
 
 gboolean ExultStudio::on_app_key_press(
-		GtkEntry* entry, GdkEventKey* event, gpointer user_data) {
+		GtkEntry* entry, GdkEvent* event, gpointer user_data) {
 	ignore_unused_variable_warning(entry, user_data);
 	auto* studio = ExultStudio::get_instance();
-	switch (event->keyval) {
+	guint event_key_keyval;
+	gdk_event_get_keyval(event, &event_key_keyval);
+	switch (event_key_keyval) {
 	case GDK_KEY_plus:
 	case GDK_KEY_KP_Add:
 		if (studio->shape_zup) {

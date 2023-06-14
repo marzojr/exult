@@ -30,22 +30,21 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <cctype>
 #include <cmath>
 
-using EStudio::Add_menu_item;
-using EStudio::Create_arrow_button;
-
 Object_browser::Object_browser(Shape_group* grp, Shape_file_info* fi)
 		: group(grp), file_info(fi) {
 	widget = nullptr;
 }
 
 Object_browser::~Object_browser() {
-	if (popup) {
-		gtk_widget_destroy(popup);
+	if (popup_widget && GTK_IS_WIDGET(popup_widget)) {
+		gtk_widget_destroy(popup_widget);
 	}
+	popup_widget = nullptr;
 	if ((G_IS_OBJECT(vscroll_ctlr))
 		&& (G_OBJECT(vscroll_ctlr)->ref_count > 0)) {
 		g_object_unref(vscroll_ctlr);
 	}
+	vscroll_ctlr = nullptr;
 }
 
 void Object_browser::set_widget(GtkWidget* w) {
@@ -93,22 +92,34 @@ GtkWidget* Object_browser::get_widget() {
 	return widget;
 }
 
-void Object_browser::on_browser_group_add(GtkMenuItem* item, gpointer udata) {
-	auto* chooser = static_cast<Object_browser*>(udata);
-	auto* grp     = static_cast<Shape_group*>(
-            g_object_get_data(G_OBJECT(item), "user_data"));
-	const int id = chooser->get_selected_id();
-	if (id >= 0) {       // Selected shape?
-		grp->add(id);    // Add & redisplay open windows.
-		ExultStudio::get_instance()->update_group_windows(grp);
+void Object_browser::on_browser_group_add(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action);
+	auto*             chooser = static_cast<Object_browser*>(user_data);
+	const char*       group   = g_variant_get_string(parameter, nullptr);
+	Shape_group_file* groups
+			= chooser->group ? chooser->group->get_file()
+							 : ExultStudio::get_instance()->get_cur_groups();
+	const int gcnt = groups ? groups->size() : 0;
+	for (int i = 0; i < gcnt; i++) {
+		Shape_group* grp = groups->get(i);
+		if (strcmp(grp->get_name(), group) == 0) {
+			const int id = chooser->get_selected_id();
+			if (id >= 0) {       // Selected shape?
+				grp->add(id);    // Add & redisplay open windows.
+				ExultStudio::get_instance()->update_group_windows(grp);
+			}
+			break;
+		}
 	}
+	gtk_widget_set_visible(chooser->popup_widget, false);
 }
 
 /*
  *  Add an "Add to group..." submenu to a popup for our group.
  */
 
-void Object_browser::add_group_submenu(GtkWidget* popup) {
+void Object_browser::add_group_submenu(GMenu* popup) {
 	// Use our group, or assume we're in
 	//   the main window.
 	Shape_group_file* groups
@@ -117,20 +128,19 @@ void Object_browser::add_group_submenu(GtkWidget* popup) {
 	const int gcnt = groups ? groups->size() : 0;
 	if (gcnt > 1 ||    // Groups besides ours?
 		(gcnt == 1 && !group)) {
-		GtkWidget* mitem      = Add_menu_item(popup, "Add to group...");
-		GtkWidget* group_menu = gtk_menu_new();
-		gtk_menu_item_set_submenu(GTK_MENU_ITEM(mitem), group_menu);
+		GMenu* menu = g_menu_new();
 		for (int i = 0; i < gcnt; i++) {
 			Shape_group* grp = groups->get(i);
 			if (grp == group) {
 				continue;    // Skip ourself.
 			}
-			GtkWidget* gitem = Add_menu_item(
-					group_menu, grp->get_name(),
-					G_CALLBACK(Object_browser::on_browser_group_add), this);
-			// Store group on menu item.
-			g_object_set_data(G_OBJECT(gitem), "user_data", grp);
+			char action[128];
+			snprintf(
+					action, 128, "obj.on-browser-group-add('%s')",
+					grp->get_name());
+			menu_add_action(menu, grp->get_name(), action);
 		}
+		menu_add_submenu(popup, "Add to group...", menu);
 	}
 }
 
@@ -190,9 +200,10 @@ void Create_file_selection(
  *  Save file in browser.
  */
 
-void Object_browser::on_browser_file_save(GtkMenuItem* item, gpointer udata) {
-	ignore_unused_variable_warning(item);
-	auto* chooser = static_cast<Object_browser*>(udata);
+void Object_browser::on_browser_file_save(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	auto* chooser = static_cast<Object_browser*>(user_data);
 	if (!chooser->file_info) {
 		return;    // Nothing to write to.
 	}
@@ -207,9 +218,10 @@ void Object_browser::on_browser_file_save(GtkMenuItem* item, gpointer udata) {
  *  Revert file in browser to what's on disk.
  */
 
-void Object_browser::on_browser_file_revert(GtkMenuItem* item, gpointer udata) {
-	ignore_unused_variable_warning(item);
-	auto* chooser = static_cast<Object_browser*>(udata);
+void Object_browser::on_browser_file_revert(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	auto* chooser = static_cast<Object_browser*>(user_data);
 	if (!chooser->file_info) {
 		return;    // No file?
 	}
@@ -231,22 +243,41 @@ void Object_browser::on_browser_file_revert(GtkMenuItem* item, gpointer udata) {
  *  Set up popup menu for shape browser.
  */
 
-GtkWidget* Object_browser::create_popup_internal(
-		bool files    // Include 'files'.
+static GActionEntry obj_entries[] = {
+		{  "on-browser-group-add",
+		 Object_browser::on_browser_group_add,
+		 "s", nullptr,
+		 nullptr, {0, 0, 0}},
+		{  "on-browser-file-save",
+		 Object_browser::on_browser_file_save,
+		 nullptr, nullptr,
+		 nullptr, {0, 0, 0}},
+		{"on-browser-file-revert",
+		 Object_browser::on_browser_file_revert,
+		 nullptr, nullptr,
+		 nullptr, {0, 0, 0}}
+};
+
+GMenu* Object_browser::create_popup_internal(bool files    // Include 'files'.
 ) {
-	if (popup) {    // Clean out old.
-		gtk_widget_destroy(popup);
+	if (popup_widget && GTK_IS_WIDGET(popup_widget)) {    // Clean out old.
+		gtk_widget_destroy(popup_widget);
 	}
-	popup = gtk_menu_new();    // Create popup menu.
+	popup_widget = nullptr;
+	// Bind popup menu actions.
+	GSimpleActionGroup* obj_group = g_simple_action_group_new();
+	g_action_map_add_action_entries(
+			G_ACTION_MAP(obj_group), obj_entries, G_N_ELEMENTS(obj_entries),
+			this);
+	gtk_widget_insert_action_group(
+			widget_get_top(get_widget()), "obj", G_ACTION_GROUP(obj_group));
+	GMenu* popup = g_menu_new();    // Create popup menu.
 	if (files) {
 		// Add "File" submenu.
-		GtkWidget* mitem     = Add_menu_item(popup, "File...");
-		GtkWidget* file_menu = gtk_menu_new();
-		gtk_menu_item_set_submenu(GTK_MENU_ITEM(mitem), file_menu);
-		Add_menu_item(
-				file_menu, "Save", G_CALLBACK(on_browser_file_save), this);
-		Add_menu_item(
-				file_menu, "Revert", G_CALLBACK(on_browser_file_revert), this);
+		GMenu* menu = g_menu_new();
+		menu_add_action(menu, "Save", "obj.on-browser-file-save");
+		menu_add_action(menu, "Revert", "obj.on-browser-file-revert");
+		menu_add_submenu(popup, "File...", menu);
 	}
 	if (selected >= 0) {    // Item selected?  Add groups.
 		add_group_submenu(popup);
@@ -271,9 +302,11 @@ static void on_find_up(GtkButton* button, gpointer user_data) {
 }
 
 static gboolean on_find_key(
-		GtkEntry* entry, GdkEventKey* event, gpointer user_data) {
+		GtkEntry* entry, GdkEvent* event, gpointer user_data) {
 	ignore_unused_variable_warning(entry);
-	if (event->keyval == GDK_KEY_Return) {
+	guint event_key_keyval;
+	gdk_event_get_keyval(event, &event_key_keyval);
+	if (event_key_keyval == GDK_KEY_Return) {
 		auto* chooser = static_cast<Object_browser*>(user_data);
 		chooser->search(
 				gtk_entry_get_text(GTK_ENTRY(chooser->get_find_text())), 1);
@@ -358,13 +391,13 @@ GtkWidget* Object_browser::create_controls(
 		gtk_widget_set_visible(hbox3, true);
 		gtk_box_pack_start(GTK_BOX(hbox2), hbox3, false, false, 0);
 
-		GtkWidget* find_down = Create_arrow_button(
+		GtkWidget* find_down = EStudio::Create_arrow_button(
 				GTK_ARROW_DOWN, G_CALLBACK(on_find_down), this);
 		widget_set_margins(
 				find_down, 1 * HMARGIN, 1 * HMARGIN, 2 * VMARGIN, 2 * VMARGIN);
 		gtk_box_pack_start(GTK_BOX(hbox3), find_down, true, true, 0);
 
-		GtkWidget* find_up = Create_arrow_button(
+		GtkWidget* find_up = EStudio::Create_arrow_button(
 				GTK_ARROW_UP, G_CALLBACK(on_find_up), this);
 		widget_set_margins(
 				find_up, 1 * HMARGIN, 2 * HMARGIN, 2 * VMARGIN, 2 * VMARGIN);
@@ -393,13 +426,14 @@ GtkWidget* Object_browser::create_controls(
 		gtk_widget_set_visible(bbox, true);
 		gtk_box_pack_start(GTK_BOX(lbox), bbox, true, true, 0);
 
-		loc_down = Create_arrow_button(
+		loc_down = EStudio::Create_arrow_button(
 				GTK_ARROW_DOWN, G_CALLBACK(on_loc_down), this);
 		widget_set_margins(
 				loc_down, 2 * HMARGIN, 1 * HMARGIN, 2 * VMARGIN, 2 * VMARGIN);
 		gtk_box_pack_start(GTK_BOX(bbox), loc_down, true, true, 0);
 
-		loc_up = Create_arrow_button(GTK_ARROW_UP, G_CALLBACK(on_loc_up), this);
+		loc_up = EStudio::Create_arrow_button(
+				GTK_ARROW_UP, G_CALLBACK(on_loc_up), this);
 		widget_set_margins(
 				loc_up, 1 * HMARGIN, 2 * HMARGIN, 2 * VMARGIN, 2 * VMARGIN);
 		gtk_box_pack_start(GTK_BOX(bbox), loc_up, true, true, 0);
@@ -458,13 +492,13 @@ GtkWidget* Object_browser::create_controls(
 		gtk_widget_set_visible(bbox, true);
 		gtk_container_add(GTK_CONTAINER(frame), bbox);
 
-		move_down = Create_arrow_button(
+		move_down = EStudio::Create_arrow_button(
 				GTK_ARROW_DOWN, G_CALLBACK(on_move_down), this);
 		widget_set_margins(
 				move_down, 2 * HMARGIN, 1 * HMARGIN, 2 * VMARGIN, 2 * VMARGIN);
 		gtk_box_pack_start(GTK_BOX(bbox), move_down, true, true, 0);
 
-		move_up = Create_arrow_button(
+		move_up = EStudio::Create_arrow_button(
 				GTK_ARROW_UP, G_CALLBACK(on_move_up), this);
 		widget_set_margins(
 				move_up, 1 * HMARGIN, 2 * HMARGIN, 2 * VMARGIN, 2 * VMARGIN);
@@ -477,10 +511,10 @@ GtkWidget* Object_browser::create_controls(
 void Object_browser::draw_vscrolled(       // For scroll events.
 		GtkEventControllerScroll* self,    // The scroll event controller,
 		gdouble dx, gdouble dy,            // The scroll motion
-		gpointer data                      // ->Object_browser.
+		gpointer user_data                 // ->Object_browser.
 ) {
 	ignore_unused_variable_warning(self, dx);
-	auto*          browser = static_cast<Object_browser*>(data);
+	auto*          browser = static_cast<Object_browser*>(user_data);
 	GtkAdjustment* adj = gtk_range_get_adjustment(GTK_RANGE(browser->vscroll));
 	const gdouble  adj_value = gtk_adjustment_get_value(adj);
 #if defined(MACOSX) && !defined(XWIN)

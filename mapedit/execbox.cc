@@ -95,10 +95,10 @@ void Exec_process::kill_child() {
 
 static gboolean Read_from_child(
 		GIOChannel* source, GIOCondition condition,
-		gpointer data    // ->Exex_process
+		gpointer user_data    // ->Exec_process.
 ) {
 	ignore_unused_variable_warning(condition);
-	auto* ex = static_cast<Exec_process*>(data);
+	auto* ex = static_cast<Exec_process*>(user_data);
 	ex->read_from_child(g_io_channel_unix_get_fd(source));
 	return true;
 }
@@ -166,13 +166,13 @@ static inline bool dup_wrapper(int pipe[2], int fd, bool for_read) {
  */
 
 bool Exec_process::exec(
-		const char* file,      // PATH will be searched.
-		const char* argv[],    // Args.  1st is filename, last is 0.
-		Reader_fun  rfun,      // Called when child writes, exits.
-		void*       udata      // User_data for rfun.
+		const char* file,        // PATH will be searched.
+		const char* argv[],      // Args.  1st is filename, last is 0.
+		Reader_fun  rfun,        // Called when child writes, exits.
+		void*       user_data    // User_data for rfun.
 ) {
 	reader      = rfun;    // Store callback.
-	reader_data = udata;
+	reader_data = user_data;
 	// Pipes for talking to child:
 	int stdin_pipe[2];
 	int stdout_pipe[2];
@@ -258,10 +258,10 @@ bool Exec_process::check_child(int& exit_code    // Exit code returned.
 
 Exec_box::Exec_box(
 		GtkTextView* b, GtkStatusbar* s,
-		Exec_done_fun dfun,    // Called when child exits.
-		gpointer      udata    // Passed to dfun.
+		Exec_done_fun dfun,        // Called when child exits.
+		gpointer      user_data    // Passed to dfun.
 		)
-		: box(b), status(s), done_fun(dfun), user_data(udata) {
+		: box(b), status(s), done_fun(dfun), done_data(user_data) {
 	executor   = new Exec_process;
 	status_ctx = gtk_statusbar_get_context_id(status, "execstatus");
 	// Keep one msg. always on stack.
@@ -293,7 +293,7 @@ static void Exec_callback(
 		char* data,         // Data read, or nullptr.
 		int   datalen,      // Length, or 0 if child exited.
 		int   exit_code,    // Exit code if datalen = 0.
-		void* user_data     // ->Exex_box
+		void* user_data     // ->Exec_box.
 ) {
 	auto* box = static_cast<Exec_box*>(user_data);
 	box->read_from_child(data, datalen, exit_code);
@@ -315,7 +315,7 @@ void Exec_box::read_from_child(
 		show_status("Done:  Errors occurred");
 	}
 	if (done_fun) {
-		done_fun(exit_code, this, user_data);
+		done_fun(exit_code, this, done_data);
 	}
 }
 

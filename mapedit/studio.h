@@ -80,6 +80,33 @@ inline void widget_set_margins(GtkWidget* w, int s, int e, int t, int b) {
 	gtk_widget_set_margin_bottom(w, b);
 }
 
+static inline GtkWidget* widget_get_top(GtkWidget* w) {
+	return gtk_widget_get_ancestor(w, GTK_TYPE_WINDOW);
+}
+
+static inline void menu_add_action(
+		GMenu* menu, const char* label, const char* action) {
+	GMenuItem* item = g_menu_item_new(label, action);
+	g_menu_append_item(menu, item);
+	g_object_unref(item);
+}
+
+static inline void menu_add_section(
+		GMenu* menu, const char* label, GMenu* section) {
+	GMenuItem* item = g_menu_item_new_section(label, G_MENU_MODEL(section));
+	g_menu_append_item(menu, item);
+	g_object_unref(item);
+	g_object_unref(section);
+}
+
+static inline void menu_add_submenu(
+		GMenu* menu, const char* label, GMenu* submenu) {
+	GMenuItem* item = g_menu_item_new_submenu(label, G_MENU_MODEL(submenu));
+	g_menu_append_item(menu, item);
+	g_object_unref(item);
+	g_object_unref(submenu);
+}
+
 class Shape_info;
 class Shapes_vga_file;
 struct Equip_row_widgets;
@@ -107,10 +134,14 @@ using Msg_callback = void (*)(
 
 class ExultStudio {
 private:
-	char*               glade_path;    // Where our .glade file is.
-	char*               css_path;      // Where our .css file is.
+	char*               glade_path;     // Where our .glade file is.
+	char*               css_path;       // Where our .css file is.
+	GtkApplication*     application;    // GtkApplication over GApplication.
+	int                 app_argc;       // GtkApplication over GApplication.
+	char**              app_argv;       // GtkApplication over GApplication.
 	GtkWidget*          app;
 	GtkBuilder*         app_xml;
+	GSimpleActionGroup* app_group;
 	GtkCssProvider*     css_provider;
 	char*               static_path;
 	char*               image_editor;
@@ -124,7 +155,7 @@ private:
 	GtkWidget* shape_zup;         // Zoom up arrow.
 	GtkWidget* shape_zdown;       // Zoom down arrow.
 	static gboolean on_app_key_press(
-			GtkEntry* entry, GdkEventKey* event, gpointer user_data);
+			GtkEntry* entry, GdkEvent* event, gpointer user_data);
 	// Modified one of the .dat's?
 	bool                             shape_info_modified, shape_names_modified;
 	bool                             npc_modified;
@@ -208,6 +239,7 @@ private:
 public:
 	ExultStudio(int argc, char** argv);
 	~ExultStudio();
+	void activate();    // GtkApplication over GApplication.
 	bool okay_to_close();
 
 	int get_shape_scale() {
@@ -218,12 +250,32 @@ public:
 		return shape_bilinear;
 	}
 
+	GtkApplication* get_application() {
+		return application;    // GtkApplication over GApplication.
+	}
+
 	GtkWidget* get_widget(GtkBuilder* xml, const char* name) {
-		return GTK_WIDGET(gtk_builder_get_object(xml, name));
+		GObject* gobj = gtk_builder_get_object(xml, name);
+		if (!gobj) {
+			std::cerr << "get_widget(\"" << name << "\") is null" << std::endl;
+		}
+		return GTK_WIDGET(gobj);
 	}
 
 	GtkWidget* get_widget(const char* name) {
 		return get_widget(app_xml, name);
+	}
+
+	GObject* get_gobject(GtkBuilder* xml, const char* name) {
+		GObject* gobj = gtk_builder_get_object(xml, name);
+		if (!gobj) {
+			std::cerr << "get_widget(\"" << name << "\") is null" << std::endl;
+		}
+		return gobj;
+	}
+
+	GObject* get_gobject(const char* name) {
+		return get_gobject(app_xml, name);
 	}
 
 	static ExultStudio* get_instance() {
@@ -306,7 +358,7 @@ public:
 	// Open/create shape files:
 	Shape_file_info* open_shape_file(const char* basename);
 	void             new_shape_file(bool single);
-	static void      create_shape_file(const char* pathname, gpointer udata);
+	static void create_shape_file(const char* pathname, gpointer user_data);
 	// Groups:
 	void setup_groups();
 	void setup_group_controls();
@@ -351,7 +403,7 @@ public:
 	int         init_npc_window(unsigned char* data, int datalen);
 	int         save_npc_window();
 	void        update_npc();    // updates the npc browser if it is open
-	static void schedule_btn_clicked(GtkWidget* btn, gpointer data);
+	static void schedule_btn_clicked(GtkWidget* btn, gpointer user_data);
 	// Shapes:
 	GdkPixbuf* shape_image(    // The GdkPixbuf should be g_object_unrefed.
 			Vga_file* shpfile, int shnum, int frnum, bool transparent);
@@ -389,7 +441,7 @@ public:
 	void new_map_dialog();
 	void setup_maps_list();
 	// Usecode browser.
-	const char* browse_usecode(bool want_objfun = false);
+	const char* browse_usecode(bool want_objfun, GtkWidget* parent);
 	// Games.
 	void open_game_dialog(bool createmod = false);
 
@@ -408,7 +460,7 @@ public:
 	void set_edit_menu(bool sel, bool clip);
 	// Preferences.
 	static gboolean on_prefs_background_expose_event(
-			GtkWidget* widget, cairo_t* cairo, gpointer data);
+			GtkWidget* widget, cairo_t* cairo, gpointer user_data);
 	void open_preferences();
 	void save_preferences();
 	// GTK/CSS utils:
@@ -477,10 +529,6 @@ namespace EStudio {
 			const char* msg, const char* choice0, const char* choice1 = nullptr,
 			const char* choice2 = nullptr);
 	void       Alert(const char* msg, ...) ATTR_PRINTF(1, 2);
-	GtkWidget* Add_menu_item(
-			GtkWidget* menu, const char* label = nullptr,
-			GCallback func = nullptr, gpointer func_data = nullptr,
-			GSList* group = nullptr);
 	GtkWidget* Create_arrow_button(
 			GtkArrowType dir, GCallback clicked, gpointer func_data);
 	bool Copy_file(const char* src, const char* dest);

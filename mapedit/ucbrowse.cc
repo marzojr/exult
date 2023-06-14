@@ -54,7 +54,7 @@ enum {
  *  Open browser window.
  */
 
-const char* ExultStudio::browse_usecode(bool want_objfun) {
+const char* ExultStudio::browse_usecode(bool want_objfun, GtkWidget* parent) {
 	if (!ucbrowsewin) {    // First time?
 		ucbrowsewin = new Usecode_browser();
 		set_toggle("view_uc_functions", !want_objfun, !want_objfun);
@@ -63,7 +63,7 @@ const char* ExultStudio::browse_usecode(bool want_objfun) {
 		set_toggle("view_uc_objects", true);
 		ucbrowsewin->setup_list();
 	}
-	ucbrowsewin->show(true);
+	ucbrowsewin->show(true, parent);
 	while (gtk_widget_get_visible(
 			GTK_WIDGET(ucbrowsewin->get_win()))) {    // Spin.
 		gtk_main_iteration();                         // (Blocks).
@@ -78,7 +78,7 @@ const char* ExultStudio::browse_usecode(bool want_objfun) {
 C_EXPORT void on_usecodes_ok_clicked(GtkButton* btn, gpointer user_data) {
 	ignore_unused_variable_warning(user_data);
 	auto* ucb = static_cast<Usecode_browser*>(g_object_get_data(
-			G_OBJECT(gtk_widget_get_toplevel(GTK_WIDGET(btn))), "user_data"));
+			G_OBJECT(widget_get_top(GTK_WIDGET(btn))), "user_data"));
 	ucb->okay();
 }
 
@@ -90,8 +90,7 @@ C_EXPORT void on_usecodes_treeview_row_activated(
 		gpointer user_data) {
 	ignore_unused_variable_warning(path, column, user_data);
 	auto* ucb = static_cast<Usecode_browser*>(g_object_get_data(
-			G_OBJECT(gtk_widget_get_toplevel(GTK_WIDGET(treeview))),
-			"user_data"));
+			G_OBJECT(widget_get_top(GTK_WIDGET(treeview))), "user_data"));
 	ucb->okay();
 }
 
@@ -101,7 +100,7 @@ C_EXPORT void on_usecodes_treeview_row_activated(
 C_EXPORT void on_usecodes_cancel_clicked(GtkButton* btn, gpointer user_data) {
 	ignore_unused_variable_warning(user_data);
 	auto* ucb = static_cast<Usecode_browser*>(g_object_get_data(
-			G_OBJECT(gtk_widget_get_toplevel(GTK_WIDGET(btn))), "user_data"));
+			G_OBJECT(widget_get_top(GTK_WIDGET(btn))), "user_data"));
 	ucb->cancel();
 }
 
@@ -125,7 +124,7 @@ C_EXPORT void on_view_uc_classes_toggled(
 		GtkToggleButton* btn, gpointer user_data) {
 	ignore_unused_variable_warning(user_data);
 	auto* ucb = static_cast<Usecode_browser*>(g_object_get_data(
-			G_OBJECT(gtk_widget_get_toplevel(GTK_WIDGET(btn))), "user_data"));
+			G_OBJECT(widget_get_top(GTK_WIDGET(btn))), "user_data"));
 	ucb->setup_list();
 }
 
@@ -133,7 +132,7 @@ C_EXPORT void on_view_uc_functions_toggled(
 		GtkToggleButton* btn, gpointer user_data) {
 	ignore_unused_variable_warning(user_data);
 	auto* ucb = static_cast<Usecode_browser*>(g_object_get_data(
-			G_OBJECT(gtk_widget_get_toplevel(GTK_WIDGET(btn))), "user_data"));
+			G_OBJECT(widget_get_top(GTK_WIDGET(btn))), "user_data"));
 	ucb->setup_list();
 }
 
@@ -141,7 +140,7 @@ C_EXPORT void on_view_uc_shapes_toggled(
 		GtkToggleButton* btn, gpointer user_data) {
 	ignore_unused_variable_warning(user_data);
 	auto* ucb = static_cast<Usecode_browser*>(g_object_get_data(
-			G_OBJECT(gtk_widget_get_toplevel(GTK_WIDGET(btn))), "user_data"));
+			G_OBJECT(widget_get_top(GTK_WIDGET(btn))), "user_data"));
 	ucb->setup_list();
 }
 
@@ -149,7 +148,7 @@ C_EXPORT void on_view_uc_objects_toggled(
 		GtkToggleButton* btn, gpointer user_data) {
 	ignore_unused_variable_warning(user_data);
 	auto* ucb = static_cast<Usecode_browser*>(g_object_get_data(
-			G_OBJECT(gtk_widget_get_toplevel(GTK_WIDGET(btn))), "user_data"));
+			G_OBJECT(widget_get_top(GTK_WIDGET(btn))), "user_data"));
 	ucb->setup_list();
 }
 
@@ -193,6 +192,9 @@ Usecode_browser::Usecode_browser() {
 	ExultStudio* studio = ExultStudio::get_instance();
 	win                 = studio->get_widget("usecodes_dialog");
 	g_object_set_data(G_OBJECT(win), "user_data", this);
+	gtk_window_set_transient_for(
+			GTK_WINDOW(win),
+			GTK_WINDOW(ExultStudio::get_instance()->get_widget("main_window")));
 	string ucname = get_system_path("<PATCH>/usecode");
 	if (!U7exists(ucname.c_str())) {
 		ucname = get_system_path("<STATIC>/usecode");
@@ -259,9 +261,10 @@ Usecode_browser::~Usecode_browser() {
  *  Show/hide.
  */
 
-void Usecode_browser::show(bool tf) {
+void Usecode_browser::show(bool tf, GtkWidget* parent) {
 	if (tf) {
 		gtk_widget_set_visible(win, true);
+		gtk_window_set_transient_for(GTK_WINDOW(win), GTK_WINDOW(parent));
 	} else {
 		gtk_widget_set_visible(win, false);
 	}
@@ -293,7 +296,7 @@ void Usecode_browser::okay() {
 		}
 		g_print("selected row is: %s\n", choice.c_str());
 	}
-	show(false);
+	show(false, nullptr);
 }
 
 /*

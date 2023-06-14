@@ -42,10 +42,9 @@ class Barge_object;
  */
 
 C_EXPORT void on_open_barge_activate(
-		GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
-	ExultStudio* studio = ExultStudio::get_instance();
-	studio->open_barge_window();
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	(static_cast<ExultStudio*>(user_data))->open_barge_window();
 }
 
 /*

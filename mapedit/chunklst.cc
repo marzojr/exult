@@ -39,7 +39,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include <iosfwd>
 
-using EStudio::Add_menu_item;
 using std::cout;
 using std::endl;
 
@@ -313,12 +312,12 @@ int Chunk_chooser::get_count() {
  */
 
 gint Chunk_chooser::configure(
-		GtkWidget*         widget,    // The drawing area.
-		GdkEventConfigure* event,
-		gpointer           data    // ->Chunk_chooser
+		GtkWidget* widget,    // The drawing area.
+		GdkEvent*  event,
+		gpointer   user_data    // ->Chunk_chooser.
 ) {
 	ignore_unused_variable_warning(widget, event);
-	auto* chooser = static_cast<Chunk_chooser*>(data);
+	auto* chooser = static_cast<Chunk_chooser*>(user_data);
 	chooser->Shape_draw::configure();
 	chooser->render();
 	chooser->setup_info(true);
@@ -367,13 +366,13 @@ void Chunk_chooser::setup_info(bool savepos    // Try to keep current position.
 gint Chunk_chooser::expose(
 		GtkWidget* widget,    // The view window.
 		cairo_t*   cairo,
-		gpointer   data    // ->Chunk_chooser.
+		gpointer   user_data    // ->Chunk_chooser.
 ) {
 	ignore_unused_variable_warning(widget);
-	auto* chooser = static_cast<Chunk_chooser*>(data);
-	chooser->set_graphic_context(cairo);
-	GdkRectangle area = {0, 0, 0, 0};
+	auto*        chooser = static_cast<Chunk_chooser*>(user_data);
+	GdkRectangle area    = {0, 0, 0, 0};
 	gdk_cairo_get_clip_rectangle(cairo, &area);
+	chooser->set_graphic_context(cairo);
 	chooser->show(
 			ZoomDown(area.x), ZoomDown(area.y), ZoomDown(area.width),
 			ZoomDown(area.height));
@@ -386,46 +385,49 @@ gint Chunk_chooser::expose(
  */
 
 gint Chunk_chooser::drag_motion(
-		GtkWidget*      widget,    // The view window.
-		GdkEventMotion* event,
-		gpointer        data    // ->Shape_chooser.
+		GtkWidget* widget,    // The view window.
+		GdkEvent*  event,
+		gpointer   user_data    // ->Chunk_chooser.
 ) {
 	ignore_unused_variable_warning(widget);
-	auto* chooser = static_cast<Chunk_chooser*>(data);
+	auto* chooser = static_cast<Chunk_chooser*>(user_data);
 	if (!chooser->dragging && chooser->selected >= 0) {
-		chooser->start_drag(
-				U7_TARGET_CHUNKID_NAME, U7_TARGET_CHUNKID,
-				reinterpret_cast<GdkEvent*>(event));
+		chooser->start_drag(U7_TARGET_CHUNKID_NAME, U7_TARGET_CHUNKID, event);
 	}
 	return true;
 }
 
 gint Chunk_chooser::mouse_press(
-		GtkWidget*      widget,    // The view window.
-		GdkEventButton* event,
-		gpointer        data    // ->Chunk_chooser.
+		GtkWidget* widget,    // The view window.
+		GdkEvent*  event,
+		gpointer   user_data    // ->Chunk_chooser.
 ) {
 	ignore_unused_variable_warning(widget);
-	auto* chooser = static_cast<Chunk_chooser*>(data);
+	auto* chooser = static_cast<Chunk_chooser*>(user_data);
+
+	guint   event_button_button;
+	gdouble event_button_x, event_button_y;
+	gdk_event_get_button(event, &event_button_button);
+	gdk_event_get_coords(event, &event_button_x, &event_button_y);
 
 #ifdef DEBUG
-	cout << "Chunks : Clicked to " << (event->x) << " * " << (event->y)
-		 << " by " << (event->button) << endl;
+	cout << "Chunks : Clicked to " << event_button_x << " * " << event_button_y
+		 << " by " << event_button_button << endl;
 #endif
-	if (event->button == 4) {
+	if (event_button_button == 4) {
 		chooser->scroll(true);
 		return true;
-	} else if (event->button == 5) {
+	} else if (event_button_button == 5) {
 		chooser->scroll(false);
 		return true;
 	}
 
-	// int old_selected = chooser->selected;
+	//	int old_selected = chooser->selected;
 	int i;    // Search through entries.
 	for (i = 0; i < chooser->info_cnt; i++) {
 		if (chooser->info[i].box.has_point(
-					ZoomDown(static_cast<int>(event->x)),
-					ZoomDown(static_cast<int>(event->y)))) {
+					ZoomDown(static_cast<int>(event_button_x)),
+					ZoomDown(static_cast<int>(event_button_y)))) {
 			// Found the box?
 			//			if (i == old_selected)
 			//				return true;
@@ -440,12 +442,23 @@ gint Chunk_chooser::mouse_press(
 			break;
 		}
 	}
-	if (i == chooser->info_cnt && event->button == 1) {
+	if (i == chooser->info_cnt && event_button_button == 1) {
 		chooser->unselect(true);    // Nothing under mouse.
-	} else if (event->button == 3) {
-		gtk_menu_popup_at_pointer(
-				GTK_MENU(chooser->create_popup()),
-				reinterpret_cast<GdkEvent*>(event));
+	} else if (event_button_button == 3) {
+		GMenu* popup = chooser->create_popup();
+		chooser->popup_widget
+				= gtk_popover_new_from_model(widget, G_MENU_MODEL(popup));
+		g_object_unref(popup);
+		if (chooser->selected >= 0) {
+			GdkRectangle target
+					= {ZoomUp(chooser->info[chooser->selected].box.x),
+					   ZoomUp(chooser->info[chooser->selected].box.y),
+					   ZoomUp(chooser->info[chooser->selected].box.w),
+					   ZoomUp(chooser->info[chooser->selected].box.h)};
+			gtk_popover_set_pointing_to(
+					GTK_POPOVER(chooser->popup_widget), &target);
+		}
+		gtk_widget_set_visible(chooser->popup_widget, true);
 	}
 	return true;
 }
@@ -454,12 +467,12 @@ gint Chunk_chooser::mouse_press(
  *  Handle a mouse button-release event.
  */
 static gint Mouse_release(
-		GtkWidget*      widget,    // The view window.
-		GdkEventButton* event,
-		gpointer        data    // ->Shape_chooser.
+		GtkWidget* widget,    // The view window.
+		GdkEvent*  event,
+		gpointer   user_data    // ->Chunk_chooser.
 ) {
 	ignore_unused_variable_warning(widget, event);
-	auto* chooser = static_cast<Chunk_chooser*>(data);
+	auto* chooser = static_cast<Chunk_chooser*>(user_data);
 	chooser->mouse_up();
 	return true;
 }
@@ -473,13 +486,13 @@ void Chunk_chooser::drag_data_get(
 		GdkDragContext*   context,
 		GtkSelectionData* seldata,    // Fill this in.
 		guint info, guint time,
-		gpointer data    // ->Chunk_chooser.
+		gpointer user_data    // ->Chunk_chooser.
 ) {
 	ignore_unused_variable_warning(widget, context, time);
 	cout << "In DRAG_DATA_GET of Chunk for '"
 		 << gdk_atom_name(gtk_selection_data_get_target(seldata)) << "'"
 		 << endl;
-	auto* chooser = static_cast<Chunk_chooser*>(data);
+	auto* chooser = static_cast<Chunk_chooser*>(user_data);
 	if (chooser->selected < 0 || info != U7_TARGET_CHUNKID) {
 		return;    // Not sure about this.
 	}
@@ -499,11 +512,11 @@ void Chunk_chooser::drag_data_get(
 gint Chunk_chooser::drag_begin(
 		GtkWidget*      widget,    // The view window.
 		GdkDragContext* context,
-		gpointer        data    // ->Chunk_chooser.
+		gpointer        user_data    // ->Chunk_chooser.
 ) {
 	ignore_unused_variable_warning(widget, context);
 	cout << "In DRAG_BEGIN of Chunk" << endl;
-	auto* chooser = static_cast<Chunk_chooser*>(data);
+	auto* chooser = static_cast<Chunk_chooser*>(user_data);
 	if (chooser->selected < 0) {
 		return false;    // ++++Display a halt bitmap.
 	}
@@ -517,10 +530,10 @@ gint Chunk_chooser::drag_begin(
 void Chunk_chooser::drag_data_received(
 		GtkWidget* widget, GdkDragContext* context, gint x, gint y,
 		GtkSelectionData* seldata, guint info, guint time,
-		gpointer udata    // -> Chunk_chooser.
+		gpointer user_data    // ->Chunk_chooser.
 ) {
 	ignore_unused_variable_warning(widget, context, x, y, info, time);
-	auto* chooser = static_cast<Chunk_chooser*>(udata);
+	auto* chooser = static_cast<Chunk_chooser*>(user_data);
 	cout << "In DRAG_DATA_RECEIVED of Chunk for '"
 		 << gdk_atom_name(gtk_selection_data_get_data_type(seldata)) << "'"
 		 << endl;
@@ -608,10 +621,10 @@ void Chunk_chooser::scroll(bool upwards) {
  */
 
 void Chunk_chooser::scrolled(
-		GtkAdjustment* adj,    // The adjustment.
-		gpointer       data    // ->Chunk_chooser.
+		GtkAdjustment* adj,         // The adjustment.
+		gpointer       user_data    // ->Chunk_chooser.
 ) {
-	auto* chooser = static_cast<Chunk_chooser*>(data);
+	auto* chooser = static_cast<Chunk_chooser*>(user_data);
 #ifdef DEBUG
 	cout << "Chunks : VScrolled to " << gtk_adjustment_get_value(adj)
 		 << " of [ " << gtk_adjustment_get_lower(adj) << ", "
@@ -651,21 +664,24 @@ void Chunk_chooser::enable_controls() {
  *  Handle popup menu items.
  */
 
-static void on_insert_empty(GtkMenuItem* item, gpointer udata) {
-	ignore_unused_variable_warning(item);
-	auto* chooser = static_cast<Chunk_chooser*>(udata);
+static void on_insert_empty(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	auto* chooser = static_cast<Chunk_chooser*>(user_data);
 	chooser->insert(false);
 }
 
-static void on_insert_dup(GtkMenuItem* item, gpointer udata) {
-	ignore_unused_variable_warning(item);
-	auto* chooser = static_cast<Chunk_chooser*>(udata);
+static void on_insert_dup(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	auto* chooser = static_cast<Chunk_chooser*>(user_data);
 	chooser->insert(true);
 }
 
-static void on_delete(GtkMenuItem* item, gpointer udata) {
-	ignore_unused_variable_warning(item);
-	auto* chooser = static_cast<Chunk_chooser*>(udata);
+static void on_delete(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	auto* chooser = static_cast<Chunk_chooser*>(user_data);
 	chooser->del();
 }
 
@@ -673,18 +689,36 @@ static void on_delete(GtkMenuItem* item, gpointer udata) {
  *  Set up popup menu.
  */
 
-GtkWidget* Chunk_chooser::create_popup() {
-	create_popup_internal(true);    // Create popup with groups, files.
-	if (group != nullptr) {         // Filtering?  Skip the rest.
+static GActionEntry chk_entries[] = {
+		{"on-insert-empty",
+		 on_insert_empty, nullptr,
+		 nullptr, nullptr,
+		 {0, 0, 0}															 },
+		{  "on-insert-dup", on_insert_dup, nullptr, nullptr, nullptr, {0, 0, 0}},
+		{      "on-delete",     on_delete, nullptr, nullptr, nullptr, {0, 0, 0}},
+};
+
+GMenu* Chunk_chooser::create_popup() {
+	// Bind popup menu actions.
+	GSimpleActionGroup* chk_group = g_simple_action_group_new();
+	g_action_map_add_action_entries(
+			G_ACTION_MAP(chk_group), chk_entries, G_N_ELEMENTS(chk_entries),
+			this);
+	gtk_widget_insert_action_group(
+			widget_get_top(get_widget()), "chk", G_ACTION_GROUP(chk_group));
+	GMenu* popup = create_popup_internal(
+			true);             // Create popup with groups, files.
+	if (group != nullptr) {    // Filtering?  Skip the rest.
 		return popup;
 	}
-	GtkWidget* mitem    = Add_menu_item(popup, "New...");
-	GtkWidget* new_menu = gtk_menu_new();
-	gtk_menu_item_set_submenu(GTK_MENU_ITEM(mitem), new_menu);
-	Add_menu_item(new_menu, "Empty", G_CALLBACK(on_insert_empty), this);
+	GMenu* menu = g_menu_new();
+	menu_add_action(menu, "Empty", "chk.on-insert-empty");
 	if (selected >= 0) {
-		Add_menu_item(new_menu, "Duplicate", G_CALLBACK(on_insert_dup), this);
-		Add_menu_item(popup, "Delete", G_CALLBACK(on_delete), this);
+		menu_add_action(menu, "Duplicate", "chk.on-insert-dup");
+	}
+	menu_add_submenu(popup, "New...", menu);
+	if (selected >= 0) {
+		menu_add_action(popup, "Delete", "chk.on-delete");
 	}
 	return popup;
 }

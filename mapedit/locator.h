@@ -43,7 +43,7 @@ class Locator {
 	int         send_location_timer = -1;    // For sending new loc. to Exult.
 	void        send_location();             // Send location/size to Exult.
 	void        query_location();
-	static gint delayed_send_location(gpointer data);
+	static gint delayed_send_location(gpointer user_data);
 	// Set view to mouse location.
 	void goto_mouse(int mx, int my, bool delay_send = false);
 
@@ -52,7 +52,7 @@ public:
 	~Locator();
 	void            show(bool tf);    // Show/hide.
 	static gboolean on_loc_draw_expose_event(
-			GtkWidget* widget, cairo_t* cairo, gpointer data);
+			GtkWidget* widget, cairo_t* cairo, gpointer user_data);
 	// Configure when created/resized.
 	void configure(GtkWidget* widget);
 	void render(GdkRectangle* area = nullptr);
@@ -69,12 +69,12 @@ public:
 	// Message from exult.
 	void view_changed(const unsigned char* data, int datalen);
 	// Handle scrollbar.
-	static void vscrolled(GtkAdjustment* adj, gpointer data);
-	static void hscrolled(GtkAdjustment* adj, gpointer data);
+	static void vscrolled(GtkAdjustment* adj, gpointer user_data);
+	static void hscrolled(GtkAdjustment* adj, gpointer user_data);
 	// Handle mouse.
-	gboolean mouse_press(GdkEventButton* event);
-	gboolean mouse_release(GdkEventButton* event);
-	gboolean mouse_motion(GdkEventMotion* event);
+	gboolean mouse_press(GtkWidget* widget, GdkEvent* event);
+	gboolean mouse_release(GtkWidget* widget, GdkEvent* event);
+	gboolean mouse_motion(GtkWidget* widget, GdkEvent* event);
 };
 
 #endif

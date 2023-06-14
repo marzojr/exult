@@ -54,9 +54,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #	include <windows.h>
 #endif
 
-using EStudio::Add_menu_item;
-using EStudio::Alert;
-using EStudio::Prompt;
 using std::cerr;
 using std::cout;
 using std::endl;
@@ -104,8 +101,9 @@ public:
 
 static void Shape_dropped_here(
 		int file,    // U7_SHAPE_SHAPES.
-		int shape, int frame, void* udata) {
-	static_cast<Shape_chooser*>(udata)->shape_dropped_here(file, shape, frame);
+		int shape, int frame, void* user_data) {
+	static_cast<Shape_chooser*>(user_data)->shape_dropped_here(
+			file, shape, frame);
 }
 
 /*
@@ -489,21 +487,25 @@ int Shape_chooser::find_shape(int shnum) {
  */
 
 static gint Configure_chooser(
-		GtkWidget*         widget,    // The drawing area.
-		GdkEventConfigure* event,
-		gpointer           data    // ->Shape_chooser
+		GtkWidget* widget,    // The drawing area.
+		GdkEvent*  event,
+		gpointer   user_data    // ->Shape_chooser.
 ) {
 	ignore_unused_variable_warning(widget);
-	auto* chooser = static_cast<Shape_chooser*>(data);
+	auto* chooser = static_cast<Shape_chooser*>(user_data);
 	return chooser->configure(event);
 }
 
-gint Shape_chooser::configure(GdkEventConfigure* event) {
+gint Shape_chooser::configure(GdkEvent* event) {
 	Shape_draw::configure();
+	gint event_configure_width, event_configure_height;
+	event_configure_width  = event->configure.width;
+	event_configure_height = event->configure.height;
 	// Did the size change?
-	if (event->width != config_width || event->height != config_height) {
-		config_width  = event->width;
-		config_height = event->height;
+	if (event_configure_width != config_width
+		|| event_configure_height != config_height) {
+		config_width  = event_configure_width;
+		config_height = event_configure_height;
 		setup_info(true);
 		render();
 		update_statusbar();
@@ -525,10 +527,10 @@ gint Shape_chooser::configure(GdkEventConfigure* event) {
 gint Shape_chooser::expose(
 		GtkWidget* widget,    // The view window.
 		cairo_t*   cairo,
-		gpointer   data    // ->Shape_chooser.
+		gpointer   user_data    // ->Shape_chooser.
 ) {
 	ignore_unused_variable_warning(widget);
-	auto* chooser = static_cast<Shape_chooser*>(data);
+	auto* chooser = static_cast<Shape_chooser*>(user_data);
 	chooser->set_graphic_context(cairo);
 	GdkRectangle area = {0, 0, 0, 0};
 	gdk_cairo_get_clip_rectangle(cairo, &area);
@@ -544,16 +546,14 @@ gint Shape_chooser::expose(
  */
 
 gint Shape_chooser::drag_motion(
-		GtkWidget*      widget,    // The view window.
-		GdkEventMotion* event,
-		gpointer        data    // ->Shape_chooser.
+		GtkWidget* widget,    // The view window.
+		GdkEvent*  event,
+		gpointer   user_data    // ->Shape_chooser.
 ) {
 	ignore_unused_variable_warning(widget);
-	auto* chooser = static_cast<Shape_chooser*>(data);
+	auto* chooser = static_cast<Shape_chooser*>(user_data);
 	if (!chooser->dragging && chooser->selected >= 0) {
-		chooser->start_drag(
-				U7_TARGET_SHAPEID_NAME, U7_TARGET_SHAPEID,
-				reinterpret_cast<GdkEvent*>(event));
+		chooser->start_drag(U7_TARGET_SHAPEID_NAME, U7_TARGET_SHAPEID, event);
 	}
 	return true;
 }
@@ -562,20 +562,26 @@ gint Shape_chooser::drag_motion(
  *  Handle a mouse button-press event.
  */
 gint Shape_chooser::mouse_press(
-		GtkWidget*      widget,    // The view window.
-		GdkEventButton* event) {
-	gtk_widget_grab_focus(widget);
+		GtkWidget* widget,    // The view window.
+		GdkEvent*  event) {
+	gtk_widget_grab_focus(widget);    // Enables keystrokes.
+
+	GdkEventType event_type = gdk_event_get_event_type(event);
+	guint        event_button_button;
+	gdouble      event_button_x, event_button_y;
+	gdk_event_get_button(event, &event_button_button);
+	gdk_event_get_coords(event, &event_button_x, &event_button_y);
 
 #ifdef DEBUG
-	cout << "Shapes : Clicked to " << (event->x) << " * " << (event->y)
-		 << " by " << (event->button) << endl;
+	cout << "Shapes : Clicked to " << event_button_x << " * " << event_button_y
+		 << " by " << event_button_button << endl;
 #endif
-	if (event->button == 4) {
+	if (event_button_button == 4) {
 		if (row0 > 0) {
 			scroll_row_vertical(row0 - 1);
 		}
 		return true;
-	} else if (event->button == 5) {
+	} else if (event_button_button == 5) {
 		scroll_row_vertical(row0 + 1);
 		return true;
 	}
@@ -583,8 +589,8 @@ gint Shape_chooser::mouse_press(
 	int            new_selected = -1;
 	unsigned       i;    // Search through entries.
 	const unsigned infosz = info.size();
-	const int      absx   = ZoomDown(static_cast<int>(event->x)) + hoffset;
-	const int      absy   = ZoomDown(static_cast<int>(event->y)) + voffset;
+	const int      absx = ZoomDown(static_cast<int>(event_button_x)) + hoffset;
+	const int      absy = ZoomDown(static_cast<int>(event_button_y)) + voffset;
 	for (i = rows[row0].index0; i < infosz; i++) {
 		if (info[i].box.distance(absx, absy) <= 2) {
 			// Found the box?
@@ -602,17 +608,26 @@ gint Shape_chooser::mouse_press(
 			(*sel_changed)();
 		}
 	}
-	if (new_selected < 0 && event->button == 1) {
+	if (new_selected < 0 && event_button_button == 1) {
 		unselect(true);    // No selection.
 	} else if (selected == old_selected && old_selected >= 0) {
 		// Same square.  Check for dbl-click.
-		if (reinterpret_cast<GdkEvent*>(event)->type == GDK_2BUTTON_PRESS) {
+		if (event_type == GDK_2BUTTON_PRESS) {
 			edit_shape_info();
 		}
 	}
-	if (event->button == 3) {
-		gtk_menu_popup_at_pointer(
-				GTK_MENU(create_popup()), reinterpret_cast<GdkEvent*>(event));
+	if (event_button_button == 3) {
+		GMenu* popup = create_popup();
+		popup_widget = gtk_popover_new_from_model(widget, G_MENU_MODEL(popup));
+		g_object_unref(popup);
+		if (selected >= 0) {
+			GdkRectangle target = {
+					ZoomUp(info[selected].box.x - hoffset),
+					ZoomUp(info[selected].box.y - voffset),
+					ZoomUp(info[selected].box.w), ZoomUp(info[selected].box.h)};
+			gtk_popover_set_pointing_to(GTK_POPOVER(popup_widget), &target);
+		}
+		gtk_widget_set_visible(popup_widget, true);
 	}
 	return true;
 }
@@ -621,21 +636,21 @@ gint Shape_chooser::mouse_press(
  *  Handle mouse button press/release events.
  */
 static gint Mouse_press(
-		GtkWidget*      widget,    // The view window.
-		GdkEventButton* event,
-		gpointer        data    // ->Shape_chooser.
+		GtkWidget* widget,    // The view window.
+		GdkEvent*  event,
+		gpointer   user_data    // ->Shape_chooser.
 ) {
-	auto* chooser = static_cast<Shape_chooser*>(data);
+	auto* chooser = static_cast<Shape_chooser*>(user_data);
 	return chooser->mouse_press(widget, event);
 }
 
 static gint Mouse_release(
-		GtkWidget*      widget,    // The view window.
-		GdkEventButton* event,
-		gpointer        data    // ->Shape_chooser.
+		GtkWidget* widget,    // The view window.
+		GdkEvent*  event,
+		gpointer   user_data    // ->Shape_chooser.
 ) {
 	ignore_unused_variable_warning(widget, event);
-	auto* chooser = static_cast<Shape_chooser*>(data);
+	auto* chooser = static_cast<Shape_chooser*>(user_data);
 	chooser->mouse_up();
 	return true;
 }
@@ -644,10 +659,12 @@ static gint Mouse_release(
  *  Keystroke in draw-area.
  */
 C_EXPORT gboolean on_draw_key_press(
-		GtkEntry* entry, GdkEventKey* event, gpointer user_data) {
+		GtkEntry* entry, GdkEvent* event, gpointer user_data) {
 	ignore_unused_variable_warning(entry);
 	auto* chooser = static_cast<Shape_chooser*>(user_data);
-	switch (event->keyval) {
+	guint event_key_keyval;
+	gdk_event_get_keyval(event, &event_key_keyval);
+	switch (event_key_keyval) {
 	case GDK_KEY_Delete:
 		chooser->del_frame();
 		return true;
@@ -722,7 +739,7 @@ time_t Shape_chooser::export_png(
 				fname, transp, w, h, w, xoff, yoff, img.get_bits(), &pal[0],
 				256, true)
 		|| stat(fname, &fs) != 0) {
-		Alert("Error creating '%s'", fname);
+		EStudio::Alert("Error creating '%s'", fname);
 		return 0;
 	}
 	return fs.st_mtime;
@@ -770,7 +787,11 @@ time_t Shape_chooser::export_tiled_png(
 		}
 		if (frame->is_rle() || frame->get_width() != c_tilesize
 			|| frame->get_height() != c_tilesize) {
-			Alert("Can only tile %dx%d flat shapes", c_tilesize, c_tilesize);
+			char buf[250];
+			snprintf(
+					buf, sizeof(buf), "Can only tile %dx%d flat shapes",
+					c_tilesize, c_tilesize);
+			EStudio::Alert("%s", buf);
 			return 0;
 		}
 		int x;
@@ -884,7 +905,7 @@ void Shape_chooser::edit_shape(
 	cmd += " &";    // Background.
 	int ret = system(cmd.c_str());
 	if (ret == 127 || ret == -1) {
-		Alert("Can't launch '%s'", studio->get_image_editor());
+		EStudio::Alert("Can't launch '%s'", studio->get_image_editor());
 	}
 #else
 	for (char& ch : cmd) {
@@ -900,7 +921,7 @@ void Shape_chooser::edit_shape(
 			nullptr, &cmd[0], nullptr, nullptr, false, 0, nullptr, nullptr, &si,
 			&pi);
 	if (!ret) {
-		Alert("Can't launch '%s'", studio->get_image_editor());
+		EStudio::Alert("Can't launch '%s'", studio->get_image_editor());
 	}
 #endif
 	if (check_editing_timer == -1) {    // Monitor files every 6 seconds.
@@ -916,8 +937,8 @@ void Shape_chooser::edit_shape(
  *  Output: 1 always.
  */
 
-gint Shape_chooser::check_editing_files_cb(gpointer data) {
-	ignore_unused_variable_warning(data);
+gint Shape_chooser::check_editing_files_cb(gpointer user_data) {
+	ignore_unused_variable_warning(user_data);
 	ExultStudio* studio = ExultStudio::get_instance();
 	// Is focus in main window?
 	if (studio->has_focus()) {
@@ -1131,15 +1152,16 @@ static void Import_png_tiles(
 	if (!Import_png8(
 				fname, 255, w, h, rowsize, xoff, yoff, pixels, oldpal,
 				palsize)) {
-		Alert("Error reading '%s'", fname);
+		EStudio::Alert("Error reading '%s'", fname);
 		return;
 	}
 	// Convert to game palette.
 	Convert_indexed_image(pixels, h * rowsize, oldpal, palsize, pal);
 	delete[] oldpal;
 	if (w < needw || h < needh) {
-		Alert("File '%s' image is too small.  %dx%d required.", fname, needw,
-			  needh);
+		EStudio::Alert(
+				"File '%s' image is too small.  %dx%d required.", fname, needw,
+				needh);
 		delete[] pixels;
 		return;
 	}
@@ -1221,7 +1243,7 @@ void Shape_chooser::export_frame(const char* fname, gpointer user_data) {
 	auto* chooser = static_cast<Shape_chooser*>(user_data);
 	if (U7exists(fname)) {
 		char* msg = g_strdup_printf("'%s' already exists.  Overwrite?", fname);
-		const int answer = Prompt(msg, "Yes", "No");
+		const int answer = EStudio::Prompt(msg, "Yes", "No");
 		g_free(msg);
 		if (answer != 0) {
 			return;
@@ -1472,7 +1494,7 @@ void Shape_chooser::new_frame() {
  */
 C_EXPORT void on_new_shape_okay_clicked(GtkButton* button, gpointer user_data) {
 	ignore_unused_variable_warning(user_data);
-	GtkWidget* win     = gtk_widget_get_toplevel(GTK_WIDGET(button));
+	GtkWidget* win     = widget_get_top(GTK_WIDGET(button));
 	auto*      chooser = static_cast<Shape_chooser*>(
             g_object_get_data(G_OBJECT(win), "user_data"));
 	chooser->create_new_shape();
@@ -1484,7 +1506,7 @@ C_EXPORT void on_new_shape_font_toggled(
 		GtkToggleButton* btn, gpointer user_data) {
 	ignore_unused_variable_warning(user_data);
 	const bool on      = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(btn));
-	GtkWidget* win     = gtk_widget_get_toplevel(GTK_WIDGET(btn));
+	GtkWidget* win     = widget_get_top(GTK_WIDGET(btn));
 	auto*      chooser = static_cast<Shape_chooser*>(
             g_object_get_data(G_OBJECT(win), "user_data"));
 	chooser->from_font_toggled(on);
@@ -1493,9 +1515,9 @@ C_EXPORT void on_new_shape_font_toggled(
 gboolean Shape_chooser::on_new_shape_font_color_draw_expose_event(
 		GtkWidget* widget,    // The draw area.
 		cairo_t*   cairo,
-		gpointer   data    // -> Shape_chooser.
+		gpointer   user_data    // ->Shape_chooser.
 ) {
-	ignore_unused_variable_warning(data);
+	ignore_unused_variable_warning(user_data);
 	ExultStudio* studio  = ExultStudio::get_instance();
 	const int    index   = studio->get_spin("new_shape_font_color");
 	auto*        chooser = static_cast<Shape_chooser*>(
@@ -1629,13 +1651,13 @@ void Shape_chooser::create_new_shape() {
 	}
 	Vga_file* ifile = file_info->get_ifile();
 	if (shnum < ifile->get_num_shapes() && ifile->get_num_frames(shnum)) {
-		if (Prompt("Replace existing shape?", "Yes", "No") != 0) {
+		if (EStudio::Prompt("Replace existing shape?", "Yes", "No") != 0) {
 			return;
 		}
 	}
 	Shape* shape = ifile->new_shape(shnum);
 	if (!shape) {
-		Alert("Can't create shape %d", shnum);
+		EStudio::Alert("Can't create shape %d", shnum);
 		return;
 	}
 	// Create frames.
@@ -1648,7 +1670,7 @@ void Shape_chooser::create_new_shape() {
 	use_font             = use_font && (fontname != nullptr) && *fontname != 0;
 	if (use_font) {
 		if (flat) {
-			Alert("Can't load font into a 'flat' shape");
+			EStudio::Alert("Can't load font into a 'flat' shape");
 			return;
 		}
 		const int ht = studio->get_spin("new_shape_font_height");
@@ -1657,7 +1679,7 @@ void Shape_chooser::create_new_shape() {
 					shape, fontname, nframes,
 					// Use transparent color for bgnd.
 					ht, fg, 255)) {
-			Alert("Error loading font file '%s'", fontname);
+			EStudio::Alert("Error loading font file '%s'", fontname);
 		}
 	}
 #endif
@@ -1729,13 +1751,13 @@ void Shape_chooser::drag_data_get(
 		GdkDragContext*   context,
 		GtkSelectionData* seldata,    // Fill this in.
 		guint info, guint time,
-		gpointer data    // ->Shape_chooser.
+		gpointer user_data    // ->Shape_chooser.
 ) {
 	ignore_unused_variable_warning(widget, context, time);
 	cout << "In DRAG_DATA_GET of Shape for '"
 		 << gdk_atom_name(gtk_selection_data_get_target(seldata)) << "'"
 		 << endl;
-	auto* chooser = static_cast<Shape_chooser*>(data);
+	auto* chooser = static_cast<Shape_chooser*>(user_data);
 	if (chooser->selected < 0 || info != U7_TARGET_SHAPEID) {
 		return;    // Not sure about this.
 	}
@@ -1761,11 +1783,11 @@ void Shape_chooser::drag_data_get(
 gint Shape_chooser::drag_begin(
 		GtkWidget*      widget,    // The view window.
 		GdkDragContext* context,
-		gpointer        data    // ->Shape_chooser.
+		gpointer        user_data    // ->Shape_chooser.
 ) {
 	ignore_unused_variable_warning(widget);
 	cout << "In DRAG_BEGIN of Shape" << endl;
-	auto* chooser = static_cast<Shape_chooser*>(data);
+	auto* chooser = static_cast<Shape_chooser*>(user_data);
 	if (chooser->selected < 0) {
 		return false;    // ++++Display a halt bitmap.
 	}
@@ -1895,11 +1917,11 @@ void Shape_chooser::setup_hscrollbar(
  *  Handle a scrollbar event.
  */
 
-void Shape_chooser::vscrolled(    // For vertical scrollbar.
-		GtkAdjustment* adj,       // The adjustment.
-		gpointer       data       // ->Shape_chooser.
+void Shape_chooser::vscrolled(      // For vertical scrollbar.
+		GtkAdjustment* adj,         // The adjustment.
+		gpointer       user_data    // ->Shape_chooser.
 ) {
-	auto* chooser = static_cast<Shape_chooser*>(data);
+	auto* chooser = static_cast<Shape_chooser*>(user_data);
 #ifdef DEBUG
 	cout << "Shapes : VScrolled to " << gtk_adjustment_get_value(adj)
 		 << " of [ " << gtk_adjustment_get_lower(adj) << ", "
@@ -1912,11 +1934,11 @@ void Shape_chooser::vscrolled(    // For vertical scrollbar.
 	chooser->scroll_vertical(newindex);
 }
 
-void Shape_chooser::hscrolled(    // For horizontal scrollbar.
-		GtkAdjustment* adj,       // The adjustment.
-		gpointer       data       // ->Shape_chooser.
+void Shape_chooser::hscrolled(      // For horizontal scrollbar.
+		GtkAdjustment* adj,         // The adjustment.
+		gpointer       user_data    // ->Shape_chooser.
 ) {
-	auto* chooser = static_cast<Shape_chooser*>(data);
+	auto* chooser = static_cast<Shape_chooser*>(user_data);
 #ifdef DEBUG
 	cout << "Shapes : HScrolled to " << gtk_adjustment_get_value(adj)
 		 << " of [ " << gtk_adjustment_get_lower(adj) << ", "
@@ -1934,10 +1956,10 @@ void Shape_chooser::hscrolled(    // For horizontal scrollbar.
  */
 
 void Shape_chooser::frame_changed(
-		GtkAdjustment* adj,    // The adjustment.
-		gpointer       data    // ->Shape_chooser.
+		GtkAdjustment* adj,         // The adjustment.
+		gpointer       user_data    // ->Shape_chooser.
 ) {
-	auto*      chooser  = static_cast<Shape_chooser*>(data);
+	auto*      chooser  = static_cast<Shape_chooser*>(user_data);
 	const gint newframe = static_cast<gint>(gtk_adjustment_get_value(adj));
 	if (chooser->selected >= 0) {
 		Shape_entry& shinfo  = chooser->info[chooser->selected];
@@ -1958,8 +1980,9 @@ void Shape_chooser::frame_changed(
  *  'All frames' toggled.
  */
 
-void Shape_chooser::all_frames_toggled(GtkToggleButton* btn, gpointer data) {
-	auto*      chooser   = static_cast<Shape_chooser*>(data);
+void Shape_chooser::all_frames_toggled(
+		GtkToggleButton* btn, gpointer user_data) {
+	auto*      chooser   = static_cast<Shape_chooser*>(user_data);
 	const bool on        = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(btn));
 	chooser->frames_mode = on;
 	if (on) {    // Frame => show horiz. scrollbar.
@@ -1985,21 +2008,21 @@ void Shape_chooser::all_frames_toggled(GtkToggleButton* btn, gpointer data) {
  */
 
 void Shape_chooser::on_shapes_popup_info_activate(
-		GtkMenuItem* item, gpointer udata) {
-	ignore_unused_variable_warning(item);
-	static_cast<Shape_chooser*>(udata)->edit_shape_info();
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	static_cast<Shape_chooser*>(user_data)->edit_shape_info();
 }
 
 void Shape_chooser::on_shapes_popup_edit_activate(
-		GtkMenuItem* item, gpointer udata) {
-	ignore_unused_variable_warning(item);
-	static_cast<Shape_chooser*>(udata)->edit_shape();
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	static_cast<Shape_chooser*>(user_data)->edit_shape();
 }
 
 void Shape_chooser::on_shapes_popup_edtiles_activate(
-		GtkMenuItem* item, gpointer udata) {
-	ignore_unused_variable_warning(item);
-	auto* ch = static_cast<Shape_chooser*>(udata);
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	auto* ch = static_cast<Shape_chooser*>(user_data);
 	if (ch->selected < 0) {
 		return;    // Shouldn't happen.
 	}
@@ -2018,59 +2041,70 @@ void Shape_chooser::on_shapes_popup_edtiles_activate(
 	gtk_widget_set_visible(win, true);
 }
 
-static void on_shapes_popup_import(GtkMenuItem* item, gpointer udata) {
-	ignore_unused_variable_warning(item);
+static void on_shapes_popup_import(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
 	Create_file_selection(
 			"Import frame from a .png file", "<PATCH>", "PNG Images", {"*.png"},
-			GTK_FILE_CHOOSER_ACTION_OPEN, Shape_chooser::import_frame, udata);
+			GTK_FILE_CHOOSER_ACTION_OPEN, Shape_chooser::import_frame,
+			user_data);
 }
 
-static void on_shapes_popup_export(GtkMenuItem* item, gpointer udata) {
-	ignore_unused_variable_warning(item);
+static void on_shapes_popup_export(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
 	Create_file_selection(
 			"Export frame to a .png file", "<PATCH>", "PNG Images", {"*.png"},
-			GTK_FILE_CHOOSER_ACTION_SAVE, Shape_chooser::export_frame, udata);
+			GTK_FILE_CHOOSER_ACTION_SAVE, Shape_chooser::export_frame,
+			user_data);
 }
 
-static void on_shapes_popup_export_all(GtkMenuItem* item, gpointer udata) {
-	ignore_unused_variable_warning(item);
+static void on_shapes_popup_export_all(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
 	Create_file_selection(
 			"Choose the base .png file name for all frames", "<PATCH>", nullptr,
 			{}, GTK_FILE_CHOOSER_ACTION_SAVE, Shape_chooser::export_all_frames,
-			udata);
+			user_data);
 }
 
-static void on_shapes_popup_import_all(GtkMenuItem* item, gpointer udata) {
-	ignore_unused_variable_warning(item);
+static void on_shapes_popup_import_all(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
 	Create_file_selection(
 			"Choose the one of the .png sprites to import", "<PATCH>",
 			"PNG Images", {"*.png"}, GTK_FILE_CHOOSER_ACTION_OPEN,
-			Shape_chooser::import_all_frames, udata);
+			Shape_chooser::import_all_frames, user_data);
 }
 
-static void on_shapes_popup_export_shape(GtkMenuItem* item, gpointer udata) {
-	ignore_unused_variable_warning(item);
+static void on_shapes_popup_export_shape(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
 	Create_file_selection(
 			"Choose the shp file name", "<PATCH>", "Shape files", {"*.shp"},
-			GTK_FILE_CHOOSER_ACTION_SAVE, Shape_chooser::export_shape, udata);
+			GTK_FILE_CHOOSER_ACTION_SAVE, Shape_chooser::export_shape,
+			user_data);
 }
 
-static void on_shapes_popup_import_shape(GtkMenuItem* item, gpointer udata) {
-	ignore_unused_variable_warning(item);
+static void on_shapes_popup_import_shape(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
 	Create_file_selection(
 			"Choose the shp file to import", "<PATCH>", "Shape files",
 			{"*.shp"}, GTK_FILE_CHOOSER_ACTION_OPEN,
-			Shape_chooser::import_shape, udata);
+			Shape_chooser::import_shape, user_data);
 }
 
-static void on_shapes_popup_new_frame(GtkMenuItem* item, gpointer udata) {
-	ignore_unused_variable_warning(item);
-	static_cast<Shape_chooser*>(udata)->new_frame();
+static void on_shapes_popup_new_frame(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	static_cast<Shape_chooser*>(user_data)->new_frame();
 }
 
-static void on_shapes_popup_new_shape(GtkMenuItem* item, gpointer udata) {
-	ignore_unused_variable_warning(item);
-	static_cast<Shape_chooser*>(udata)->new_shape();
+static void on_shapes_popup_new_shape(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	static_cast<Shape_chooser*>(user_data)->new_shape();
 }
 
 /*
@@ -2079,7 +2113,7 @@ static void on_shapes_popup_new_shape(GtkMenuItem* item, gpointer udata) {
 C_EXPORT void on_export_tiles_okay_clicked(
 		GtkButton* button, gpointer user_data) {
 	ignore_unused_variable_warning(user_data);
-	GtkWidget* win     = gtk_widget_get_toplevel(GTK_WIDGET(button));
+	GtkWidget* win     = widget_get_top(GTK_WIDGET(button));
 	auto*      chooser = static_cast<Shape_chooser*>(
             g_object_get_data(G_OBJECT(win), "user_data"));
 	ExultStudio* studio = ExultStudio::get_instance();
@@ -2101,7 +2135,7 @@ void Shape_chooser::shape_dropped_here(
 	if (ifile->get_u7drag_type() == file && group != nullptr) {
 		// Add to group.
 		if (group->is_builtin()) {
-			Alert("Can't modify builtin group.");
+			EStudio::Alert("Can't modify builtin group.");
 			return;
 		}
 		group->add(shape);
@@ -2204,70 +2238,125 @@ void Shape_chooser::locate(bool upwards) {
  *  Set up popup menu for shape browser.
  */
 
-GtkWidget* Shape_chooser::create_popup() {
+static GActionEntry shp_entries[] = {
+		{   "on-shapes-popup-info-activate",
+		 Shape_chooser::on_shapes_popup_info_activate,
+		 nullptr,nullptr,
+		 nullptr,{0, 0, 0}                 },
+		{   "on-shapes-popup-edit-activate",
+		 Shape_chooser::on_shapes_popup_edit_activate,
+		 nullptr, nullptr,
+		 nullptr, {0, 0, 0}},
+		{"on-shapes-popup-edtiles-activate",
+		 Shape_chooser::on_shapes_popup_edtiles_activate,
+		 nullptr, nullptr,
+		 nullptr, {0, 0, 0}},
+		{       "on-shapes-popup-new-frame",
+		 on_shapes_popup_new_frame, nullptr,
+		 nullptr, nullptr,
+		 {0, 0, 0}         },
+		{		  "on-shapes-popup-export",
+		 on_shapes_popup_export, nullptr,
+		 nullptr, nullptr,
+		 {0, 0, 0}         },
+		{		  "on-shapes-popup-import",
+		 on_shapes_popup_import, nullptr,
+		 nullptr, nullptr,
+		 {0, 0, 0}         },
+		{      "on-shapes-popup-export-all",
+		 on_shapes_popup_export_all, nullptr,
+		 nullptr, nullptr,
+		 {0, 0, 0}         },
+		{      "on-shapes-popup-import-all",
+		 on_shapes_popup_import_all, nullptr,
+		 nullptr, nullptr,
+		 {0, 0, 0}         },
+		{    "on-shapes-popup-export-shape",
+		 on_shapes_popup_export_shape, nullptr,
+		 nullptr, nullptr,
+		 {0, 0, 0}         },
+		{    "on-shapes-popup-import-shape",
+		 on_shapes_popup_import_shape, nullptr,
+		 nullptr, nullptr,
+		 {0, 0, 0}         },
+		{       "on-shapes-popup-new-shape",
+		 on_shapes_popup_new_shape, nullptr,
+		 nullptr, nullptr,
+		 {0, 0, 0}         }
+};
+
+GMenu* Shape_chooser::create_popup() {
+	// Bind popup menu actions.
+	GSimpleActionGroup* shp_group = g_simple_action_group_new();
+	g_action_map_add_action_entries(
+			G_ACTION_MAP(shp_group), shp_entries, G_N_ELEMENTS(shp_entries),
+			this);
+	gtk_widget_insert_action_group(
+			widget_get_top(get_widget()), "shp", G_ACTION_GROUP(shp_group));
+	GMenu* popup = create_popup_internal(
+			true);    // Create popup with groups, files.
+	GMenu *      emenu = nullptr, *imenu = nullptr, *smenu = nullptr, *eimenu;
 	ExultStudio* studio = ExultStudio::get_instance();
-	create_popup_internal(true);    // Create popup with groups, files.
-	if (selected >= 0) {            // Add editing choices.
-		Add_menu_item(
-				popup, "Info...", G_CALLBACK(on_shapes_popup_info_activate),
-				this);
+	if (selected >= 0) {    // Add editing choices.
+		smenu = g_menu_new();
+		menu_add_action(smenu, "Info...", "shp.on-shapes-popup-info-activate");
 		if (studio->get_image_editor()) {
-			Add_menu_item(
-					popup, "Edit...", G_CALLBACK(on_shapes_popup_edit_activate),
-					this);
+			menu_add_action(
+					smenu, "Edit...", "shp.on-shapes-popup-edit-activate");
 			if (IS_FLAT(info[selected].shapenum)
 				&& file_info == studio->get_vgafile()) {
-				Add_menu_item(
-						popup, "Edit tiled...",
-						G_CALLBACK(on_shapes_popup_edtiles_activate), this);
+				menu_add_action(
+						smenu, "Edit tiled...",
+						"shp.on-shapes-popup-edtiles-activate");
 			}
 		}
-		// Separator.
-		Add_menu_item(popup);
+		menu_add_section(popup, nullptr, smenu);
 		// Add/del.
-		Add_menu_item(
-				popup, "New frame", G_CALLBACK(on_shapes_popup_new_frame),
-				this);
+		smenu = g_menu_new();
+		menu_add_action(smenu, "New frame", "shp.on-shapes-popup-new-frame");
 		// Export/import.
-		Add_menu_item(
-				popup, "Export frame...", G_CALLBACK(on_shapes_popup_export),
-				this);
-		Add_menu_item(
-				popup, "Import frame...", G_CALLBACK(on_shapes_popup_import),
-				this);
+		emenu = g_menu_new();
+		imenu = g_menu_new();
+		menu_add_action(emenu, "Export frame...", "shp.on-shapes-popup-export");
+		menu_add_action(imenu, "Import frame...", "shp.on-shapes-popup-import");
 		if (!IS_FLAT(info[selected].shapenum)
 			|| file_info != studio->get_vgafile()) {
-			// Separator.
-			Add_menu_item(popup);
 			// Export/import all frames.
-			Add_menu_item(
-					popup, "Export all frames...",
-					G_CALLBACK(on_shapes_popup_export_all), this);
-			Add_menu_item(
-					popup, "Import all frames...",
-					G_CALLBACK(on_shapes_popup_import_all), this);
+			menu_add_action(
+					emenu, "Export all frames...",
+					"shp.on-shapes-popup-export-all");
+			menu_add_action(
+					imenu, "Import all frames...",
+					"shp.on-shapes-popup-import-all");
 		}
 	}
 	if (ifile->is_flex()) {    // Multiple-shapes file (.vga)?
 		if (selected >= 0
 			&& (!IS_FLAT(info[selected].shapenum)
 				|| file_info != studio->get_vgafile())) {
-			// Separator.
-			Add_menu_item(popup);
-			// Export/import shape.
-			Add_menu_item(
-					popup, "Export shape...",
-					G_CALLBACK(on_shapes_popup_export_shape), this);
-			Add_menu_item(
-					popup, "Import shape...",
-					G_CALLBACK(on_shapes_popup_import_shape), this);
+			if (!emenu) {
+				emenu = g_menu_new();
+			}
+			if (!imenu) {
+				imenu = g_menu_new();
+			}
+			menu_add_action(
+					emenu, "Export shape...",
+					"shp.on-shapes-popup-export-shape");
+			menu_add_action(
+					imenu, "Import shape...",
+					"shp.on-shapes-popup-import-shape");
 		}
-		// Separator.
-		Add_menu_item(popup);
-		Add_menu_item(
-				popup, "New shape", G_CALLBACK(on_shapes_popup_new_shape),
-				this);
+		if (!smenu) {
+			smenu = g_menu_new();
+		}
+		menu_add_action(smenu, "New shape", "shp.on-shapes-popup-new-shape");
 	}
+	eimenu = g_menu_new();
+	menu_add_submenu(eimenu, "Export...", emenu);
+	menu_add_submenu(eimenu, "Import...", imenu);
+	menu_add_section(popup, nullptr, eimenu);
+	menu_add_section(popup, nullptr, smenu);
 	return popup;
 }
 
@@ -2360,8 +2449,7 @@ Shape_chooser::Shape_chooser(
 	// Set scrollbar handler.
 	g_signal_connect(
 			G_OBJECT(shape_adj), "value-changed", G_CALLBACK(hscrolled), this);
-	//++++  gtk_widget_set_visible(hscroll, false);   // Only shown in 'frames'
-	// mode.
+	gtk_widget_set_visible(hscroll, false);    // Only shown in 'frames' mode.
 	// Scroll events.
 	enable_draw_vscroll(draw);
 

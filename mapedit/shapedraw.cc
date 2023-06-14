@@ -255,10 +255,10 @@ void Shape_draw::configure() {
 void Shape_draw::drag_data_received(
 		GtkWidget* widget, GdkDragContext* context, gint x, gint y,
 		GtkSelectionData* seldata, guint info, guint time,
-		gpointer udata    // Should point to Shape_draw.
+		gpointer user_data    // ->Shape_draw.
 ) {
 	ignore_unused_variable_warning(widget, context, x, y, info, time);
-	auto* draw = static_cast<Shape_draw*>(udata);
+	auto* draw = static_cast<Shape_draw*>(user_data);
 	cout << "In DRAG_DATA_RECEIVED of Shape for '"
 		 << gdk_atom_name(gtk_selection_data_get_data_type(seldata)) << "'"
 		 << endl;
@@ -287,11 +287,11 @@ void Shape_draw::drag_data_received(
 
 gulong Shape_draw::enable_drop(
 		Drop_callback callback,    // Call this when shape dropped.
-		void*         udata        // Passed to callback.
+		void*         user_data    // Passed to callback.
 ) {
 	gtk_widget_realize(draw);    //???????
 	drop_callback  = callback;
-	drop_user_data = udata;
+	drop_user_data = user_data;
 	GtkTargetEntry tents[3];
 	tents[0].target = const_cast<char*>(U7_TARGET_SHAPEID_NAME);
 	tents[1].target = const_cast<char*>(U7_TARGET_DROPFILE_NAME_MIME);

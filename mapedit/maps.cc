@@ -32,8 +32,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "studio.h"
 #include "utils.h"
 
-using EStudio::Add_menu_item;
-
 /*
  *  Find highest map #.
  */
@@ -52,28 +50,30 @@ static int Find_highest_map() {
  *  Jump to desired map.
  */
 
-static void on_map_activate(GtkMenuItem* item, gpointer udata) {
-	ignore_unused_variable_warning(item);
+C_EXPORT void on_map_activate(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	g_simple_action_set_state(action, parameter);
+	const gchar* mapstr = g_variant_get_string(parameter, nullptr);
+	int          mapnum = 0;
+	if (strncmp(mapstr, "map-", 4) == 0) {
+		mapnum = atoi(mapstr + 4);
+	}
 	unsigned char  data[50];
 	unsigned char* ptr = &data[0];
-	little_endian::Write2(ptr, reinterpret_cast<uintptr>(udata));
-	ExultStudio::get_instance()->send_to_server(
-			Exult_server::goto_map, &data[0], ptr - data);
-}
-
-C_EXPORT void on_main_map_activate(GtkMenuItem* item, gpointer udata) {
-	ignore_unused_variable_warning(udata);
-	on_map_activate(item, nullptr);
+	little_endian::Write2(ptr, mapnum);
+	(static_cast<ExultStudio*>(user_data))
+			->send_to_server(Exult_server::goto_map, &data[0], ptr - data);
 }
 
 /*
  *  Open new-map dialog.
  */
 
-C_EXPORT void on_newmap_activate(GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
-	ExultStudio* studio = ExultStudio::get_instance();
-	studio->new_map_dialog();
+C_EXPORT void on_newmap_activate(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	(static_cast<ExultStudio*>(user_data))->new_map_dialog();
 }
 
 void ExultStudio::new_map_dialog() {
@@ -86,6 +86,7 @@ void ExultStudio::new_map_dialog() {
 	set_toggle("newmap_copy_flats", false);
 	set_toggle("newmap_copy_fixed", false);
 	set_toggle("newmap_copy_ireg", false);
+	gtk_window_set_transient_for(GTK_WINDOW(win), GTK_WINDOW(app));
 	gtk_widget_set_visible(win, true);
 }
 
@@ -116,8 +117,8 @@ static bool Copy_static_file(
 /*
  *  Create new map.
  */
-C_EXPORT void on_newmap_ok_clicked(GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
+C_EXPORT void on_newmap_ok_clicked(GtkButton* button, gpointer user_data) {
+	ignore_unused_variable_warning(button, user_data);
 	char         fname[128];
 	char         sname[128];
 	ExultStudio* studio = ExultStudio::get_instance();
@@ -173,46 +174,17 @@ C_EXPORT void on_newmap_ok_clicked(GtkMenuItem* menuitem, gpointer user_data) {
  */
 
 void ExultStudio::setup_maps_list() {
-	GtkWidget* maps
-			= gtk_menu_item_get_submenu(GTK_MENU_ITEM(get_widget("map1")));
-	GList* items
-			= g_list_first(gtk_container_get_children(GTK_CONTAINER(maps)));
-	GList*  each   = g_list_last(items);
-	GSList* group  = nullptr;
-	int     curmap = 0;
-
-	while (each) {
-		GtkMenuItem* item  = GTK_MENU_ITEM(each->data);
-		GtkWidget*   label = gtk_bin_get_child(GTK_BIN(item));
-		const char*  text  = gtk_label_get_label(GTK_LABEL(label));
-		if (strcmp(text, "Main") == 0) {
-			group = gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(item));
-			g_object_set_data(G_OBJECT(item), "user_data", nullptr);
-			if (curmap == 0) {
-				gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item), true);
-			}
-			break;
-		}
-		if (gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(item))) {
-			curmap = reinterpret_cast<sintptr>(
-					g_object_get_data(G_OBJECT(item), "user_data"));
-		}
-		GList* prev = g_list_previous(each);
-		gtk_container_remove(GTK_CONTAINER(maps), GTK_WIDGET(item));
-		each = prev;
+	GMenu* maps    = G_MENU(get_gobject("main_menu_maps"));
+	int    n_items = g_menu_model_get_n_items(G_MENU_MODEL(maps));
+	for (int i = 1; i < n_items; i++) {
+		g_menu_remove(maps, i);
 	}
 	int num = 0;
 	while ((num = Find_next_map(num + 1, 10)) != -1) {
-		char name[40];
-		snprintf(name, sizeof(name), "Map #%02x", num);
-		auto*      ptrnum = reinterpret_cast<gpointer>(uintptr(num));
-		GtkWidget* item   = Add_menu_item(
-                maps, name, G_CALLBACK(on_map_activate), ptrnum, group);
-		g_object_set_data(G_OBJECT(item), "user_data", ptrnum);
-		if (curmap == num) {
-			gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item), true);
-		}
-		group = gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(item));
+		char name[128];
+		snprintf(name, sizeof(name), "app.on-map-activate::map-%d", num);
+		char label[40];
+		snprintf(label, sizeof(label), "Map #%02x", num);
+		g_menu_append(maps, label, name);
 	}
-	g_list_free(items);
 }

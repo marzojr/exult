@@ -89,19 +89,20 @@ public:
 	void remove_palette();
 	// Configure when created/resized.
 	static gint configure(
-			GtkWidget* widget, GdkEventConfigure* event, gpointer data);
+			GtkWidget* widget, GdkEvent* event, gpointer user_data);
 	// Blit to screen.
-	static gint expose(GtkWidget* widget, cairo_t* cairo, gpointer data);
+	static gint expose(GtkWidget* widget, cairo_t* cairo, gpointer user_data);
 	// Handle mouse press.
 	static gint mouse_press(
-			GtkWidget* widget, GdkEventButton* event, gpointer data);
+			GtkWidget* widget, GdkEvent* event, gpointer user_data);
 	// Give dragged palette.
 	static void drag_data_get(
 			GtkWidget* widget, GdkDragContext* context,
-			GtkSelectionData* seldata, guint info, guint time, gpointer data);
+			GtkSelectionData* seldata, guint info, guint time,
+			gpointer user_data);
 	static gint drag_begin(
-			GtkWidget* widget, GdkDragContext* context, gpointer data);
-	static void palnum_changed(GtkAdjustment* adj, gpointer data);
+			GtkWidget* widget, GdkDragContext* context, gpointer user_data);
+	static void palnum_changed(GtkAdjustment* adj, gpointer user_data);
 	static void export_palette(const char* fname, gpointer user_data);
 	static void import_palette(const char* fname, gpointer user_data);
 };

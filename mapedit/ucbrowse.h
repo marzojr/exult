@@ -46,7 +46,7 @@ public:
 		return win;
 	}
 
-	void show(bool tf);    // Show/hide.
+	void show(bool tf, GtkWidget* parent);    // Show/hide.
 
 	// Configure when created/resized.
 	const char* get_choice() const {
@@ -57,7 +57,7 @@ public:
 
 	void cancel() {
 		choice = "";
-		show(false);
+		show(false, nullptr);
 	}
 
 	void setup_list();

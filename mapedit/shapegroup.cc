@@ -39,7 +39,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <cassert>
 #include <cstdlib>
 
-using EStudio::Alert;
 using std::ios;
 using std::make_unique;
 using std::string;
@@ -443,7 +442,7 @@ void Shape_group_file::write() {
 			gfile.write_object(grp);
 		}
 	} catch (exult_exception& e) {
-		Alert("Error writing '%s'", patchname.c_str());
+		EStudio::Alert("Error writing '%s'", patchname.c_str());
 	}
 	modified = false;
 }
@@ -486,9 +485,11 @@ C_EXPORT void on_groups_del_clicked(
 }
 
 C_EXPORT gboolean on_groups_new_name_key_press(
-		GtkEntry* entry, GdkEventKey* event, gpointer user_data) {
+		GtkEntry* entry, GdkEvent* event, gpointer user_data) {
 	ignore_unused_variable_warning(entry, user_data);
-	if (event->keyval == GDK_KEY_Return) {
+	guint event_key_keyval;
+	gdk_event_get_keyval(event, &event_key_keyval);
+	if (event_key_keyval == GDK_KEY_Return) {
 		ExultStudio::get_instance()->add_group();
 		return true;
 	}
@@ -769,7 +770,7 @@ C_EXPORT gboolean on_group_window_delete_event(
 C_EXPORT void on_group_up_clicked(GtkToggleButton* button, gpointer user_data) {
 	ignore_unused_variable_warning(user_data);
 	auto*        chooser = static_cast<Object_browser*>(g_object_get_data(
-            G_OBJECT(gtk_widget_get_toplevel(GTK_WIDGET(button))), "browser"));
+            G_OBJECT(widget_get_top(GTK_WIDGET(button))), "browser"));
 	Shape_group* grp     = chooser->get_group();
 	const int    i       = chooser->get_selected();
 	if (grp && i > 0) {    // Moving item up.
@@ -782,7 +783,7 @@ C_EXPORT void on_group_down_clicked(
 		GtkToggleButton* button, gpointer user_data) {
 	ignore_unused_variable_warning(user_data);
 	auto*        chooser = static_cast<Object_browser*>(g_object_get_data(
-            G_OBJECT(gtk_widget_get_toplevel(GTK_WIDGET(button))), "browser"));
+            G_OBJECT(widget_get_top(GTK_WIDGET(button))), "browser"));
 	Shape_group* grp     = chooser->get_group();
 	const int    i       = chooser->get_selected();
 	if (grp && i < grp->size() - 1) {    // Moving down.
@@ -795,7 +796,7 @@ C_EXPORT void on_group_shape_remove_clicked(
 		GtkToggleButton* button, gpointer user_data) {
 	ignore_unused_variable_warning(user_data);
 	auto*        chooser = static_cast<Object_browser*>(g_object_get_data(
-            G_OBJECT(gtk_widget_get_toplevel(GTK_WIDGET(button))), "browser"));
+            G_OBJECT(widget_get_top(GTK_WIDGET(button))), "browser"));
 	Shape_group* grp     = chooser->get_group();
 	const int    i       = chooser->get_selected();
 	if (grp && i >= 0) {

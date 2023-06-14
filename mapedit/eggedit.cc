@@ -45,10 +45,10 @@ class Egg_object;
  *  Open egg window.
  */
 
-C_EXPORT void on_open_egg_activate(GtkMenuItem* menuitem, gpointer user_data) {
-	ignore_unused_variable_warning(menuitem, user_data);
-	ExultStudio* studio = ExultStudio::get_instance();
-	studio->open_egg_window();
+C_EXPORT void on_open_egg_activate(
+		GSimpleAction* action, GVariant* parameter, gpointer user_data) {
+	ignore_unused_variable_warning(action, parameter);
+	(static_cast<ExultStudio*>(user_data))->open_egg_window();
 }
 
 /*
@@ -84,7 +84,8 @@ C_EXPORT void on_egg_browse_usecode_clicked(
 		GtkButton* button, gpointer user_data) {
 	ignore_unused_variable_warning(button, user_data);
 	ExultStudio* studio = ExultStudio::get_instance();
-	const char*  uc     = studio->browse_usecode(true);
+	const char*  uc
+			= studio->browse_usecode(true, studio->get_widget("egg_window"));
 	if (*uc) {
 		studio->set_entry("usecode_number", uc, true);
 	}
