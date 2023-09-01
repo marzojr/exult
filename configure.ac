@@ -599,7 +599,6 @@ else
 	AM_CONDITIONAL(BUILD_MT32EMU, false)
 fi
 
-
 # zipped savegame support
 AC_ARG_ENABLE(zip-support, AS_HELP_STRING([--enable-zip-support], [Enable zipped savegame support @<:@default yes@:>@]),,enable_zip_support=yes)
 if test x$enable_zip_support = xyes ; then
@@ -1030,10 +1029,6 @@ else
 		exit 1
 	fi
 fi
-
-# link-time optimization
-GB_ENABLE_LTO
-DEBUG_LEVEL="$DEBUG_LEVEL $LTO_CFLAGS"
 
 # ---------------------------------------------------------------------
 # Debugging options
