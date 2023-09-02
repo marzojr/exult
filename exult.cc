@@ -1897,10 +1897,11 @@ static void Handle_event(SDL_Event& event) {
 	case SDL_EVENT_DROP_FILE: {
 #ifdef USE_EXULTSTUDIO
 #	ifndef _WIN32
-		int   x;
-		int   y;
-		float fx, fy;
-		SDL_GetMouseState(&fx, &fy);
+		int x;
+		int y;
+		//		float fx, fy;
+		//		SDL_GetMouseState(&fx, &fy);
+		float fx = event.drop.x, fy = event.drop.y;
 		x = int(fx);
 		y = int(fy);
 #		ifdef DEBUG
