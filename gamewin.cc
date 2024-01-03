@@ -1934,8 +1934,8 @@ void Game_window::teleport_party(
 	}
 	//	teleported = 1;
 	// generate mousemotion event
-	int x;
-	int y;
+	float x;
+	float y;
 	SDL_GetMouseState(&x, &y);
 	SDL_WarpMouseInWindow(win->get_screen_window(), x, y);
 }

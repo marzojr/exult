@@ -310,7 +310,7 @@ public:
 		return screen_window;
 	}
 
-	int Get_best_bpp(int w, int h, int bpp, uint32 flags);
+	int Get_best_bpp(int w, int h, int bpp);
 
 	// Create with given buffer.
 	Image_window(

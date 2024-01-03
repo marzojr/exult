@@ -75,6 +75,15 @@ const int* Audio::bg2si_songs = nullptr;
 
 //----- Utilities ----------------------------------------------------
 
+#ifdef DEBUG
+inline char* formatTicks() {
+	static char formattedTicks[32];
+	uint64      ticks = SDL_GetTicks();
+	snprintf(formattedTicks, 32, "[ %5ld.%0ld ] ", ticks / 1000, ticks % 1000);
+	return formattedTicks;
+}
+#endif
+
 //----- SFX ----------------------------------------------------------
 
 // Tries to locate a sfx in the cache based on sfx num.
@@ -426,6 +435,10 @@ void Audio::resume_audio() {
 }
 
 sint32 Audio::playfile(const char* fname, const char* fpatch, bool wait) {
+#ifdef DEBUG
+	cout << formatTicks() << "Audio subsystem request: File play in " << fname
+		 << " patch " << fpatch << endl;
+#endif
 	if (!audio_enabled) {
 		return -1;
 	}
@@ -448,6 +461,10 @@ bool Audio::playing() {
 }
 
 void Audio::start_music(int num, bool continuous, const std::string& flex) {
+#ifdef DEBUG
+	cout << formatTicks() << "Audio subsystem request: Music start " << num
+		 << " in flex " << flex << endl;
+#endif
 	if (audio_enabled && music_enabled && mixer && mixer->getMidiPlayer()) {
 		mixer->getMidiPlayer()->start_music(
 				num, continuous && allow_music_looping, flex);
@@ -455,6 +472,10 @@ void Audio::start_music(int num, bool continuous, const std::string& flex) {
 }
 
 void Audio::start_music(const std::string& fname, int num, bool continuous) {
+#ifdef DEBUG
+	cout << formatTicks() << "Audio subsystem request: Music start " << num
+		 << " in file " << fname << endl;
+#endif
 	if (audio_enabled && music_enabled && mixer && mixer->getMidiPlayer()) {
 		mixer->getMidiPlayer()->start_music(
 				fname, num, continuous && allow_music_looping);
@@ -462,6 +483,10 @@ void Audio::start_music(const std::string& fname, int num, bool continuous) {
 }
 
 void Audio::start_music_combat(Combat_song song, bool continuous) {
+#ifdef DEBUG
+	cout << formatTicks() << "Audio subsystem request: Combat Music start "
+		 << int(song) << endl;
+#endif
 	if (!audio_enabled || !music_enabled || !mixer || !mixer->getMidiPlayer()) {
 		return;
 	}
@@ -506,6 +531,9 @@ void Audio::start_music_combat(Combat_song song, bool continuous) {
 }
 
 void Audio::stop_music() {
+#ifdef DEBUG
+	cout << formatTicks() << "Audio subsystem request: Music stop" << endl;
+#endif
 	if (!audio_enabled) {
 		return;
 	}
@@ -531,6 +559,10 @@ bool Audio::start_speech(int num, bool wait) {
 		patchfile = PATCH_U7SPEECH;
 	}
 
+#ifdef DEBUG
+	cout << formatTicks() << "Audio subsystem request: Speech start " << num
+		 << " in " << filename << " and " << patchfile << endl;
+#endif
 	const U7multiobject sample(filename, patchfile, num);
 
 	size_t len;
@@ -544,6 +576,9 @@ bool Audio::start_speech(int num, bool wait) {
 }
 
 void Audio::stop_speech() {
+#ifdef DEBUG
+	cout << formatTicks() << "Audio subsystem request: Speech stop" << endl;
+#endif
 	if (!audio_enabled || !speech_enabled) {
 		return;
 	}
@@ -586,6 +621,11 @@ int Audio::wait_for_speech(std::function<int(Uint32 ms)> waitfunc) {
  */
 int Audio::play_sound_effect(
 		int num, int volume, int balance, int repeat, int distance) {
+#ifdef DEBUG
+	cout << formatTicks() << "Audio subsystem request: Sound Effect play "
+		 << num << " volume " << volume << " balance " << balance
+		 << " distance " << distance << endl;
+#endif
 	if (!audio_enabled || !effects_enabled) {
 		return -1;
 	}
@@ -616,6 +656,11 @@ int Audio::play_wave_sfx(
 		int balance,    // balance, -256 (left) - +256 (right)
 		int repeat,     // Keep playing.
 		int distance) {
+#ifdef DEBUG
+	cout << formatTicks() << "Audio subsystem request: Wave play " << num
+		 << " volume " << volume << " balance " << balance << " distance "
+		 << distance << endl;
+#endif
 	if (!effects_enabled || !sfx_file || !mixer) {
 		return -1;    // no .wav sfx available
 	}
@@ -652,6 +697,11 @@ int Audio::play_wave_sfx(
 int Audio::play_sound_effect(
 		const File_spec& sfxfile, int num, int volume, int balance, int repeat,
 		int distance) {
+#ifdef DEBUG
+	cout << formatTicks() << "Audio subsystem request: Sound Effect play "
+		 << num << " in " << sfxfile.name << " volume " << volume << " balance "
+		 << balance << " distance " << distance << endl;
+#endif
 	if (!audio_enabled || !effects_enabled) {
 		return -1;
 	}
@@ -670,6 +720,11 @@ int Audio::play_wave_sfx(
 		int balance,    // balance, -256 (left) - +256 (right)
 		int repeat,     // Keep playing.
 		int distance) {
+#ifdef DEBUG
+	cout << formatTicks() << "Audio subsystem request: Sound Effect play "
+		 << num << " volume " << volume << " balance " << balance
+		 << " distance " << distance << endl;
+#endif
 	if (!effects_enabled || !mixer || !U7exists(sfxfile.name)) {
 		return -1;    // no .wav sfx available
 	}
@@ -785,6 +840,10 @@ int Audio::update_sound_effect(int chan, const Tile_coord& tile) {
 }
 
 void Audio::stop_sound_effect(int chan) {
+#ifdef DEBUG
+	cout << formatTicks() << "Audio subsystem request: Sound Effect stop "
+		 << chan << endl;
+#endif
 	if (!mixer) {
 		return;
 	}
@@ -796,6 +855,10 @@ void Audio::stop_sound_effect(int chan) {
  */
 
 void Audio::stop_sound_effects() {
+#ifdef DEBUG
+	cout << formatTicks() << "Audio subsystem request: Sound Effect stop all"
+		 << endl;
+#endif
 	if (sfxs) {
 		sfxs->flush(mixer.get());
 	}

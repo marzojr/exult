@@ -145,6 +145,7 @@ public:
 	void toggle_fullscreen(int state) {
 		if (share_settings) {
 			fullscreen = state;
+			rebuild_dynamic_buttons();
 		} else {
 			load_settings(state);    // overwrites old settings
 			rebuild_buttons();
