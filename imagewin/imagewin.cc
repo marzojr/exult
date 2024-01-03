@@ -654,6 +654,8 @@ bool Image_window::create_scale_surfaces(int w, int h, int bpp) {
 		cout << "Couldn't create renderer: " << SDL_GetError() << std::endl;
 	}
 
+	SDL_DisplayID original_displayID = SDL_GetDisplayForWindow(screen_window);
+
 	if (fullscreen) {
 		// getting new native scale for highdpi is active
 		// or if it is disabled but a highdpi resolution is still being used
@@ -682,6 +684,11 @@ bool Image_window::create_scale_surfaces(int w, int h, int bpp) {
 	} else {
 		// make sure the window has the right dimensions
 		SDL_SetWindowSize(screen_window, w, h);
+		// center the window on the screen
+		SDL_SetWindowPosition(
+				screen_window,
+				SDL_WINDOWPOS_CENTERED_DISPLAY(original_displayID),
+				SDL_WINDOWPOS_CENTERED_DISPLAY(original_displayID));
 	}
 
 	// Do an initial draw/fill
@@ -856,7 +863,6 @@ void Image_window::resized(
 			newsc == scale && scaler == newscaler &&
 			newgw == game_width && newgh == game_height)
 			return; */     // Nothing changed.
-
 		free_surface();    // Delete old image.
 	}
 	scale       = newsc;
