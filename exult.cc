@@ -194,6 +194,10 @@ static void Drop_dragged_shape(int shape, int frame, int x, int y);
 static void Drop_dragged_chunk(int chunknum, int x, int y);
 static void Drop_dragged_npc(int npcnum, int x, int y);
 static void Drop_dragged_combo(int cnt, U7_combo_data* combo, int x, int y);
+static int  drag_prevx = 0, drag_prevy = 0;
+static int  drag_shfile   = -1, drag_shpnum   = -1, drag_shfnum   = -1;
+static int  drag_cbcnt    = -1, drag_cbxtiles = -1, drag_cbytiles = -1;
+static int  drag_cbrtiles = -1, drag_cbbtiles = -1;
 #endif
 static void BuildGameMap(BaseGameInfo* game, int mapnum);
 static void Handle_events();
@@ -218,9 +222,8 @@ static bool   arg_write_xml    = false;    // Write out game's config. as XML.
 static bool   arg_reset_video  = false;    // Resets the video setings.
 static bool   arg_verify_files = false;    // Verify a game's files.
 
-static bool                 dragging = false;    // Object or gump being moved.
-static bool                 dragged  = false;    // Flag for when obj. moved.
-static int                  drag_prevx = 0, drag_prevy = 0;
+static bool dragging   = false;    // Object or gump being moved.
+static bool dragged    = false;    // Flag for when obj. moved.
 static bool                 right_on_gump = false;    // Right clicked on gump?
 static int                  show_items_x = 0, show_items_y = 0;
 static unsigned int         show_items_time    = 0;
@@ -1925,6 +1928,7 @@ static void Handle_event(SDL_Event& event) {
 					Drop_dragged_shape(shape, frame, x, y);
 				}
 			}
+			drag_shpnum = -1;
 		} else if (Is_u7_chunkid(data) == true) {
 			// A whole chunk.
 			int chunknum;
@@ -1959,6 +1963,7 @@ static void Handle_event(SDL_Event& event) {
 			if (combo_cnt >= 0 && combo) {
 				Drop_dragged_combo(combo_cnt, combo, x, y);
 			}
+			drag_cbcnt = -1;
 		}
 #		ifdef DEBUG
 		cout << "(EXULT) SDL_EVENT_DROP_FILE Event complete" << endl;
@@ -1981,12 +1986,8 @@ static void Handle_event(SDL_Event& event) {
 #		endif
 		drag_prevx = -1;
 		drag_prevy = -1;
-		const unsigned char* data
-				= reinterpret_cast<const unsigned char*>("/U7SHAPEID.0.199.0");
-		if (Is_u7_shapeid(data) == true) {
-			// Get shape info.
-			int file, shape, frame;
-			Get_u7_shapeid(data, file, shape, frame);
+		if (drag_shpnum != -1) {
+			int file = drag_shfile, shape = drag_shpnum, frame = drag_shfnum;
 			cout << "(EXULT) SDL_EVENT_DROP_BEGIN Event, Shape: file = " << file
 				 << ", shape = " << shape << ", frame = " << frame
 				 << ", at x = " << x << ", y = " << y << endl;
@@ -1997,25 +1998,22 @@ static void Handle_event(SDL_Event& event) {
 							shape, frame, x, y, drag_prevx, drag_prevy, true);
 				}
 			}
-		} else if (Is_u7_comboid(data) == true) {
-			int combo_xtiles, combo_ytiles, combo_tiles_right,
-					combo_tiles_below, combo_cnt;
-			U7_combo_data* combo;
-			Get_u7_comboid(
-					data, combo_xtiles, combo_ytiles, combo_tiles_right,
-					combo_tiles_below, combo_cnt, combo);
+		} else if (drag_cbcnt != -1) {
+			int combo_xtiles = drag_cbxtiles, combo_ytiles = drag_cbytiles;
+			int combo_tiles_right = drag_cbrtiles;
+			int combo_tiles_below = drag_cbbtiles;
+			int combo_cnt         = drag_cbcnt;
 			cout << "(EXULT) SDL_EVENT_DROP_BEGIN Event, Combo: xtiles = "
 				 << combo_xtiles << ", ytiles = " << combo_ytiles
 				 << ", tiles_right = " << combo_tiles_right
 				 << ", tiles_below = " << combo_tiles_below
 				 << ", count = " << combo_cnt << ", at x = " << x
 				 << ", y = " << y << endl;
-			if (combo_cnt >= 0 && combo) {
+			if (combo_cnt >= 0) {
 				Move_dragged_combo(
 						combo_xtiles, combo_ytiles, combo_tiles_right,
 						combo_tiles_below, x, y, drag_prevx, drag_prevy, true);
 			}
-			delete[] combo;
 		}
 		drag_prevx = x;
 		drag_prevy = y;
@@ -2038,12 +2036,8 @@ static void Handle_event(SDL_Event& event) {
 		cout << "(EXULT) SDL_EVENT_DROP_POSITION Event, type = "
 			 << event.drop.type << ", at x = " << x << ", y = " << y << endl;
 #		endif
-		const unsigned char* data
-				= reinterpret_cast<const unsigned char*>("/U7SHAPEID.0.199.0");
-		if (Is_u7_shapeid(data) == true) {
-			// Get shape info.
-			int file, shape, frame;
-			Get_u7_shapeid(data, file, shape, frame);
+		if (drag_shpnum != -1) {
+			int file = drag_shfile, shape = drag_shpnum, frame = drag_shfnum;
 			cout << "(EXULT) SDL_EVENT_DROP_POSITION Event, Shape: file = "
 				 << file << ", shape = " << shape << ", frame = " << frame
 				 << ", at x = " << x << ", y = " << y << endl;
@@ -2054,25 +2048,22 @@ static void Handle_event(SDL_Event& event) {
 							shape, frame, x, y, drag_prevx, drag_prevy, true);
 				}
 			}
-		} else if (Is_u7_comboid(data) == true) {
-			int combo_xtiles, combo_ytiles, combo_tiles_right,
-					combo_tiles_below, combo_cnt;
-			U7_combo_data* combo;
-			Get_u7_comboid(
-					data, combo_xtiles, combo_ytiles, combo_tiles_right,
-					combo_tiles_below, combo_cnt, combo);
+		} else if (drag_cbcnt != -1) {
+			int combo_xtiles = drag_cbxtiles, combo_ytiles = drag_cbytiles;
+			int combo_tiles_right = drag_cbrtiles,
+				combo_tiles_below = drag_cbbtiles;
+			int combo_cnt         = drag_cbcnt;
 			cout << "(EXULT) SDL_EVENT_DROP_POSITION Event, Combo: xtiles = "
 				 << combo_xtiles << ", ytiles = " << combo_ytiles
 				 << ", tiles_right = " << combo_tiles_right
 				 << ", tiles_below = " << combo_tiles_below
 				 << ", count = " << combo_cnt << ", at x = " << x
 				 << ", y = " << y << endl;
-			if (combo_cnt >= 0 && combo) {
+			if (combo_cnt >= 0) {
 				Move_dragged_combo(
 						combo_xtiles, combo_ytiles, combo_tiles_right,
 						combo_tiles_below, x, y, drag_prevx, drag_prevy, true);
 			}
-			delete[] combo;
 		}
 		drag_prevx = x;
 		drag_prevy = y;
@@ -3202,6 +3193,20 @@ void Drop_dragged_combo(
 		cheat.append_selected(newobj.get());
 	}
 	gwin->set_all_dirty();    // For now, until we clear out grid.
+}
+
+void Set_dragged_shape(int file, int shnum, int frnum) {
+	drag_shfile = file;
+	drag_shpnum = shnum;
+	drag_shfnum = frnum;
+}
+
+void Set_dragged_combo(int cnt, int xtl, int ytl, int rtl, int btl) {
+	drag_cbcnt    = cnt;
+	drag_cbxtiles = xtl;
+	drag_cbytiles = ytl;
+	drag_cbrtiles = rtl;
+	drag_cbbtiles = btl;
 }
 
 #endif
