@@ -1069,6 +1069,7 @@ static void Init() {
 			SDL_SYSWM_CURRENT_VERSION);
 	Server_init();    // Initialize server (for map-editor).
 	SDL_SetEventEnabled(SDL_EVENT_DROP_FILE, SDL_TRUE);
+	SDL_SetEventEnabled(SDL_EVENT_DROP_TEXT, SDL_TRUE);
 #	else
 	SDL_GetWindowWMInfo(
 			gwin->get_win()->get_screen_window(), &info,
@@ -1894,6 +1895,7 @@ static void Handle_event(SDL_Event& event) {
 			keybinder->HandleEvent(event);
 		}
 		break;
+	case SDL_EVENT_DROP_TEXT:
 	case SDL_EVENT_DROP_FILE: {
 #ifdef USE_EXULTSTUDIO
 #	ifndef _WIN32
@@ -1905,9 +1907,11 @@ static void Handle_event(SDL_Event& event) {
 		x = int(fx);
 		y = int(fy);
 #		ifdef DEBUG
-		cout << "(EXULT) SDL_EVENT_DROP_FILE Event, type = " << event.drop.type
-			 << ", file (" << strlen(event.drop.file) << ") = '"
-			 << event.drop.file << "', at x = " << x << ", y = " << y << endl;
+		cout << "(EXULT) SDL_EVENT_DROP_"
+			 << (event.type == SDL_EVENT_DROP_TEXT ? "TEXT" : "FILE")
+			 << " Event, type = " << event.drop.type << ", file ("
+			 << strlen(event.drop.file) << ") = '" << event.drop.file
+			 << "', at x = " << x << ", y = " << y << endl;
 #		endif
 		constexpr static auto deleter = [](char* file) {
 			SDL_free(file);
@@ -1920,9 +1924,11 @@ static void Handle_event(SDL_Event& event) {
 			// Get shape info.
 			int file, shape, frame;
 			Get_u7_shapeid(data, file, shape, frame);
-			cout << "(EXULT) SDL_EVENT_DROP_FILE Event, Shape: file = " << file
-				 << ", shape = " << shape << ", frame = " << frame
-				 << ", at x = " << x << ", y = " << y << endl;
+			cout << "(EXULT) SDL_EVENT_DROP_"
+				 << (event.type == SDL_EVENT_DROP_TEXT ? "TEXT" : "FILE")
+				 << " Event, Shape: file = " << file << ", shape = " << shape
+				 << ", frame = " << frame << ", at x = " << x << ", y = " << y
+				 << endl;
 			if (shape >= 0) {    // Dropping a shape?
 				if (file == U7_SHAPE_SHAPES) {
 					// For now, just allow "shapes.vga".
@@ -1934,16 +1940,20 @@ static void Handle_event(SDL_Event& event) {
 			// A whole chunk.
 			int chunknum;
 			Get_u7_chunkid(data, chunknum);
-			cout << "(EXULT) SDL_EVENT_DROP_FILE Event, Chunk: num = "
-				 << chunknum << ", at x = " << x << ", y = " << y << endl;
+			cout << "(EXULT) SDL_EVENT_DROP_"
+				 << (event.type == SDL_EVENT_DROP_TEXT ? "TEXT" : "FILE")
+				 << " Event, Chunk: num = " << chunknum << ", at x = " << x
+				 << ", y = " << y << endl;
 			if (chunknum >= 0) {    // A whole chunk.
 				Drop_dragged_chunk(chunknum, x, y);
 			}
 		} else if (Is_u7_npcid(data) == true) {
 			int npcnum;
 			Get_u7_npcid(data, npcnum);
-			cout << "(EXULT) SDL_EVENT_DROP_FILE Event, Npc: num = " << npcnum
-				 << ", at x = " << x << ", y = " << y << endl;
+			cout << "(EXULT) SDL_EVENT_DROP_"
+				 << (event.type == SDL_EVENT_DROP_TEXT ? "TEXT" : "FILE")
+				 << " Event, Npc: num = " << npcnum << ", at x = " << x
+				 << ", y = " << y << endl;
 			if (npcnum >= 0) {    // An NPC.
 				Drop_dragged_npc(npcnum, x, y);
 			}
@@ -1955,8 +1965,10 @@ static void Handle_event(SDL_Event& event) {
 					data, combo_xtiles, combo_ytiles, combo_tiles_right,
 					combo_tiles_below, combo_cnt, combo);
 			std::unique_ptr<U7_combo_data[]> combo_owner(combo);
-			cout << "(EXULT) SDL_EVENT_DROP_FILE Event, Combo: xtiles = "
-				 << combo_xtiles << ", ytiles = " << combo_ytiles
+			cout << "(EXULT) SDL_EVENT_DROP_"
+				 << (event.type == SDL_EVENT_DROP_TEXT ? "TEXT" : "FILE")
+				 << " Event, Combo: xtiles = " << combo_xtiles
+				 << ", ytiles = " << combo_ytiles
 				 << ", tiles_right = " << combo_tiles_right
 				 << ", tiles_below = " << combo_tiles_below
 				 << ", count = " << combo_cnt << ", at x = " << x
@@ -1967,7 +1979,9 @@ static void Handle_event(SDL_Event& event) {
 			drag_cbcnt = -1;
 		}
 #		ifdef DEBUG
-		cout << "(EXULT) SDL_EVENT_DROP_FILE Event complete" << endl;
+		cout << "(EXULT) SDL_EVENT_DROP_"
+			 << (event.type == SDL_EVENT_DROP_TEXT ? "TEXT" : "FILE")
+			 << " Event complete" << endl;
 #		endif
 #	endif
 #endif

@@ -981,6 +981,8 @@ void Combo_chooser::drag_data_get(
             buf, foot.w, foot.h, foot.x + foot.w - 1 - hot->tx,
             foot.y + foot.h - 1 - hot->ty, cnt, ents);
 	assert(len <= buflen);
+	cout << "Setting selection data (" << num << ')' << " (" << len << ") '"
+		 << buf << "'" << endl;
 	// Set data.
 	gtk_selection_data_set(
 			seldata, gtk_selection_data_get_target(seldata), 8, buf, len);
