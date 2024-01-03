@@ -511,7 +511,7 @@ bool Gump_manager::handle_modal_gump_event(Modal_gump* gump, SDL_Event& event) {
 		break;
 	}
 	case SDL_EVENT_MOUSE_BUTTON_DOWN:
-		gwin->get_win()->screen_to_game(
+		gwin->get_win()->screen_to_game_hdpi(
 				event.button.x, event.button.y, gwin->get_fastmouse(), gx, gy);
 
 #ifdef DEBUG
@@ -537,7 +537,7 @@ bool Gump_manager::handle_modal_gump_event(Modal_gump* gump, SDL_Event& event) {
 		}
 		break;
 	case SDL_EVENT_MOUSE_BUTTON_UP:
-		gwin->get_win()->screen_to_game(
+		gwin->get_win()->screen_to_game_hdpi(
 				event.button.x, event.button.y, gwin->get_fastmouse(), gx, gy);
 		if (g_shortcutBar && g_shortcutBar->handle_event(&event)) {
 			break;
@@ -553,7 +553,7 @@ bool Gump_manager::handle_modal_gump_event(Modal_gump* gump, SDL_Event& event) {
 		}
 		break;
 	case SDL_EVENT_FINGER_MOTION: {
-		gwin->get_win()->screen_to_game(
+		gwin->get_win()->screen_to_game_hdpi(
 				event.button.x, event.button.y, gwin->get_fastmouse(), gx, gy);
 		static int  numFingers = 0;
 		SDL_Finger* finger0    = SDL_GetTouchFinger(event.tfinger.touchId, 0);
@@ -587,7 +587,7 @@ bool Gump_manager::handle_modal_gump_event(Modal_gump* gump, SDL_Event& event) {
 			&& event.motion.which != EXSDL_TOUCH_MOUSEID) {
 			Mouse::use_touch_input = false;
 		}
-		gwin->get_win()->screen_to_game(
+		gwin->get_win()->screen_to_game_hdpi(
 				event.motion.x, event.motion.y, gwin->get_fastmouse(), gx, gy);
 
 		Mouse::mouse->move(gx, gy);

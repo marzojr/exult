@@ -1604,7 +1604,7 @@ static void Handle_event(SDL_Event& event) {
 		}
 		int x;
 		int y;
-		gwin->get_win()->screen_to_game(
+		gwin->get_win()->screen_to_game_hdpi(
 				event.button.x, event.button.y, gwin->get_fastmouse(), x, y);
 		if (event.button.button == 1) {
 			Gump_button* button;
@@ -1734,7 +1734,7 @@ static void Handle_event(SDL_Event& event) {
 		}
 		int x;
 		int y;
-		gwin->get_win()->screen_to_game(
+		gwin->get_win()->screen_to_game_hdpi(
 				event.button.x, event.button.y, gwin->get_fastmouse(), x, y);
 
 		if (event.button.button == 3) {
@@ -1836,7 +1836,7 @@ static void Handle_event(SDL_Event& event) {
 			&& event.motion.which != EXSDL_TOUCH_MOUSEID) {
 			Mouse::use_touch_input = false;
 		}
-		gwin->get_win()->screen_to_game(
+		gwin->get_win()->screen_to_game_hdpi(
 				event.motion.x, event.motion.y, gwin->get_fastmouse(), mx, my);
 
 		Mouse::mouse->move(mx, my);
@@ -2074,7 +2074,7 @@ static bool Get_click(
 				if (event.button.button == 3) {
 					rightclick = true;
 				} else if (drag_ok && event.button.button == 1) {
-					gwin->get_win()->screen_to_game(
+					gwin->get_win()->screen_to_game_hdpi(
 							event.button.x, event.button.y,
 							gwin->get_fastmouse(), x, y);
 					dragging = gwin->start_dragging(x, y);
@@ -2088,7 +2088,7 @@ static bool Get_click(
 					break;
 				}
 				if (event.button.button == 1) {
-					gwin->get_win()->screen_to_game(
+					gwin->get_win()->screen_to_game_hdpi(
 							event.button.x, event.button.y,
 							gwin->get_fastmouse(), x, y);
 					const bool drg   = dragging;
@@ -2114,7 +2114,7 @@ static bool Get_click(
 			case SDL_EVENT_MOUSE_MOTION: {
 				int mx;
 				int my;
-				gwin->get_win()->screen_to_game(
+				gwin->get_win()->screen_to_game_hdpi(
 						event.motion.x, event.motion.y, gwin->get_fastmouse(),
 						mx, my);
 
@@ -2249,7 +2249,7 @@ void Wait_for_arrival(
 		while (SDL_PollEvent(&event)) {
 			switch (event.type) {
 			case SDL_EVENT_MOUSE_MOTION:
-				gwin->get_win()->screen_to_game(
+				gwin->get_win()->screen_to_game_hdpi(
 						event.motion.x, event.motion.y, gwin->get_fastmouse(),
 						mx, my);
 
@@ -2357,7 +2357,7 @@ void Wizard_eye(long msecs    // Length of time in milliseconds.
 			case SDL_EVENT_MOUSE_MOTION: {
 				int mx;
 				int my;
-				gwin->get_win()->screen_to_game(
+				gwin->get_win()->screen_to_game_hdpi(
 						event.motion.x, event.motion.y, gwin->get_fastmouse(),
 						mx, my);
 

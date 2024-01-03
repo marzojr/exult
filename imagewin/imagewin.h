@@ -358,7 +358,7 @@ public:
 			// fullscreen/windowed mode uses the wrong nativescale
 			nativescale = 1.0f;
 		}
-		if (nativescale != 1.0f) {
+		if (nativescale != 1.0f && !fast) {
 			gx = lgx * nativescale;
 			gy = lgy * nativescale;
 		} else {
