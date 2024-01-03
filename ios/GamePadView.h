@@ -18,7 +18,7 @@
  * Boston, MA  02111-1307, USA.
  */
 
-#include <SDL.h>
+#include <SDL3/SDL.h>
 #import <UIKit/UIKit.h>
 
 @protocol KeyInputDelegate

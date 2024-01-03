@@ -81,8 +81,8 @@
 #	pragma GCC diagnostic ignored "-Wold-style-cast"
 #	pragma GCC diagnostic ignored "-Wzero-as-null-pointer-constant"
 #endif    // __GNUC__
-#include <SDL.h>
-#include <SDL_main.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h>
 static const Uint32 EXSDL_TOUCH_MOUSEID = SDL_TOUCH_MOUSEID;
 #ifdef __GNUC__
 #	pragma GCC diagnostic pop
@@ -93,7 +93,7 @@ static const Uint32 EXSDL_TOUCH_MOUSEID = SDL_TOUCH_MOUSEID;
 #	pragma GCC diagnostic ignored "-Wvariadic-macros"
 #endif    // __GNUC__
 #define Font _XFont_
-#include <SDL_syswm.h>
+#include <SDL3/SDL_syswm.h>
 #undef Font
 #ifdef __GNUC__
 #	pragma GCC diagnostic pop
@@ -124,7 +124,7 @@ using namespace Pentagram;
 #elif defined(ANDROID)
 #	include "TouchUI_Android.h"
 
-#	include <SDL_system.h>
+#	include <SDL3/SDL_system.h>
 #endif
 
 using std::atexit;
