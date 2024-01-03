@@ -29,7 +29,8 @@
 #include <cassert>
 
 static char    docs_dir[512];
-extern "C" int SDL_SendKeyboardKey(Uint8 state, SDL_Scancode scancode);
+extern "C" int SDL_SendKeyboardKey(
+		Uint64 timestamp, Uint8 state, SDL_Scancode scancode);
 
 @interface UIManager : NSObject <KeyInputDelegate, GamePadButtonDelegate> {
 	TouchUI_iOS*   touchUI;
@@ -46,14 +47,14 @@ extern "C" int SDL_SendKeyboardKey(Uint8 state, SDL_Scancode scancode);
 @implementation UIManager
 
 - (void)sendRecurringKeycode {
-	SDL_SendKeyboardKey(SDL_PRESSED, recurringKeycode);
+	SDL_SendKeyboardKey(0, SDL_PRESSED, recurringKeycode);
 	[self performSelector:@selector(sendRecurringKeycode)
 			   withObject:nil
 			   afterDelay:.5];
 }
 
 - (void)keydown:(SDL_Scancode)keycode {
-	SDL_SendKeyboardKey(SDL_PRESSED, keycode);
+	SDL_SendKeyboardKey(0, SDL_PRESSED, keycode);
 	recurringKeycode = keycode;
 	[NSObject cancelPreviousPerformRequestsWithTarget:self
 											 selector:@selector
@@ -69,17 +70,17 @@ extern "C" int SDL_SendKeyboardKey(Uint8 state, SDL_Scancode scancode);
 											 selector:@selector
 											 (sendRecurringKeycode)
 											   object:nil];
-	SDL_SendKeyboardKey(SDL_RELEASED, keycode);
+	SDL_SendKeyboardKey(0, SDL_RELEASED, keycode);
 }
 
 - (void)buttonDown:(GamePadButton*)btn {
 	SDL_SendKeyboardKey(
-			SDL_PRESSED, (SDL_Scancode)[btn.keyCodes[0] integerValue]);
+			0, SDL_PRESSED, (SDL_Scancode)[btn.keyCodes[0] integerValue]);
 }
 
 - (void)buttonUp:(GamePadButton*)btn {
 	SDL_SendKeyboardKey(
-			SDL_RELEASED, (SDL_Scancode)[btn.keyCodes[0] integerValue]);
+			0, SDL_RELEASED, (SDL_Scancode)[btn.keyCodes[0] integerValue]);
 }
 
 - (void)promptForName:(NSString*)name {
