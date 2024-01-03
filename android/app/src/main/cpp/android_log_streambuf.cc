@@ -18,7 +18,7 @@
 
 #include "android_log_streambuf.h"
 
-#include <SDL_system.h>
+#include <SDL3/SDL_system.h>
 #include <android/log.h>
 
 #include <iostream>

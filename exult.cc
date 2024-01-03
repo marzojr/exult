@@ -119,6 +119,7 @@ static const Uint32 EXSDL_TOUCH_MOUSEID = SDL_TOUCH_MOUSEID;
 using namespace Pentagram;
 
 #ifdef __IOS__
+#	include <SDL_main.h>
 #	include "ios_utils.h"
 #elif defined(ANDROID)
 #	include "TouchUI_Android.h"
