@@ -97,7 +97,7 @@ namespace Pentagram {
 
 		void        init_midi();
 		static void sdlAudioCallback(
-				SDL_AudioStream* stream, int len, void* userdata);
+				void* userdata, SDL_AudioStream* stream, int len);
 		SDL_AudioStream* stream;
 
 		void MixAudio(sint16* stream, uint32 bytes);

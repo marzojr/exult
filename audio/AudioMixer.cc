@@ -43,8 +43,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 namespace Pentagram {
 	class SDLAudioDevice {
 	public:
-		SDLAudioDevice(SDL_AudioDeviceID dev_, SDL_AudioStream* stream_)
-				: dev(dev_), stream(stream_) {}
+		SDLAudioDevice(SDL_AudioStream* stream_)
+				: dev(SDL_GetAudioStreamDevice(stream_)), stream(stream_) {}
 
 		~SDLAudioDevice() {
 			SDL_CloseAudioDevice(dev);
@@ -100,18 +100,16 @@ AudioMixer::AudioMixer(int sample_rate_, bool stereo_, int num_channels_)
 
 	// Open SDL Audio (even though we may not need it)
 	SDL_InitSubSystem(SDL_INIT_AUDIO);
-	const SDL_AudioDeviceID dev
-			= SDL_OpenAudioDevice(SDL_AUDIO_DEVICE_DEFAULT_OUTPUT, &desired);
-	audio_ok = (dev != 0);
+	stream = SDL_OpenAudioDeviceStream(
+			SDL_AUDIO_DEVICE_DEFAULT_OUTPUT, &desired, sdlAudioCallback, this);
+	audio_ok = (stream != nullptr);
 
 	if (audio_ok) {
-		stream = SDL_CreateAndBindAudioStream(dev, &desired);
-		SDL_SetAudioStreamGetCallback(stream, sdlAudioCallback, this);
 		SDL_GetAudioStreamFormat(stream, &obtained, nullptr);
 		pout << "Audio opened using format: " << obtained.freq
 			 << " Hz from desired " << sample_rate_ << " Hz "
 			 << static_cast<int>(obtained.channels) << " Channels" << std::endl;
-		device = std::make_unique<SDLAudioDevice>(dev, stream);
+		device = std::make_unique<SDLAudioDevice>(stream);
 		{
 			const std::lock_guard<SDLAudioDevice> lock(*device);
 			sample_rate = obtained.freq;
@@ -365,7 +363,7 @@ void AudioMixer::get2DPosition(
 }
 
 void AudioMixer::sdlAudioCallback(
-		SDL_AudioStream* stream, int len, void* userdata) {
+		void* userdata, SDL_AudioStream* stream, int len) {
 	auto* mixer = static_cast<AudioMixer*>(userdata);
 	// Unfortunately, SDL does not guarantee that stream will be aligned to
 	// the correct alignment for sint16.
