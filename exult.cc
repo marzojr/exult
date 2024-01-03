@@ -966,15 +966,17 @@ static void Init() {
 			devices = SDL_GetAudioCaptureDevices(&num_devices);
 			for (ix = 0; ix < num_devices; ix++) {
 				SDL_AudioSpec as;
+				int           frames = 0;
 				cout << "    [ " << ix << " ] Audio Device [ ID is "
 					 << devices[ix] << " ] is [capture] '"
 					 << (SDL_GetAudioDeviceName(devices[ix])
 								 ? SDL_GetAudioDeviceName(devices[ix])
 								 : "(null)")
 					 << "'";
-				if (!SDL_GetAudioDeviceFormat(devices[ix], &as)) {
+				if (!SDL_GetAudioDeviceFormat(devices[ix], &as, &frames)) {
 					cout << ", " << static_cast<int>(as.channels)
-						 << " channel(s) at '" << as.freq << "Hz'" << endl;
+						 << " channel(s) at '" << as.freq << "Hz', " << frames
+						 << " frames" << endl;
 				} else {
 					cout << endl;
 				}
@@ -983,15 +985,17 @@ static void Init() {
 			devices = SDL_GetAudioOutputDevices(&num_devices);
 			for (ix = 0; ix < num_devices; ix++) {
 				SDL_AudioSpec as;
+				int           frames = 0;
 				cout << "    [ " << ix << " ] Audio Device [ ID is "
 					 << devices[ix] << " ] is [output] '"
 					 << (SDL_GetAudioDeviceName(devices[ix])
 								 ? SDL_GetAudioDeviceName(devices[ix])
 								 : "(null)")
 					 << "'";
-				if (!SDL_GetAudioDeviceFormat(devices[ix], &as)) {
+				if (!SDL_GetAudioDeviceFormat(devices[ix], &as, &frames)) {
 					cout << ", " << static_cast<int>(as.channels)
-						 << " channel(s) at '" << as.freq << "Hz'" << endl;
+						 << " channel(s) at '" << as.freq << "Hz', " << frames
+						 << " frames" << endl;
 				} else {
 					cout << endl;
 				}
