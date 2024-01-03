@@ -103,9 +103,6 @@ static const Uint32 EXSDL_TOUCH_MOUSEID = SDL_TOUCH_MOUSEID;
 #	if HAVE_SYS_TIME_H
 #		include <sys/time.h>
 #	endif
-#	ifdef _WIN32
-#		include "windrag.h"
-#	endif
 #	include "chunks.h"
 #	include "chunkter.h"
 #	include "objserial.h"
@@ -168,11 +165,6 @@ extern void initialise_usecode_debugger();
 
 int current_scaleval = 1;
 
-#if defined(_WIN32) && defined(USE_EXULTSTUDIO)
-static HWND    hgwin;
-static Windnd* windnd = nullptr;
-#endif
-
 /*
  *  Local functions:
  */
@@ -185,11 +177,9 @@ static void set_scaleval(int new_scaleval);
 #ifdef USE_EXULTSTUDIO
 static void Move_dragged_shape(
 		int shape, int frame, int x, int y, int prevx, int prevy, bool show);
-// #ifdef _WIN32
 static void Move_dragged_combo(
 		int xtiles, int ytiles, int tiles_right, int tiles_below, int x, int y,
 		int prevx, int prevy, bool show);
-// #endif
 static void Drop_dragged_shape(int shape, int frame, int x, int y);
 static void Drop_dragged_chunk(int chunknum, int x, int y);
 static void Drop_dragged_npc(int npcnum, int x, int y);
@@ -655,10 +645,6 @@ int exult_main(const char* runpath) {
 	//  main menu and select another scenario". Becaule DnD isn't registered
 	//  until you really enter the game, we remove it here to prevent possible
 	//  bugs invilved with registering DnD a second time over an old variable.
-#	if defined(_WIN32)
-	RevokeDragDrop(hgwin);
-	windnd->Release();
-#	endif
 	Server_close();
 #endif
 
@@ -1063,27 +1049,12 @@ static void Init() {
 	gwin->setup_game(arg_edit_mode);    // This will start the scene.
 										// Get scale factor for mouse.
 #ifdef USE_EXULTSTUDIO
-#	ifndef _WIN32
 	SDL_GetWindowWMInfo(
 			gwin->get_win()->get_screen_window(), &info,
 			SDL_SYSWM_CURRENT_VERSION);
 	Server_init();    // Initialize server (for map-editor).
 	SDL_SetEventEnabled(SDL_EVENT_DROP_FILE, SDL_TRUE);
 	SDL_SetEventEnabled(SDL_EVENT_DROP_TEXT, SDL_TRUE);
-#	else
-	SDL_GetWindowWMInfo(
-			gwin->get_win()->get_screen_window(), &info,
-			SDL_SYSWM_CURRENT_VERSION);
-	hgwin = info.info.win.window;
-	Server_init();    // Initialize server (for map-editor).
-	OleInitialize(nullptr);
-	windnd = new Windnd(
-			hgwin, Move_dragged_shape, Move_dragged_combo, Drop_dragged_shape,
-			Drop_dragged_chunk, Drop_dragged_npc, Drop_dragged_combo);
-	if (FAILED(RegisterDragDrop(hgwin, windnd))) {
-		cout << "Something's wrong with OLE2 ..." << endl;
-	}
-#	endif
 #endif
 }
 
@@ -1898,7 +1869,6 @@ static void Handle_event(SDL_Event& event) {
 	case SDL_EVENT_DROP_TEXT:
 	case SDL_EVENT_DROP_FILE: {
 #ifdef USE_EXULTSTUDIO
-#	ifndef _WIN32
 		int x;
 		int y;
 		//		float fx, fy;
@@ -1906,18 +1876,13 @@ static void Handle_event(SDL_Event& event) {
 		float fx = event.drop.x, fy = event.drop.y;
 		x = int(fx);
 		y = int(fy);
-#		ifdef DEBUG
+#	ifdef DEBUG
 		cout << "(EXULT) SDL_EVENT_DROP_"
 			 << (event.type == SDL_EVENT_DROP_TEXT ? "TEXT" : "FILE")
 			 << " Event, type = " << event.drop.type << ", file ("
 			 << strlen(event.drop.file) << ") = '" << event.drop.file
 			 << "', at x = " << x << ", y = " << y << endl;
-#		endif
-		constexpr static auto deleter = [](char* file) {
-			SDL_free(file);
-		};
-		std::unique_ptr<char, decltype(deleter)> file_owner(
-				event.drop.file, deleter);
+#	endif
 		const unsigned char* data
 				= reinterpret_cast<const unsigned char*>(event.drop.file);
 		if (Is_u7_shapeid(data) == true) {
@@ -1978,27 +1943,25 @@ static void Handle_event(SDL_Event& event) {
 			}
 			drag_cbcnt = -1;
 		}
-#		ifdef DEBUG
+#	ifdef DEBUG
 		cout << "(EXULT) SDL_EVENT_DROP_"
 			 << (event.type == SDL_EVENT_DROP_TEXT ? "TEXT" : "FILE")
 			 << " Event complete" << endl;
-#		endif
 #	endif
 #endif
 		break;
 	}
 	case SDL_EVENT_DROP_BEGIN: {
 #ifdef USE_EXULTSTUDIO
-#	ifndef _WIN32
 		int   x;
 		int   y;
 		float fx = event.drop.x, fy = event.drop.y;
 		x = int(fx);
 		y = int(fy);
-#		ifdef DEBUG
+#	ifdef DEBUG
 		cout << "(EXULT) SDL_EVENT_DROP_BEGIN Event, type = " << event.drop.type
 			 << ", at x = " << x << ", y = " << y << endl;
-#		endif
+#	endif
 		drag_prevx = -1;
 		drag_prevy = -1;
 		if (drag_shpnum != -1) {
@@ -2032,25 +1995,23 @@ static void Handle_event(SDL_Event& event) {
 		}
 		drag_prevx = x;
 		drag_prevy = y;
-#		ifdef DEBUG
+#	ifdef DEBUG
 		cout << "(EXULT) SDL_EVENT_DROP_BEGIN Event complete" << endl;
-#		endif
 #	endif
 #endif
 		break;
 	}
 	case SDL_EVENT_DROP_POSITION: {
 #ifdef USE_EXULTSTUDIO
-#	ifndef _WIN32
 		int   x;
 		int   y;
 		float fx = event.drop.x, fy = event.drop.y;
 		x = int(fx);
 		y = int(fy);
-#		ifdef DEBUG
+#	ifdef DEBUG
 		cout << "(EXULT) SDL_EVENT_DROP_POSITION Event, type = "
 			 << event.drop.type << ", at x = " << x << ", y = " << y << endl;
-#		endif
+#	endif
 		if (drag_shpnum != -1) {
 			int file = drag_shfile, shape = drag_shpnum, frame = drag_shfnum;
 			cout << "(EXULT) SDL_EVENT_DROP_POSITION Event, Shape: file = "
@@ -2082,9 +2043,8 @@ static void Handle_event(SDL_Event& event) {
 		}
 		drag_prevx = x;
 		drag_prevy = y;
-#		ifdef DEBUG
+#	ifdef DEBUG
 		cout << "(EXULT) SDL_EVENT_DROP_POSITION Event complete" << endl;
-#		endif
 #	endif
 #endif
 		break;
@@ -3014,7 +2974,6 @@ static void Move_dragged_shape(
 	}
 }
 
-// #	ifdef _WIN32
 /*
  *  Show where a shape dragged from a shape-chooser will go.
  */
@@ -3033,8 +2992,6 @@ static void Move_dragged_combo(
 		gwin->show();
 	}
 }
-
-// #endif
 
 /*
  *  Create an object as moveable (IREG) or fixed.
