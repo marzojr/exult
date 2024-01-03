@@ -66,8 +66,9 @@ namespace Pentagram {
 		static char formattedTicks[32];
 		uint64      ticks = SDL_GetTicks();
 		snprintf(
-				formattedTicks, 32, "[ %5ld.%0ld ] ", ticks / 1000,
-				ticks % 1000);
+				formattedTicks, 32, "[ %5u.%03u ] ",
+				static_cast<uint32>(ticks / 1000),
+				static_cast<uint32>(ticks % 1000));
 		return formattedTicks;
 	}
 #endif
