@@ -88,17 +88,6 @@ static const Uint32 EXSDL_TOUCH_MOUSEID = SDL_TOUCH_MOUSEID;
 #	pragma GCC diagnostic pop
 #endif    // __GNUC__
 
-#ifdef __GNUC__
-#	pragma GCC diagnostic push
-#	pragma GCC diagnostic ignored "-Wvariadic-macros"
-#endif    // __GNUC__
-#define Font _XFont_
-#include <SDL3/SDL_syswm.h>
-#undef Font
-#ifdef __GNUC__
-#	pragma GCC diagnostic pop
-#endif    // __GNUC__
-
 #ifdef USE_EXULTSTUDIO /* Only needed for communication with exult studio */
 #	if HAVE_SYS_TIME_H
 #		include <sys/time.h>
@@ -755,8 +744,6 @@ static void Init() {
 	}
 	std::atexit(SDL_Quit);
 
-	SDL_SysWMinfo info;    // Get system info.
-
 	// KBD repeat should be nice.
 	SDL_HideCursor();
 
@@ -920,7 +907,7 @@ static void Init() {
 				 << static_cast<int>(linkVers.minor) << "."
 				 << static_cast<int>(linkVers.patch) << endl;
 			cout << "SDL Video :" << endl;
-			cout << "    Hint VIDEODRIVER is '"
+			cout << "    Hint VIDEO_DRIVER is '"
 				 << (SDL_GetHint(SDL_HINT_VIDEO_DRIVER)
 							 ? SDL_GetHint(SDL_HINT_VIDEO_DRIVER)
 							 : "(null)")
@@ -949,7 +936,7 @@ static void Init() {
 					 << "'" << endl;
 			}
 			cout << "SDL Audio :" << endl;
-			cout << "    Hint AUDIODRIVER is '"
+			cout << "    Hint AUDIO_DRIVER is '"
 				 << (SDL_GetHint(SDL_HINT_AUDIO_DRIVER)
 							 ? SDL_GetHint(SDL_HINT_AUDIO_DRIVER)
 							 : "(null)")
@@ -1053,9 +1040,6 @@ static void Init() {
 	gwin->setup_game(arg_edit_mode);    // This will start the scene.
 										// Get scale factor for mouse.
 #ifdef USE_EXULTSTUDIO
-	SDL_GetWindowWMInfo(
-			gwin->get_win()->get_screen_window(), &info,
-			SDL_SYSWM_CURRENT_VERSION);
 	Server_init();    // Initialize server (for map-editor).
 	SDL_SetEventEnabled(SDL_EVENT_DROP_FILE, SDL_TRUE);
 	SDL_SetEventEnabled(SDL_EVENT_DROP_TEXT, SDL_TRUE);
@@ -1884,18 +1868,18 @@ static void Handle_event(SDL_Event& event) {
 		cout << "(EXULT) SDL_EVENT_DROP_"
 			 << (event.type == SDL_EVENT_DROP_TEXT ? "TEXT" : "FILE")
 			 << " Event, type = " << event.drop.type << ", file ("
-			 << strlen(event.drop.file) << ") = '" << event.drop.file
+			 << strlen(event.drop.data) << ") = '" << event.drop.data
 			 << "', at x = " << x << ", y = " << y << endl;
 #	endif
 		const unsigned char* data
-				= reinterpret_cast<const unsigned char*>(event.drop.file);
+				= reinterpret_cast<const unsigned char*>(event.drop.data);
 		if (Is_u7_shapeid(data) == true) {
 			// Get shape info.
 			int file, shape, frame;
 			Get_u7_shapeid(data, file, shape, frame);
 			cout << "(EXULT) SDL_EVENT_DROP_"
 				 << (event.type == SDL_EVENT_DROP_TEXT ? "TEXT" : "FILE")
-				 << " Event, Shape: file = " << file << ", shape = " << shape
+				 << " Event, Shape: file = " << data << ", shape = " << shape
 				 << ", frame = " << frame << ", at x = " << x << ", y = " << y
 				 << endl;
 			if (shape >= 0) {    // Dropping a shape?
