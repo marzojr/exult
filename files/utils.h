@@ -435,7 +435,7 @@ void cleanup_output(const char* prefix = "std");
 #endif
 void setup_data_dir(const std::string& data_path, const char* runpath);
 void setup_program_paths();
-#if defined(MACOSX) || defined(__IPHONEOS__)
+#if defined(MACOSX) || defined(__IOS__)
 void setup_app_bundle_resource();
 #endif
 

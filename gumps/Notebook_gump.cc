@@ -60,7 +60,7 @@ vector<string>       Notebook_gump::auto_text;
 
 const int font  = 4;    // Small black.
 const int vlead = 1;    // Extra inter-line spacing.
-#if defined(__IPHONEOS__) || defined(ANDROID)
+#if defined(__IOS__) || defined(ANDROID)
 const int pagey = 7;    // Top of text area of page.
 #else
 const int pagey = 10;    // Top of text area of page.
@@ -243,7 +243,7 @@ void Notebook_gump::add_new(const string& text, int gflag) {
 
 Notebook_gump::Notebook_gump()
 		: Gump(nullptr, EXULT_FLX_NOTEBOOK_SHP, SF_EXULT_FLX) {
-#if defined(__IPHONEOS__) || defined(ANDROID)
+#if defined(__IOS__) || defined(ANDROID)
 	// on iOS the Notebook gump needs to be aligned with the top
 	set_pos(5, -2);
 #endif
@@ -273,7 +273,7 @@ Notebook_gump* Notebook_gump::create() {
 		instance = new Notebook_gump;
 		if (touchui != nullptr) {
 			touchui->hideGameControls();
-			if (!SDL_IsTextInputActive()) {
+			if (!SDL_TextInputActive()) {
 				SDL_StartTextInput();
 			}
 		}
@@ -305,7 +305,7 @@ Notebook_gump::~Notebook_gump() {
 		if (!gumpman->gump_mode()) {
 			touchui->showGameControls();
 		}
-		if (SDL_IsTextInputActive()) {
+		if (SDL_TextInputActive()) {
 			SDL_StopTextInput();
 		}
 	}
@@ -335,7 +335,7 @@ bool Notebook_gump::paint_page(
 		snprintf(
 				buf, sizeof(buf), "Day %d, %02d:%02d%s", note->day, h ? h : 12,
 				note->minute, ampm);
-#if defined(__IPHONEOS__) || defined(ANDROID)
+#if defined(__IOS__) || defined(ANDROID)
 		const int fontnum = 4;
 		const int yoffset = 0;
 #else
@@ -438,7 +438,7 @@ Gump_button* Notebook_gump::on_button(
 		cursor.offset = offset + coff;
 		paint();
 		updnx = cursor.x - x - lpagex;
-		if (!SDL_IsTextInputActive()) {
+		if (!SDL_TextInputActive()) {
 			SDL_StartTextInput();
 		}
 	} else {
@@ -462,7 +462,7 @@ Gump_button* Notebook_gump::on_button(
 			cursor.offset = offset + coff;
 			paint();
 			updnx = cursor.x - x - rpagex;
-			if (!SDL_IsTextInputActive()) {
+			if (!SDL_TextInputActive()) {
 				SDL_StartTextInput();
 			}
 		}
@@ -644,10 +644,10 @@ bool Notebook_gump::handle_kbd_event(void* vev) {
 			ev.key.keysym.sym, unicode, ev.key.keysym.mod);
 	int chr = ev.key.keysym.sym;
 
-	if (ev.type == SDL_KEYUP) {
+	if (ev.type == SDL_EVENT_KEY_UP) {
 		return true;    // Ignoring key-up at present.
 	}
-	if (ev.type != SDL_KEYDOWN) {
+	if (ev.type != SDL_EVENT_KEY_DOWN) {
 		return false;
 	}
 	if (curpage >= static_cast<int>(page_info.size())) {
@@ -720,7 +720,7 @@ bool Notebook_gump::handle_kbd_event(void* vev) {
 		if (chr >= 256 || !isascii(chr)) {
 			return false;
 		}
-		if (ev.key.keysym.mod & (KMOD_SHIFT | KMOD_CAPS)) {
+		if (ev.key.keysym.mod & (SDL_KMOD_SHIFT | SDL_KMOD_CAPS)) {
 			chr = toupper(chr);
 		}
 		note->insert(chr, cursor.offset);

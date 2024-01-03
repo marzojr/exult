@@ -49,7 +49,7 @@
 #include <array>
 #include <memory>
 
-#ifdef __IPHONEOS__
+#ifdef __IOS__
 #	include "ios_utils.h"
 #endif
 
@@ -236,7 +236,7 @@ std::unique_ptr<MenuList> ExultMenu::create_main_menu(int first) {
 
 	constexpr static const std::array menuchoices{
 			"SETUP", "CREDITS", "QUOTES",
-#ifdef __IPHONEOS__
+#ifdef __IOS__
 			"HELP"
 #else
 			"EXIT"
@@ -387,7 +387,7 @@ BaseGameInfo* ExultMenu::run() {
 
 	if (!gamemanager->get_game_count()) {
 // OS Specific messages
-#ifdef __IPHONEOS__
+#ifdef __IOS__
 		const char game_missing_msg[]
 				= "Please add the games in iTunes File Sharing";
 		const char close_screen_msg[] = "Touch screen for help!";
@@ -420,7 +420,7 @@ BaseGameInfo* ExultMenu::run() {
 		gpal->apply();
 		while (!wait_delay(200)) {
 		}
-#ifdef __IPHONEOS__
+#ifdef __IOS__
 		// Never quits because Apple doesn't allow you to.
 		SDL_OpenURL("http://exult.info/docs.php#ios_games");
 		while (1) {
@@ -513,7 +513,7 @@ BaseGameInfo* ExultMenu::run() {
 			gpal->apply();
 		} break;
 		case -1:    // Exit
-#ifdef __IPHONEOS__
+#ifdef __IOS__
 			SDL_OpenURL("http://exult.info/docs.php#iOS%20Guide");
 			break;
 #else

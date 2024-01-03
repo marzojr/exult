@@ -135,7 +135,7 @@ void SoundTester::test_sound() {
 			redraw = false;
 		}
 		SDL_WaitEvent(&event);
-		if (event.type == SDL_KEYDOWN) {
+		if (event.type == SDL_EVENT_KEY_DOWN) {
 			redraw = true;
 			switch (event.key.keysym.sym) {
 			case SDLK_ESCAPE:
@@ -159,8 +159,8 @@ void SoundTester::test_sound() {
 				repeat = !repeat;
 				break;
 			case SDLK_s:
-				if ((event.key.keysym.mod & KMOD_ALT)
-					&& (event.key.keysym.mod & KMOD_CTRL)) {
+				if ((event.key.keysym.mod & SDL_KMOD_ALT)
+					&& (event.key.keysym.mod & SDL_KMOD_CTRL)) {
 					make_screenshot(true);
 				} else {
 					audio->stop_music();
