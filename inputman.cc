@@ -23,16 +23,118 @@
 #include "game.h"
 #include "gamewin.h"
 #include "ignore_unused_variable_warning.h"
-#include "party.h"
 #include "touchui.h"
-#include "tqueue.h"
 
+#ifdef __GNUC__
+#	pragma GCC diagnostic push
+#	pragma GCC diagnostic ignored "-Wold-style-cast"
+#	pragma GCC diagnostic ignored "-Wzero-as-null-pointer-constant"
+#endif    // __GNUC__
+#include <SDL.h>
 #include <SDL_events.h>
+#include <SDL_gamecontroller.h>
+#ifdef __GNUC__
+#	pragma GCC diagnostic pop
+#endif    // __GNUC__
 
-void InputManager::handle_event(SDL_Event& event) {
+#include <cmath>
+
+namespace {
+	template <
+			typename T,
+			std::enable_if_t<std::is_floating_point_v<T>, bool> = true>
+	inline bool isZero(T val) noexcept {
+		const int result = std::fpclassify(val);
+		return result == FP_SUBNORMAL || result == FP_ZERO;
+	}
+
+	template <
+			typename T1, typename T2,
+			std::enable_if_t<
+					std::is_floating_point_v<T1>
+							&& std::is_floating_point_v<T2>,
+					bool>
+			= true>
+	inline bool floatCompare(T1 f1, T2 f2) noexcept {
+		using T = std::common_type_t<T1, T2>;
+		T v1    = f1;
+		T v2    = f2;
+		return isZero(v1 - v2);
+	}
+}    // namespace
+
+bool AxisVector::isNonzero() const noexcept {
+	return !isZero(x) || !isZero(y);
+}
+
+void InputManager::handle_axis_motion(SDL_ControllerAxisEvent& event) noexcept {
+	SDL_GameController* input_device
+			= SDL_GameControllerFromInstanceID(event.which);
+	if (input_device == nullptr) {
+		// Somehow we got an event for a non-existent gamepad?
+		return;
+	}
+	auto get_normalized_axis = [input_device](SDL_GameControllerAxis axis) {
+		// Dead-zone is applied to each axis, X and Y, on the game's 2d
+		// plane. All axis readings below this are ignored
+		constexpr const float axis_dead_zone = 0.25f;
+		float value = SDL_GameControllerGetAxis(input_device, axis)
+					  / static_cast<float>(SDL_JOYSTICK_AXIS_MAX);
+		// Many analog game-controllers report non-zero axis values,
+		// even when the controller isn't moving.  These non-zero
+		// values can change over time, as the thumb-stick is moved
+		// by the player.
+		//
+		// In order to prevent idle controller sticks from leading
+		// to unwanted movements, axis-values that are small will
+		// be ignored.  This is sometimes referred to as a
+		// "dead zone".
+		if (axis_dead_zone >= std::fabs(value) || isZero(value)) {
+			value = 0.0f;
+		}
+		return value;
+	};
+
+	switch (static_cast<SDL_GameControllerAxis>(event.axis)) {
+	case SDL_CONTROLLER_AXIS_LEFTX:
+	case SDL_CONTROLLER_AXIS_LEFTY: {
+		joy_aim
+				= {get_normalized_axis(SDL_CONTROLLER_AXIS_LEFTX),
+				   get_normalized_axis(SDL_CONTROLLER_AXIS_LEFTY)};
+		invoke_callback(
+				gamepadAxisCallbacks, AxisEventKind::GamepadLeftAxis, joy_aim);
+		break;
+	}
+	case SDL_CONTROLLER_AXIS_RIGHTX:
+	case SDL_CONTROLLER_AXIS_RIGHTY: {
+		joy_mouse
+				= {get_normalized_axis(SDL_CONTROLLER_AXIS_RIGHTX),
+				   get_normalized_axis(SDL_CONTROLLER_AXIS_RIGHTY)};
+		invoke_callback(
+				gamepadAxisCallbacks, AxisEventKind::GamepadRightAxis,
+				joy_mouse);
+		break;
+	}
+	case SDL_CONTROLLER_AXIS_TRIGGERLEFT:
+	case SDL_CONTROLLER_AXIS_TRIGGERRIGHT: {
+		joy_rise
+				= {get_normalized_axis(SDL_CONTROLLER_AXIS_TRIGGERLEFT),
+				   get_normalized_axis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT)};
+		invoke_callback(
+				gamepadAxisCallbacks, AxisEventKind::GamepadTrigger, joy_rise);
+		break;
+	}
+	case SDL_CONTROLLER_AXIS_INVALID:
+	case SDL_CONTROLLER_AXIS_MAX:
+		break;
+	}
+}
+
+void InputManager::handle_event(SDL_Event& event) noexcept {
 	ignore_unused_variable_warning(event);
 	switch (static_cast<SDL_EventType>(event.type)) {
 	case SDL_CONTROLLERAXISMOTION:
+		handle_axis_motion(event.caxis);
 		break;
 
 	// Keystroke.
@@ -86,70 +188,22 @@ void InputManager::handle_event(SDL_Event& event) {
 	}
 }
 
-void InputManager::handle_events() {
+void InputManager::handle_events() noexcept {
 	SDL_Event event;
-	while (!break_event_loop() && SDL_PollEvent(&event) != 0) {
+	while (!invoke_callback(breakLoopCallbacks) && SDL_PollEvent(&event) != 0) {
 		handle_event(event);
 	}
 
-	Game_window* gwin  = Game_window::get_instance();
-	auto         ticks = Game::get_ticks();
-	// Animate unless dormant.
-	if (gwin->have_focus() && !dragging) {
-		gwin->get_tqueue()->activate(ticks);
-	}
-
-	// Moved this out of the animation loop, since we want movement to be
-	// more responsive. Also, if the step delta is only 1 tile,
-	// always check every loop
-	if ((!gwin->is_moving() || gwin->get_step_tile_delta() == 1)
-		&& gwin->main_actor_can_act_charmed()) {
-		int       x;
-		int       y;    // Check for 'stuck' Avatar.
-		const int ms = SDL_GetMouseState(&x, &y);
-		// mouse movement needs to be adjusted for HighDPI
-		gwin->get_win()->screen_to_game_hdpi(x, y, gwin->get_fastmouse(), x, y);
-		if ((SDL_BUTTON(3) & ms) != 0 && !right_on_gump) {
-			gwin->start_actor(x, y, Mouse::mouse->avatar_speed);
-		} else if (ticks > last_rest) {
-			const int resttime = ticks - last_rest;
-			gwin->get_main_actor()->resting(resttime);
-
-			Party_manager* party_man = gwin->get_party_man();
-			const int      cnt       = party_man->get_count();
-			for (int i = 0; i < cnt; i++) {
-				const int party_member = party_man->get_member(i);
-				Actor*    person       = gwin->get_npc(party_member);
-				if (person == nullptr) {
-					continue;
-				}
-				person->resting(resttime);
-			}
-			last_rest = ticks;
-		}
-	}
-
-	// handle delayed showing of clicked items (wait for possible dblclick)
-	if (show_items_clicked && ticks > show_items_time) {
-		gwin->show_items(show_items_x, show_items_y, false);
-		show_items_clicked = false;
-	}
-
-	if (joy_aim_x != 0 || joy_aim_y != 0) {
-		// Calculate the player speed
-		const int speed = 200 * gwin->get_std_delay()
-						  / static_cast<int>(joy_speed_factor);
-
-		// [re]start moving
-		gwin->start_actor(joy_aim_x, joy_aim_y, speed);
-	}
-
-	if (joy_mouse_x != 0 || joy_mouse_y != 0) {
+	Game_window* gwin = Game_window::get_instance();
+	// Note: always do this. This joypad axis is the equivalent of the mouse.
+	if (joy_mouse.isNonzero()) {
 		int x;
 		int y;
 		SDL_GetMouseState(&x, &y);
+		x += static_cast<int>(std::floor(joy_mouse.x));
+		y += static_cast<int>(std::floor(joy_mouse.y));
 		SDL_SetWindowGrab(gwin->get_win()->get_screen_window(), SDL_TRUE);
-		SDL_WarpMouseInWindow(nullptr, x + joy_mouse_x, y + joy_mouse_y);
+		SDL_WarpMouseInWindow(nullptr, x, y);
 		SDL_SetWindowGrab(gwin->get_win()->get_screen_window(), SDL_FALSE);
 	}
 }

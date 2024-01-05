@@ -19,39 +19,104 @@
 #ifndef INPUT_MANAGER_H
 #define INPUT_MANAGER_H
 
-#include "mouse.h"
+#include <stack>
+#include <type_traits>
+#include <utility>
 
-#ifdef __GNUC__
-#	pragma GCC diagnostic push
-#	pragma GCC diagnostic ignored "-Wold-style-cast"
-#	pragma GCC diagnostic ignored "-Wzero-as-null-pointer-constant"
-#endif    // __GNUC__
-#include <SDL.h>
-#ifdef __GNUC__
-#	pragma GCC diagnostic pop
-#endif    // __GNUC__
+union SDL_Event;
+struct SDL_ControllerAxisEvent;
+
+struct AxisVector {
+	float x;
+	float y;
+	bool isNonzero() const noexcept;
+};
+
+enum class AxisEventKind {
+	GamepadLeftAxis,
+	GamepadRightAxis,
+	GamepadTrigger,
+};
 
 class InputManager {
 public:
-	virtual ~InputManager() = default;
-	virtual bool break_event_loop() const;
-	virtual void handle_event(SDL_Event& event);
-	void         handle_events();
+	template <typename Callback_t>
+	struct Callback_wrapper {
+		void*      data;
+		Callback_t callback;
+	};
+
+	template <typename Callback_t>
+	using CallbackStack = std::stack<Callback_wrapper<Callback_t>>;
+
+	template <typename Callback_t>
+	struct Callback_guard {
+		Callback_guard(
+				void* data, Callback_t callback,
+				CallbackStack<Callback_t>& target)
+				: m_target(target) {
+			m_target.push({data, callback});
+		}
+
+		~Callback_guard() noexcept {
+			m_target.pop();
+		}
+
+		Callback_guard(const Callback_guard&)            = delete;
+		Callback_guard(Callback_guard&&)                 = delete;
+		Callback_guard& operator=(const Callback_guard&) = delete;
+		Callback_guard& operator=(Callback_guard&&)      = delete;
+
+	private:
+		CallbackStack<Callback_t>& m_target;
+	};
+
+	template <typename Callback_t>
+	Callback_guard(void* data, Callback_t, CallbackStack<Callback_t>&)
+			-> Callback_guard<Callback_t>;
+
+	bool break_event_loop() const;
+	void handle_event(SDL_Event& event) noexcept;
+	void handle_events() noexcept;
+
+	using GamepadAxisCallback
+			= void (*)(void*, AxisEventKind, const AxisVector&);
+
+	[[nodiscard]] auto register_callback(
+			void* data, GamepadAxisCallback callback) {
+		return Callback_guard(data, callback, gamepadAxisCallbacks);
+	}
+
+	using BreakLoopCallback = bool (*)(void*);
+
+	[[nodiscard]] auto register_callback(
+			void* data, BreakLoopCallback callback) {
+		return Callback_guard(data, callback, breakLoopCallbacks);
+	}
 
 private:
-	uint32 last_rest       = 0;
-	uint32 show_items_time = 0;
-	sint32 show_items_x = 0, show_items_y = 0;
-	sint32 left_down_x = 0, left_down_y = 0;
-	sint32 joy_aim_x = 0, joy_aim_y = 0;
-	sint32 joy_mouse_x = 0, joy_mouse_y = 0;
+	void handle_axis_motion(SDL_ControllerAxisEvent& event) noexcept;
 
-	Mouse::Avatar_Speed_Factors joy_speed_factor = Mouse::medium_speed_factor;
+	AxisVector joy_aim{};
+	AxisVector joy_mouse{};
+	AxisVector joy_rise{};
 
-	bool dragging           = false;    // Object or gump being moved.
-	bool dragged            = false;    // Flag for when obj. moved.
-	bool right_on_gump      = false;    // Right clicked on gump?
-	bool show_items_clicked = false;
+	CallbackStack<GamepadAxisCallback> gamepadAxisCallbacks;
+	CallbackStack<BreakLoopCallback>   breakLoopCallbacks;
+
+	template <typename Callback_t, typename... Ts>
+	auto invoke_callback(const CallbackStack<Callback_t>& stack, Ts&&... args)
+			const noexcept {
+		if (!stack.empty()) {
+			const auto& [data, callback] = stack.top();
+			return callback(data, std::forward<Ts>(args)...);
+		}
+		using Result = decltype((std::declval<Callback_t>())(
+				nullptr, std::forward<Ts>(args)...));
+		if constexpr (!std::is_same_v<void, std::decay_t<Result>>) {
+			return Result{};
+		}
+	}
 };
 
 #endif    // INPUT_MANAGER_H
