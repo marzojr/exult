@@ -76,6 +76,7 @@ EXULTSOURCES =	\
 	hash_utils.h	\
 	headers/ignore_unused_variable_warning.h	\
 	headers/ios_state.hpp	\
+	inputman.cc	\
 	istring.cc	\
 	istring.h	\
 	keys.cc		\

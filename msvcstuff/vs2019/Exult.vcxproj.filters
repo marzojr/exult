@@ -235,6 +235,9 @@
     <ClCompile Include="..\..\gamewin.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\inputman.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\istring.cc">
       <Filter>Source Files</Filter>
     </ClCompile>

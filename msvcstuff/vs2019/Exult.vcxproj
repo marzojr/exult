@@ -563,6 +563,7 @@
     <ClCompile Include="..\..\imagewin\scale_interlace.cc" />
     <ClCompile Include="..\..\imagewin\scale_point.cc" />
     <ClCompile Include="..\..\imagewin\scale_xbr.cc" />
+    <ClCompile Include="..\..\inputman.cc" />
     <ClCompile Include="..\..\istring.cc" />
     <ClCompile Include="..\..\keyactions.cc" />
     <ClCompile Include="..\..\keys.cc" />
