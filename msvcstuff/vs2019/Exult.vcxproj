@@ -563,7 +563,7 @@
     <ClCompile Include="..\..\imagewin\scale_interlace.cc" />
     <ClCompile Include="..\..\imagewin\scale_point.cc" />
     <ClCompile Include="..\..\imagewin\scale_xbr.cc" />
-    <ClCompile Include="..\..\inputman.cc" />
+    <ClCompile Include="..\..\eventman.cc" />
     <ClCompile Include="..\..\istring.cc" />
     <ClCompile Include="..\..\keyactions.cc" />
     <ClCompile Include="..\..\keys.cc" />
@@ -786,7 +786,7 @@
     <ClInclude Include="..\..\imagewin\scale_interlace.h" />
     <ClInclude Include="..\..\imagewin\scale_point.h" />
     <ClInclude Include="..\..\imagewin\scale_xbr.h" />
-    <ClCompile Include="..\..\inputman.h" />
+    <ClCompile Include="..\..\eventman.h" />
     <ClInclude Include="..\..\istring.h" />
     <ClInclude Include="..\..\keyactions.h" />
     <ClInclude Include="..\..\keys.h" />

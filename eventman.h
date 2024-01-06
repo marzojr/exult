@@ -85,9 +85,9 @@ namespace { namespace detail {
 
 }}    // namespace ::detail
 
-class InputManager {
+class EventManager {
 public:
-	InputManager();
+	EventManager();
 
 	template <typename Callback_t>
 	using CallbackStack = std::stack<std::function<Callback_t>>;

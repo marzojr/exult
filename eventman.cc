@@ -16,7 +16,7 @@
  *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-#include "inputman.h"
+#include "eventman.h"
 
 #include "ShortcutBar_gump.h"
 #include "actors.h"
@@ -68,18 +68,14 @@ namespace {
 }    // namespace
 
 bool AxisVector::isNonzero() const noexcept {
-	// Note: this access is valid because the two structures in the union
-	// share a common initial sequence.
 	return !isZero(x) || !isZero(y);
 }
 
 bool AxisTrigger::isNonzero() const noexcept {
-	// Note: this access is valid because the two structures in the union
-	// share a common initial sequence.
 	return !isZero(left) || !isZero(right);
 }
 
-SDL_GameController* InputManager::open_game_controller(
+SDL_GameController* EventManager::open_game_controller(
 		int joystick_index) const noexcept {
 	SDL_GameController* input_device = SDL_GameControllerOpen(joystick_index);
 	if (input_device != nullptr) {
@@ -94,7 +90,7 @@ SDL_GameController* InputManager::open_game_controller(
 	return input_device;
 }
 
-SDL_GameController* InputManager::find_controller() const noexcept {
+SDL_GameController* EventManager::find_controller() const noexcept {
 	for (int i = 0; i < SDL_NumJoysticks(); i++) {
 		if (SDL_IsGameController(i) != 0u) {
 			return open_game_controller(i);
@@ -104,11 +100,11 @@ SDL_GameController* InputManager::find_controller() const noexcept {
 	return nullptr;
 }
 
-InputManager::InputManager() {
+EventManager::EventManager() {
 	active_gamepad = find_controller();
 }
 
-void InputManager::handle_gamepad_axis_input() noexcept {
+void EventManager::handle_gamepad_axis_input() noexcept {
 	if (active_gamepad == nullptr) {
 		// Exit if no active gamepad
 		return;
@@ -168,11 +164,11 @@ void InputManager::handle_gamepad_axis_input() noexcept {
 	invoke_callback(gamepadAxisCallbacks, joy_aim, joy_mouse, joy_rise);
 }
 
-bool InputManager::break_event_loop() const {
+bool EventManager::break_event_loop() const {
 	return invoke_callback(breakLoopCallbacks);
 }
 
-void InputManager::handle_event(SDL_ControllerDeviceEvent& event) noexcept {
+void EventManager::handle_event(SDL_ControllerDeviceEvent& event) noexcept {
 	switch (event.type) {
 	case SDL_CONTROLLERDEVICEADDED: {
 		// If we are already using a gamepad, skip.
@@ -204,7 +200,7 @@ void InputManager::handle_event(SDL_ControllerDeviceEvent& event) noexcept {
 	}
 }
 
-void InputManager::handle_event(SDL_KeyboardEvent& event) noexcept {
+void EventManager::handle_event(SDL_KeyboardEvent& event) noexcept {
 	switch (event.type) {
 	case SDL_KEYDOWN:
 		break;
@@ -217,7 +213,7 @@ void InputManager::handle_event(SDL_KeyboardEvent& event) noexcept {
 	}
 }
 
-void InputManager::handle_event(SDL_TextInputEvent& event) noexcept {
+void EventManager::handle_event(SDL_TextInputEvent& event) noexcept {
 	ignore_unused_variable_warning(event);
 }
 
@@ -254,19 +250,19 @@ void handle_event(SDL_MouseWheelEvent& event) noexcept {
 	}
 }
 
-void InputManager::handle_event(SDL_DropEvent& event) noexcept {
+void EventManager::handle_event(SDL_DropEvent& event) noexcept {
 	ignore_unused_variable_warning(event);
 }
 
-void InputManager::handle_background_event() {}
+void EventManager::handle_background_event() {}
 
-void InputManager::handle_event(SDL_WindowEvent& event) noexcept {
+void EventManager::handle_event(SDL_WindowEvent& event) noexcept {
 	ignore_unused_variable_warning(event);
 }
 
-void InputManager::handle_quit_event() {}
+void EventManager::handle_quit_event() {}
 
-void InputManager::handle_event(SDL_Event& event) {
+void EventManager::handle_event(SDL_Event& event) {
 	switch (static_cast<SDL_EventType>(event.type)) {
 	case SDL_CONTROLLERDEVICEADDED:
 	case SDL_CONTROLLERDEVICEREMOVED:
@@ -325,7 +321,7 @@ void InputManager::handle_event(SDL_Event& event) {
 	}
 }
 
-void InputManager::handle_events() {
+void EventManager::handle_events() {
 	SDL_Event event;
 	while (!invoke_callback(breakLoopCallbacks) && SDL_PollEvent(&event) != 0) {
 		handle_event(event);
