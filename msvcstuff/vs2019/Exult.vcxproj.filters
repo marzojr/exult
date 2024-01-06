@@ -801,6 +801,9 @@
     <ClInclude Include="..\..\hash_utils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\inputman.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\istring.h">
       <Filter>Header Files</Filter>
     </ClInclude>

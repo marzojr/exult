@@ -538,6 +538,7 @@
 		E700DC5E1A6E30A7006C8BE4 /* gamerend.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = gamerend.h; path = ../gamerend.h; sourceTree = "<group>"; };
 		E700DC611A6E30A7006C8BE4 /* hash_utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = hash_utils.h; path = ../hash_utils.h; sourceTree = "<group>"; };
 		34D14FF0B89F36C2658B7920 /* inputman.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = inputman.cc; path = ../inputman.cc; sourceTree = "<group>"; };
+		DB9840DE8F678BFC0BD39603 /* inputman.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = inputman.h; path = ../inputman.h; sourceTree = "<group>"; };
 		E700DC621A6E30A7006C8BE4 /* istring.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = istring.cc; path = ../istring.cc; sourceTree = "<group>"; };
 		E700DC631A6E30A7006C8BE4 /* istring.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = istring.h; path = ../istring.h; sourceTree = "<group>"; };
 		E700DC641A6E30A7006C8BE4 /* keyactions.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = keyactions.cc; path = ../keyactions.cc; sourceTree = "<group>"; };
@@ -1177,6 +1178,7 @@
 				E700E0281A6E4067006C8BE4 /* gamewin.h */,
 				E700DC611A6E30A7006C8BE4 /* hash_utils.h */,
 				34D14FF0B89F36C2658B7920 /* inputman.cc */,
+				DB9840DE8F678BFC0BD39603 /* inputman.h */,
 				E700DC621A6E30A7006C8BE4 /* istring.cc */,
 				E700DC631A6E30A7006C8BE4 /* istring.h */,
 				E700DC641A6E30A7006C8BE4 /* keyactions.cc */,

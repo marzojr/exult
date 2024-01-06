@@ -43,7 +43,7 @@ namespace {
 	template <
 			typename T,
 			std::enable_if_t<std::is_floating_point_v<T>, bool> = true>
-	inline bool isZero(T val) noexcept {
+	[[maybe_unused]] inline bool isZero(T val) noexcept {
 		const int result = std::fpclassify(val);
 		return result == FP_SUBNORMAL || result == FP_ZERO;
 	}
@@ -55,7 +55,7 @@ namespace {
 							&& std::is_floating_point_v<T2>,
 					bool>
 			= true>
-	inline bool floatCompare(T1 f1, T2 f2) noexcept {
+	[[maybe_unused]] inline bool floatCompare(T1 f1, T2 f2) noexcept {
 		using T = std::common_type_t<T1, T2>;
 		T v1    = f1;
 		T v2    = f2;
@@ -65,6 +65,9 @@ namespace {
 
 bool AxisVector::isNonzero() const noexcept {
 	return !isZero(x) || !isZero(y);
+}
+
+InputManager::InputManager() {
 }
 
 void InputManager::handle_axis_motion(SDL_ControllerAxisEvent& event) noexcept {
@@ -128,6 +131,10 @@ void InputManager::handle_axis_motion(SDL_ControllerAxisEvent& event) noexcept {
 	case SDL_CONTROLLER_AXIS_MAX:
 		break;
 	}
+}
+
+bool InputManager::break_event_loop() const {
+	return invoke_callback(breakLoopCallbacks);
 }
 
 void InputManager::handle_event(SDL_Event& event) noexcept {

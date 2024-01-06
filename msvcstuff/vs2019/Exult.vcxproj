@@ -786,6 +786,7 @@
     <ClInclude Include="..\..\imagewin\scale_interlace.h" />
     <ClInclude Include="..\..\imagewin\scale_point.h" />
     <ClInclude Include="..\..\imagewin\scale_xbr.h" />
+    <ClCompile Include="..\..\inputman.h" />
     <ClInclude Include="..\..\istring.h" />
     <ClInclude Include="..\..\keyactions.h" />
     <ClInclude Include="..\..\keys.h" />
