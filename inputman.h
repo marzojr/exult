@@ -19,24 +19,43 @@
 #ifndef INPUT_MANAGER_H
 #define INPUT_MANAGER_H
 
+#include "common_types.h"
+
 #include <stack>
 #include <type_traits>
 #include <utility>
 
 union SDL_Event;
-struct SDL_ControllerAxisEvent;
+struct SDL_ControllerDeviceEvent;
+struct SDL_KeyboardEvent;
+struct SDL_TextInputEvent;
+struct SDL_MouseMotionEvent;
+struct SDL_MouseButtonEvent;
+struct SDL_MouseWheelEvent;
+struct SDL_TouchFingerEvent;
+struct SDL_DropEvent;
+struct SDL_WindowEvent;
 
+struct _SDL_GameController;
+using SDL_GameController = struct _SDL_GameController;
+
+// Callback related stuff.
 struct AxisVector {
 	float x;
 	float y;
 	bool  isNonzero() const noexcept;
 };
 
-enum class AxisEventKind {
-	GamepadLeftAxis,
-	GamepadRightAxis,
-	GamepadTrigger,
+struct AxisTrigger {
+	float left;
+	float right;
+	bool  isNonzero() const noexcept;
 };
+
+using GamepadAxisCallback
+		= void(const AxisVector& leftAxis, const AxisVector& rightAxis,
+			   const AxisTrigger& triggers);
+using BreakLoopCallback = bool();
 
 namespace { namespace detail {
 	template <typename C, typename F, typename T>
@@ -111,8 +130,6 @@ private:
 			-> Callback_guard<Callback_t>;
 
 public:
-	using GamepadAxisCallback = void(AxisEventKind, const AxisVector&);
-
 	[[nodiscard]] auto register_callback(GamepadAxisCallback callback) {
 		return Callback_guard(callback, gamepadAxisCallbacks);
 	}
@@ -123,11 +140,9 @@ public:
 	[[nodiscard]] auto register_callback(F callback, T* data) {
 		using namespace std::placeholders;
 		std::function<GamepadAxisCallback> fun
-				= std::bind(callback, data, _1, _2);
+				= std::bind(callback, data, _1, _2, _3, _4);
 		return Callback_guard(std::move(fun), gamepadAxisCallbacks);
 	}
-
-	using BreakLoopCallback = bool();
 
 	[[nodiscard]] auto register_callback(BreakLoopCallback callback) {
 		return Callback_guard(callback, breakLoopCallbacks);
@@ -143,16 +158,30 @@ public:
 		return Callback_guard(std::move(fun), breakLoopCallbacks);
 	}
 
+	void handle_events();
+
 private:
 	bool break_event_loop() const;
-	void handle_event(SDL_Event& event) noexcept;
-	void handle_events() noexcept;
+	void handle_event(SDL_Event& event);
+	void handle_event(SDL_ControllerDeviceEvent& event) noexcept;
+	void handle_event(SDL_KeyboardEvent& event) noexcept;
+	void handle_event(SDL_TextInputEvent& event) noexcept;
+	void handle_event(SDL_MouseMotionEvent& event) noexcept;
+	void handle_event(SDL_MouseButtonEvent& event) noexcept;
+	void handle_event(SDL_MouseWheelEvent& event) noexcept;
+	void handle_event(SDL_TouchFingerEvent& event) noexcept;
+	void handle_event(SDL_DropEvent& event) noexcept;
+	void handle_event(SDL_WindowEvent& event) noexcept;
 
-	void handle_axis_motion(SDL_ControllerAxisEvent& event) noexcept;
+	void handle_background_event();
+	void handle_quit_event();
 
-	AxisVector joy_aim{};
-	AxisVector joy_mouse{};
-	AxisVector joy_rise{};
+	void handle_gamepad_axis_input() noexcept;
+
+	SDL_GameController* find_controller() const noexcept;
+	SDL_GameController* open_game_controller(int joystick_index) const noexcept;
+
+	SDL_GameController* active_gamepad = nullptr;
 
 	CallbackStack<GamepadAxisCallback> gamepadAxisCallbacks;
 	CallbackStack<BreakLoopCallback>   breakLoopCallbacks;

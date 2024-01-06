@@ -25,6 +25,10 @@
 #include "ignore_unused_variable_warning.h"
 #include "touchui.h"
 
+#include <SDL_error.h>
+
+#include <iostream>
+
 #ifdef __GNUC__
 #	pragma GCC diagnostic push
 #	pragma GCC diagnostic ignored "-Wold-style-cast"
@@ -64,24 +68,58 @@ namespace {
 }    // namespace
 
 bool AxisVector::isNonzero() const noexcept {
+	// Note: this access is valid because the two structures in the union
+	// share a common initial sequence.
 	return !isZero(x) || !isZero(y);
 }
 
-InputManager::InputManager() {
+bool AxisTrigger::isNonzero() const noexcept {
+	// Note: this access is valid because the two structures in the union
+	// share a common initial sequence.
+	return !isZero(left) || !isZero(right);
 }
 
-void InputManager::handle_axis_motion(SDL_ControllerAxisEvent& event) noexcept {
-	SDL_GameController* input_device
-			= SDL_GameControllerFromInstanceID(event.which);
-	if (input_device == nullptr) {
-		// Somehow we got an event for a non-existent gamepad?
+SDL_GameController* InputManager::open_game_controller(
+		int joystick_index) const noexcept {
+	SDL_GameController* input_device = SDL_GameControllerOpen(joystick_index);
+	if (input_device != nullptr) {
+		SDL_GameControllerGetJoystick(input_device);
+		std::cout << "Game controller attached and open: \""
+				  << SDL_GameControllerName(input_device) << '"' << std::endl;
+	} else {
+		std::cout
+				<< "Game controller attached, but it failed to open. Error: \""
+				<< SDL_GetError() << '"' << std::endl;
+	}
+	return input_device;
+}
+
+SDL_GameController* InputManager::find_controller() const noexcept {
+	for (int i = 0; i < SDL_NumJoysticks(); i++) {
+		if (SDL_IsGameController(i) != 0u) {
+			return open_game_controller(i);
+		}
+	}
+	// No gamepads found.
+	return nullptr;
+}
+
+InputManager::InputManager() {
+	active_gamepad = find_controller();
+}
+
+void InputManager::handle_gamepad_axis_input() noexcept {
+	if (active_gamepad == nullptr) {
+		// Exit if no active gamepad
 		return;
 	}
-	auto get_normalized_axis = [input_device](SDL_GameControllerAxis axis) {
+	constexpr const float axis_dead_zone = 0.25f;
+	constexpr const float mouse_scale    = 2.f / axis_dead_zone;
+
+	auto get_normalized_axis = [&](SDL_GameControllerAxis axis) {
 		// Dead-zone is applied to each axis, X and Y, on the game's 2d
 		// plane. All axis readings below this are ignored
-		constexpr const float axis_dead_zone = 0.25f;
-		float value = SDL_GameControllerGetAxis(input_device, axis)
+		float value = SDL_GameControllerGetAxis(active_gamepad, axis)
 					  / static_cast<float>(SDL_JOYSTICK_AXIS_MAX);
 		// Many analog game-controllers report non-zero axis values,
 		// even when the controller isn't moving.  These non-zero
@@ -98,93 +136,185 @@ void InputManager::handle_axis_motion(SDL_ControllerAxisEvent& event) noexcept {
 		return value;
 	};
 
-	switch (static_cast<SDL_GameControllerAxis>(event.axis)) {
-	case SDL_CONTROLLER_AXIS_LEFTX:
-	case SDL_CONTROLLER_AXIS_LEFTY: {
-		joy_aim
-				= {get_normalized_axis(SDL_CONTROLLER_AXIS_LEFTX),
-				   get_normalized_axis(SDL_CONTROLLER_AXIS_LEFTY)};
-		invoke_callback(
-				gamepadAxisCallbacks, AxisEventKind::GamepadLeftAxis, joy_aim);
-		break;
+	const AxisVector joy_aim{
+			get_normalized_axis(SDL_CONTROLLER_AXIS_LEFTX),
+			get_normalized_axis(SDL_CONTROLLER_AXIS_LEFTY)};
+	const AxisVector joy_mouse{
+			get_normalized_axis(SDL_CONTROLLER_AXIS_RIGHTX),
+			get_normalized_axis(SDL_CONTROLLER_AXIS_RIGHTY)};
+	const AxisTrigger joy_rise{
+			get_normalized_axis(SDL_CONTROLLER_AXIS_TRIGGERLEFT),
+			get_normalized_axis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT)};
+
+	if (joy_mouse.isNonzero()) {
+		// This joypad axis is the equivalent of the mouse.
+		Game_window* gwin  = Game_window::get_instance();
+		const int    scale = gwin->get_win()->get_scale_factor();
+
+		int x;
+		int y;
+		SDL_GetMouseState(&x, &y);
+		int delta_x = static_cast<int>(
+				round(mouse_scale * joy_mouse.x * static_cast<float>(scale)));
+		int delta_y = static_cast<int>(
+				round(mouse_scale * joy_mouse.y * static_cast<float>(scale)));
+		x += delta_x;
+		y += delta_y;
+		SDL_SetWindowGrab(gwin->get_win()->get_screen_window(), SDL_TRUE);
+		SDL_WarpMouseInWindow(nullptr, x, y);
+		SDL_SetWindowGrab(gwin->get_win()->get_screen_window(), SDL_FALSE);
 	}
-	case SDL_CONTROLLER_AXIS_RIGHTX:
-	case SDL_CONTROLLER_AXIS_RIGHTY: {
-		joy_mouse
-				= {get_normalized_axis(SDL_CONTROLLER_AXIS_RIGHTX),
-				   get_normalized_axis(SDL_CONTROLLER_AXIS_RIGHTY)};
-		invoke_callback(
-				gamepadAxisCallbacks, AxisEventKind::GamepadRightAxis,
-				joy_mouse);
-		break;
-	}
-	case SDL_CONTROLLER_AXIS_TRIGGERLEFT:
-	case SDL_CONTROLLER_AXIS_TRIGGERRIGHT: {
-		joy_rise
-				= {get_normalized_axis(SDL_CONTROLLER_AXIS_TRIGGERLEFT),
-				   get_normalized_axis(SDL_CONTROLLER_AXIS_TRIGGERRIGHT)};
-		invoke_callback(
-				gamepadAxisCallbacks, AxisEventKind::GamepadTrigger, joy_rise);
-		break;
-	}
-	case SDL_CONTROLLER_AXIS_INVALID:
-	case SDL_CONTROLLER_AXIS_MAX:
-		break;
-	}
+
+	invoke_callback(gamepadAxisCallbacks, joy_aim, joy_mouse, joy_rise);
 }
 
 bool InputManager::break_event_loop() const {
 	return invoke_callback(breakLoopCallbacks);
 }
 
-void InputManager::handle_event(SDL_Event& event) noexcept {
-	ignore_unused_variable_warning(event);
-	switch (static_cast<SDL_EventType>(event.type)) {
-	case SDL_CONTROLLERAXISMOTION:
-		handle_axis_motion(event.caxis);
+void InputManager::handle_event(SDL_ControllerDeviceEvent& event) noexcept {
+	switch (event.type) {
+	case SDL_CONTROLLERDEVICEADDED: {
+		// If we are already using a gamepad, skip.
+		if (active_gamepad == nullptr) {
+			const SDL_JoystickID joystick_id
+					= SDL_JoystickGetDeviceInstanceID(event.which);
+			if (SDL_GameControllerFromInstanceID(joystick_id) == nullptr) {
+				active_gamepad = open_game_controller(event.which);
+			}
+		}
 		break;
+	}
+	case SDL_CONTROLLERDEVICEREMOVED: {
+		// If the gamepad we are using was removed, we need a new one.
+		if (active_gamepad != nullptr
+			&& event.which
+					   == SDL_JoystickInstanceID(
+							   SDL_GameControllerGetJoystick(active_gamepad))) {
+			std::cout << "Game controller \""
+					  << SDL_GameControllerName(active_gamepad)
+					  << "\" detached and closed." << std::endl;
+			SDL_GameControllerClose(active_gamepad);
+			active_gamepad = find_controller();
+		}
+		break;
+	}
+	default:
+		break;
+	}
+}
 
-	// Keystroke.
+void InputManager::handle_event(SDL_KeyboardEvent& event) noexcept {
+	switch (event.type) {
 	case SDL_KEYDOWN:
 		break;
 
-	// Keystroke.
 	case SDL_KEYUP:
 		break;
 
-	case SDL_TEXTINPUT:
+	default:
 		break;
+	}
+}
 
+void InputManager::handle_event(SDL_TextInputEvent& event) noexcept {
+	ignore_unused_variable_warning(event);
+}
+
+void handle_event(SDL_MouseMotionEvent& event) noexcept {
+	ignore_unused_variable_warning(event);
+}
+
+void handle_event(SDL_MouseButtonEvent& event) noexcept {
+	switch (event.type) {
 	case SDL_MOUSEBUTTONDOWN:
 		break;
 
 	case SDL_MOUSEBUTTONUP:
 		break;
 
-	case SDL_MOUSEMOTION:
+	default:
 		break;
+	}
+}
 
-	// Mousewheel scrolling of view port with SDL2.
-	case SDL_MOUSEWHEEL:
-		break;
-
+void handle_event(SDL_MouseWheelEvent& event) noexcept {
+	switch (event.type) {
 	case SDL_FINGERDOWN:
 		break;
 
-	// two-finger scrolling of view port with SDL2.
+	case SDL_FINGERUP:
+		break;
+
 	case SDL_FINGERMOTION:
 		break;
 
+	default:
+		break;
+	}
+}
+
+void InputManager::handle_event(SDL_DropEvent& event) noexcept {
+	ignore_unused_variable_warning(event);
+}
+
+void InputManager::handle_background_event() {}
+
+void InputManager::handle_event(SDL_WindowEvent& event) noexcept {
+	ignore_unused_variable_warning(event);
+}
+
+void InputManager::handle_quit_event() {}
+
+void InputManager::handle_event(SDL_Event& event) {
+	switch (static_cast<SDL_EventType>(event.type)) {
+	case SDL_CONTROLLERDEVICEADDED:
+	case SDL_CONTROLLERDEVICEREMOVED:
+		handle_event(event.cdevice);
+		break;
+
+	case SDL_KEYDOWN:
+	case SDL_KEYUP:
+		handle_event(event.key);
+		break;
+
+	case SDL_TEXTINPUT:
+		handle_event(event.text);
+		break;
+
+	case SDL_MOUSEBUTTONDOWN:
+	case SDL_MOUSEBUTTONUP:
+		handle_event(event.button);
+		break;
+
+	case SDL_MOUSEMOTION:
+		handle_event(event.motion);
+		break;
+
+	case SDL_MOUSEWHEEL:
+		handle_event(event.wheel);
+		break;
+
+	case SDL_FINGERDOWN:
+	case SDL_FINGERUP:
+	case SDL_FINGERMOTION:
+		handle_event(event.tfinger);
+		break;
+
 	case SDL_DROPFILE:
+		handle_event(event.drop);
 		break;
 
 	case SDL_APP_WILLENTERBACKGROUND:
+		handle_background_event();
 		break;
 
 	case SDL_WINDOWEVENT:
+		handle_event(event.window);
 		break;
 
 	case SDL_QUIT:
+		handle_quit_event();
 		break;
 
 	default:
@@ -195,22 +325,11 @@ void InputManager::handle_event(SDL_Event& event) noexcept {
 	}
 }
 
-void InputManager::handle_events() noexcept {
+void InputManager::handle_events() {
 	SDL_Event event;
 	while (!invoke_callback(breakLoopCallbacks) && SDL_PollEvent(&event) != 0) {
 		handle_event(event);
 	}
 
-	Game_window* gwin = Game_window::get_instance();
-	// Note: always do this. This joypad axis is the equivalent of the mouse.
-	if (joy_mouse.isNonzero()) {
-		int x;
-		int y;
-		SDL_GetMouseState(&x, &y);
-		x += static_cast<int>(std::floor(joy_mouse.x));
-		y += static_cast<int>(std::floor(joy_mouse.y));
-		SDL_SetWindowGrab(gwin->get_win()->get_screen_window(), SDL_TRUE);
-		SDL_WarpMouseInWindow(nullptr, x, y);
-		SDL_SetWindowGrab(gwin->get_win()->get_screen_window(), SDL_FALSE);
-	}
+	handle_gamepad_axis_input();
 }
