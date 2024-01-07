@@ -25,6 +25,8 @@
 #include "ignore_unused_variable_warning.h"
 #include "touchui.h"
 
+#include <SDL_video.h>
+
 #include <cmath>
 #include <iostream>
 #include <memory>
@@ -350,7 +352,21 @@ void EventManagerImpl::handle_event(SDL_DropEvent& event) noexcept {
 void EventManagerImpl::handle_background_event() {}
 
 void EventManagerImpl::handle_event(SDL_WindowEvent& event) noexcept {
-	ignore_unused_variable_warning(event);
+	auto eventID = [&]() {
+		switch (event.event) {
+		case SDL_WINDOWEVENT_ENTER:
+			return WindowEvents::Enter;
+		case SDL_WINDOWEVENT_LEAVE:
+			return WindowEvents::Leave;
+		case SDL_WINDOWEVENT_FOCUS_GAINED:
+			return WindowEvents::Focus_Gained;
+		case SDL_WINDOWEVENT_FOCUS_LOST:
+			return WindowEvents::Focus_Lost;
+		default:
+			return WindowEvents::Unhandled;
+		}
+	}();
+	invoke_callback(windowEventCallbacks, eventID, MousePosition());
 }
 
 void EventManagerImpl::handle_quit_event() {}

@@ -45,12 +45,21 @@ struct MousePosition {
 	MousePosition(int x_, int y_);
 };
 
+enum class WindowEvents {
+	Unhandled,
+	Enter,           // Window has gained mouse focus
+	Leave,           // Window has lost mouse focus
+	Focus_Gained,    // Window has gained keyboard focus
+	Focus_Lost,      // Window has lost keyboard focus
+};
+
 using GamepadAxisCallback
 		= void(const AxisVector& leftAxis, const AxisVector& rightAxis,
 			   const AxisTrigger& triggers);
-using BreakLoopCallback = bool();
+using BreakLoopCallback   = bool();
+using WindowEventCallback = void(WindowEvents event, const MousePosition& pos);
 using DropFileCallback
-		= void(uint32 type, const uint8* file, const MousePosition& loc);
+		= void(uint32 type, const uint8* file, const MousePosition& pos);
 
 namespace { namespace detail {
 	template <typename C, typename F, typename... Ts>
@@ -170,6 +179,20 @@ public:
 		return Callback_guard(callback, dropFileCallbacks);
 	}
 
+	[[nodiscard]] auto register_callback(WindowEventCallback callback) {
+		return Callback_guard(callback, windowEventCallbacks);
+	}
+
+	template <
+			typename F, typename T,
+			detail::compatible_with_t<WindowEventCallback, F, T*> = true>
+	[[nodiscard]] auto register_callback(F callback, T* data) {
+		using namespace std::placeholders;
+		std::function<WindowEventCallback> fun
+				= std::bind(callback, data, _1, _2);
+		return Callback_guard(std::move(fun), windowEventCallbacks);
+	}
+
 	template <
 			typename F, typename T,
 			detail::compatible_with_t<DropFileCallback, F, T*> = true>
@@ -188,6 +211,7 @@ protected:
 
 	CallbackStack<GamepadAxisCallback> gamepadAxisCallbacks;
 	CallbackStack<BreakLoopCallback>   breakLoopCallbacks;
+	CallbackStack<WindowEventCallback> windowEventCallbacks;
 	CallbackStack<DropFileCallback>    dropFileCallbacks;
 };
 
