@@ -58,30 +58,23 @@ using GamepadAxisCallback
 using BreakLoopCallback = bool();
 
 namespace { namespace detail {
-	template <typename C, typename F, typename T>
+	template <typename C, typename F, typename... Ts>
 	struct is_compatible_with {};
 
-	template <class R, class... Args, typename F, typename T>
-	struct is_compatible_with<R(Args...), F, T*>
+	template <typename R, typename... Args, typename F, typename... Ts>
+	struct is_compatible_with<R(Args...), F, Ts...>
 			: std::bool_constant<
-					  std::is_invocable_r_v<R, F, T*, Args...>
+					  std::is_invocable_r_v<R, F, Ts..., Args...>
 					  && std::is_same_v<
-							  R, std::invoke_result_t<F, T*, Args...>>> {};
+							  R, std::invoke_result_t<F, Ts..., Args...>>> {};
 
-	template <class R, class... Args, typename F, typename T>
-	struct is_compatible_with<R(Args...), F, T>
-			: std::bool_constant<
-					  std::is_invocable_r_v<R, F, T*, Args...>
-					  && std::is_same_v<
-							  R, std::invoke_result_t<F, T*, Args...>>> {};
-
-	template <class C, typename F, typename T>
+	template <typename C, typename F, typename... Ts>
 	[[maybe_unused]] constexpr inline const bool is_compatible_with_v
-			= is_compatible_with<C, F, T>::value;
+			= is_compatible_with<C, F, Ts...>::value;
 
-	template <class C, typename F, typename T>
+	template <typename C, typename F, typename... Ts>
 	using compatible_with_t
-			= std::enable_if_t<is_compatible_with_v<C, F, T>, bool>;
+			= std::enable_if_t<is_compatible_with_v<C, F, Ts...>, bool>;
 
 }}    // namespace ::detail
 
@@ -94,13 +87,25 @@ public:
 
 private:
 	template <typename Callback_t>
-	struct Callback_guard {
-		Callback_guard(Callback_t callback, CallbackStack<Callback_t>& target)
+	class [[nodiscard]] Callback_guard {
+		friend class EventManager;
+
+		[[nodiscard]] Callback_guard(
+				Callback_t&& callback, CallbackStack<Callback_t>& target)
 				: m_target(target) {
-			m_target.push(callback);
+			m_target.emplace(std::forward<Callback_t>(callback));
 		}
 
-		Callback_guard(
+		template <
+				typename Callable,
+				detail::compatible_with_t<Callback_t, Callable>>
+		[[nodiscard]] Callback_guard(
+				Callable&& callback, CallbackStack<Callback_t>& target)
+				: m_target(target) {
+			m_target.emplace(std::forward<Callable>(callback));
+		}
+
+		[[nodiscard]] Callback_guard(
 				std::function<Callback_t>&& callback,
 				CallbackStack<Callback_t>&  target)
 				: m_target(target) {
@@ -111,13 +116,13 @@ private:
 			m_target.pop();
 		}
 
+		CallbackStack<Callback_t>& m_target;
+
+	public:
 		Callback_guard(const Callback_guard&)            = delete;
 		Callback_guard(Callback_guard&&)                 = delete;
 		Callback_guard& operator=(const Callback_guard&) = delete;
 		Callback_guard& operator=(Callback_guard&&)      = delete;
-
-	private:
-		CallbackStack<Callback_t>& m_target;
 	};
 
 	template <typename Callback_t>
@@ -129,6 +134,12 @@ private:
 			std::function<Callback_t>&&, CallbackStack<Callback_t>&)
 			-> Callback_guard<Callback_t>;
 
+	template <
+			typename Callable, typename Callback_t,
+			std::enable_if_t<std::is_object_v<Callable>, bool> = true>
+	[[maybe_unused]] Callback_guard(Callable&&, CallbackStack<Callback_t>&)
+			-> Callback_guard<Callback_t>;
+
 public:
 	[[nodiscard]] auto register_callback(GamepadAxisCallback callback) {
 		return Callback_guard(callback, gamepadAxisCallbacks);
@@ -136,7 +147,7 @@ public:
 
 	template <
 			typename F, typename T,
-			detail::compatible_with_t<GamepadAxisCallback, F, T> = true>
+			detail::compatible_with_t<GamepadAxisCallback, F, T*> = true>
 	[[nodiscard]] auto register_callback(F callback, T* data) {
 		using namespace std::placeholders;
 		std::function<GamepadAxisCallback> fun
@@ -150,7 +161,7 @@ public:
 
 	template <
 			typename F, typename T,
-			detail::compatible_with_t<BreakLoopCallback, F, T> = true>
+			detail::compatible_with_t<BreakLoopCallback, F, T*> = true>
 	[[nodiscard]] auto register_callback(F callback, T* data) {
 		using namespace std::placeholders;
 		std::function<BreakLoopCallback> fun
