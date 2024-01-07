@@ -56,6 +56,17 @@ using GamepadAxisCallback
 		= void(const AxisVector& leftAxis, const AxisVector& rightAxis,
 			   const AxisTrigger& triggers);
 
+// This callback is triggered when a touch-enabled display device sends an event
+// for finger(s) moving on the device.
+struct FingerMotion {
+	float x;
+	float y;
+	bool  isNonzero() const noexcept;
+};
+
+// TODO: Maybe add pressure?
+using FingerMotionCallback = void(int numFingers, const FingerMotion& delta);
+
 // This callback is called when any of the monitored events happen.
 enum class AppEvents {
 	Unhandled,
@@ -194,6 +205,20 @@ public:
 		return Callback_guard(std::move(fun), gamepadAxisCallbacks);
 	}
 
+	[[nodiscard]] auto register_callback(FingerMotionCallback callback) {
+		return Callback_guard(callback, fingerMotionCallbacks);
+	}
+
+	template <
+			typename F, typename T,
+			detail::compatible_with_t<FingerMotionCallback, F, T*> = true>
+	[[nodiscard]] auto register_callback(F callback, T* data) {
+		using namespace std::placeholders;
+		std::function<FingerMotionCallback> fun
+				= std::bind(callback, data, _1, _2, _3, _4);
+		return Callback_guard(std::move(fun), fingerMotionCallbacks);
+	}
+
 	[[nodiscard]] auto register_callback(DropFileCallback callback) {
 		return Callback_guard(callback, dropFileCallbacks);
 	}
@@ -241,11 +266,12 @@ public:
 protected:
 	EventManager();
 
-	CallbackStack<BreakLoopCallback>   breakLoopCallbacks;
-	CallbackStack<GamepadAxisCallback> gamepadAxisCallbacks;
-	CallbackStack<WindowEventCallback> windowEventCallbacks;
-	CallbackStack<AppEventCallback>    appEventCallbacks;
-	CallbackStack<DropFileCallback>    dropFileCallbacks;
+	CallbackStack<BreakLoopCallback>    breakLoopCallbacks;
+	CallbackStack<GamepadAxisCallback>  gamepadAxisCallbacks;
+	CallbackStack<FingerMotionCallback> fingerMotionCallbacks;
+	CallbackStack<WindowEventCallback>  windowEventCallbacks;
+	CallbackStack<AppEventCallback>     appEventCallbacks;
+	CallbackStack<DropFileCallback>     dropFileCallbacks;
 };
 
 #endif    // INPUT_MANAGER_H

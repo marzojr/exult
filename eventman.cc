@@ -23,6 +23,7 @@
 #include "game.h"
 #include "gamewin.h"
 #include "ignore_unused_variable_warning.h"
+#include "mouse.h"
 #include "touchui.h"
 
 #include <SDL_video.h>
@@ -97,6 +98,10 @@ bool AxisVector::isNonzero() const noexcept {
 
 bool AxisTrigger::isNonzero() const noexcept {
 	return !isZero(left) || !isZero(right);
+}
+
+bool FingerMotion::isNonzero() const noexcept {
+	return !isZero(x) || !isZero(y);
 }
 
 MousePosition::MousePosition() {
@@ -327,16 +332,37 @@ void EventManagerImpl::handle_event(SDL_MouseButtonEvent& event) noexcept {
 }
 
 void EventManagerImpl::handle_event(SDL_MouseWheelEvent& event) noexcept {
+	ignore_unused_variable_warning(event);
+}
+
+void EventManagerImpl::handle_event(SDL_TouchFingerEvent& event) noexcept {
+	Game_window* gwin = Game_window::get_instance();
 	switch (event.type) {
 	case SDL_FINGERDOWN:
+		if ((!Mouse::use_touch_input) && (event.fingerId != 0)) {
+			Mouse::use_touch_input = true;
+			gwin->set_painted();
+		}
 		break;
 
 	case SDL_FINGERUP:
+		// Not handled for now. These end up being synthesized into
+		// mouse events by SDL anyway.
 		break;
 
-	case SDL_FINGERMOTION:
+	case SDL_FINGERMOTION: {
+		SDL_Finger* finger0 = SDL_GetTouchFinger(event.touchId, 0);
+		if (finger0 == nullptr) {
+			break;
+		}
+		int numFingers = SDL_GetNumTouchFingers(event.touchId);
+		if (numFingers >= 1) {
+			invoke_callback(
+					fingerMotionCallbacks, numFingers,
+					FingerMotion{event.dx, event.dy});
+		}
 		break;
-
+	}
 	default:
 		break;
 	}
