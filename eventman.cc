@@ -349,7 +349,9 @@ void EventManagerImpl::handle_event(SDL_DropEvent& event) noexcept {
 	SDL_free(event.file);
 }
 
-void EventManagerImpl::handle_background_event() {}
+void EventManagerImpl::handle_background_event() {
+	invoke_callback(appEventCallbacks, AppEvents::OnEnterBackground);
+}
 
 void EventManagerImpl::handle_event(SDL_WindowEvent& event) noexcept {
 	auto eventID = [&]() {

@@ -57,6 +57,14 @@ using GamepadAxisCallback
 			   const AxisTrigger& triggers);
 
 // This callback is called when any of the monitored events happen.
+enum class AppEvents {
+	Unhandled,
+	OnEnterBackground,    //  The application is about to enter the background
+};
+
+using AppEventCallback = void(AppEvents event);
+
+// This callback is called when any of the monitored events happen.
 enum class WindowEvents {
 	Unhandled,
 	Enter,           // Window has gained mouse focus
@@ -204,6 +212,19 @@ public:
 		return Callback_guard(std::move(fun), windowEventCallbacks);
 	}
 
+	[[nodiscard]] auto register_callback(AppEventCallback callback) {
+		return Callback_guard(callback, appEventCallbacks);
+	}
+
+	template <
+			typename F, typename T,
+			detail::compatible_with_t<AppEventCallback, F, T*> = true>
+	[[nodiscard]] auto register_callback(F callback, T* data) {
+		using namespace std::placeholders;
+		std::function<AppEventCallback> fun = std::bind(callback, data, _1, _2);
+		return Callback_guard(std::move(fun), appEventCallbacks);
+	}
+
 	template <
 			typename F, typename T,
 			detail::compatible_with_t<DropFileCallback, F, T*> = true>
@@ -223,6 +244,7 @@ protected:
 	CallbackStack<BreakLoopCallback>   breakLoopCallbacks;
 	CallbackStack<GamepadAxisCallback> gamepadAxisCallbacks;
 	CallbackStack<WindowEventCallback> windowEventCallbacks;
+	CallbackStack<AppEventCallback>    appEventCallbacks;
 	CallbackStack<DropFileCallback>    dropFileCallbacks;
 };
 
