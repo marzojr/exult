@@ -25,9 +25,9 @@
 #include "ignore_unused_variable_warning.h"
 #include "touchui.h"
 
-#include <SDL_error.h>
-
+#include <cmath>
 #include <iostream>
+#include <memory>
 
 #ifdef __GNUC__
 #	pragma GCC diagnostic push
@@ -35,13 +35,35 @@
 #	pragma GCC diagnostic ignored "-Wzero-as-null-pointer-constant"
 #endif    // __GNUC__
 #include <SDL.h>
+#include <SDL_error.h>
 #include <SDL_events.h>
 #include <SDL_gamecontroller.h>
+
 #ifdef __GNUC__
 #	pragma GCC diagnostic pop
 #endif    // __GNUC__
 
-#include <cmath>
+#ifdef USE_EXULTSTUDIO /* Only needed for communication with exult studio */
+#	ifdef _WIN32
+#		include "windrag.h"
+#	endif
+
+#	include "server.h"
+
+#	include <SDL_syswm.h>
+
+void Move_dragged_shape(
+		int shape, int frame, int x, int y, int prevx, int prevy, bool show);
+#	ifdef _WIN32
+void Move_dragged_combo(
+		int xtiles, int ytiles, int tiles_right, int tiles_below, int x, int y,
+		int prevx, int prevy, bool show);
+#	endif
+void Drop_dragged_shape(int shape, int frame, int x, int y);
+void Drop_dragged_chunk(int chunknum, int x, int y);
+void Drop_dragged_npc(int npcnum, int x, int y);
+void Drop_dragged_combo(int cnt, U7_combo_data* combo, int x, int y);
+#endif
 
 namespace {
 	template <
@@ -75,10 +97,30 @@ bool AxisTrigger::isNonzero() const noexcept {
 	return !isZero(left) || !isZero(right);
 }
 
+MousePosition::MousePosition() {
+	SDL_GetMouseState(&x, &y);
+}
+
+MousePosition::MousePosition(int x_, int y_) : x(x_), y(y_) {}
+
+#if defined(USE_EXULTSTUDIO) && defined(_WIN32)
+struct OleDeleter {
+	void operator()(Windnd* drag) {
+		if (drag != nullptr) {
+			drag->Release();
+		}
+	}
+};
+
+using WindndPtr = std::unique_ptr<Windnd, OleDeleter>;
+#endif
+
 class EventManagerImpl : public EventManager {
 public:
 	EventManagerImpl();
 	void handle_events() override;
+	void enable_dropfile() override;
+	void disable_dropfile() override;
 
 private:
 	bool break_event_loop() const;
@@ -102,6 +144,11 @@ private:
 	SDL_GameController* open_game_controller(int joystick_index) const noexcept;
 
 	SDL_GameController* active_gamepad = nullptr;
+
+#if defined(USE_EXULTSTUDIO) && defined(_WIN32)
+	WindndPtr windnd{nullptr, OleDeleter{}};
+	HWND      hgwin{};
+#endif
 
 	template <typename Callback_t, typename... Ts>
 	std::invoke_result_t<Callback_t, Ts...> invoke_callback(
@@ -294,7 +341,10 @@ void EventManagerImpl::handle_event(SDL_MouseWheelEvent& event) noexcept {
 }
 
 void EventManagerImpl::handle_event(SDL_DropEvent& event) noexcept {
-	ignore_unused_variable_warning(event);
+	invoke_callback(
+			dropFileCallbacks, event.type, reinterpret_cast<uint8*>(event.file),
+			MousePosition());
+	SDL_free(event.file);
 }
 
 void EventManagerImpl::handle_background_event() {}
@@ -376,4 +426,36 @@ void EventManagerImpl::handle_events() {
 	}
 
 	handle_gamepad_axis_input();
+}
+
+void EventManagerImpl::enable_dropfile() {
+#ifdef USE_EXULTSTUDIO
+	Game_window*  gwin = Game_window::get_instance();
+	SDL_SysWMinfo info;    // Get system info.
+	SDL_GetWindowWMInfo(gwin->get_win()->get_screen_window(), &info);
+#	ifndef _WIN32
+	SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
+#	else
+	hgwin = info.info.win.window;
+	OleInitialize(nullptr);
+	windnd.reset(new Windnd(
+			hgwin, Move_dragged_shape, Move_dragged_combo, Drop_dragged_shape,
+			Drop_dragged_chunk, Drop_dragged_npc, Drop_dragged_combo));
+	if (FAILED(RegisterDragDrop(hgwin, windnd.get()))) {
+		windnd.reset();
+		std::cout << "Something's wrong with OLE2 ..." << std::endl;
+	}
+#	endif
+#endif
+}
+
+void EventManagerImpl::disable_dropfile() {
+#ifdef USE_EXULTSTUDIO
+#	ifndef _WIN32
+	SDL_EventState(SDL_DROPFILE, SDL_DISABLE);
+#	else
+	RevokeDragDrop(hgwin);
+	windnd.reset();
+#	endif
+#endif
 }

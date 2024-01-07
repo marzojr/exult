@@ -19,6 +19,8 @@
 #ifndef INPUT_MANAGER_H
 #define INPUT_MANAGER_H
 
+#include <common_types.h>
+
 #include <stack>
 #include <type_traits>
 #include <utility>
@@ -36,10 +38,19 @@ struct AxisTrigger {
 	bool  isNonzero() const noexcept;
 };
 
+struct MousePosition {
+	int x;
+	int y;
+	MousePosition();
+	MousePosition(int x_, int y_);
+};
+
 using GamepadAxisCallback
 		= void(const AxisVector& leftAxis, const AxisVector& rightAxis,
 			   const AxisTrigger& triggers);
 using BreakLoopCallback = bool();
+using DropFileCallback
+		= void(uint32 type, const uint8* file, const MousePosition& loc);
 
 namespace { namespace detail {
 	template <typename C, typename F, typename... Ts>
@@ -155,13 +166,29 @@ public:
 		return Callback_guard(std::move(fun), breakLoopCallbacks);
 	}
 
-	virtual void handle_events() = 0;
+	[[nodiscard]] auto register_callback(DropFileCallback callback) {
+		return Callback_guard(callback, dropFileCallbacks);
+	}
+
+	template <
+			typename F, typename T,
+			detail::compatible_with_t<DropFileCallback, F, T*> = true>
+	[[nodiscard]] auto register_callback(F callback, T* data) {
+		using namespace std::placeholders;
+		std::function<DropFileCallback> fun = std::bind(callback, data, _1, _2);
+		return Callback_guard(std::move(fun), dropFileCallbacks);
+	}
+
+	virtual void handle_events()    = 0;
+	virtual void enable_dropfile()  = 0;
+	virtual void disable_dropfile() = 0;
 
 protected:
 	EventManager();
 
 	CallbackStack<GamepadAxisCallback> gamepadAxisCallbacks;
 	CallbackStack<BreakLoopCallback>   breakLoopCallbacks;
+	CallbackStack<DropFileCallback>    dropFileCallbacks;
 };
 
 #endif    // INPUT_MANAGER_H
