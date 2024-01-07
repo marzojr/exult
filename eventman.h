@@ -19,25 +19,9 @@
 #ifndef INPUT_MANAGER_H
 #define INPUT_MANAGER_H
 
-#include "common_types.h"
-
 #include <stack>
 #include <type_traits>
 #include <utility>
-
-union SDL_Event;
-struct SDL_ControllerDeviceEvent;
-struct SDL_KeyboardEvent;
-struct SDL_TextInputEvent;
-struct SDL_MouseMotionEvent;
-struct SDL_MouseButtonEvent;
-struct SDL_MouseWheelEvent;
-struct SDL_TouchFingerEvent;
-struct SDL_DropEvent;
-struct SDL_WindowEvent;
-
-struct _SDL_GameController;
-using SDL_GameController = struct _SDL_GameController;
 
 // Callback related stuff.
 struct AxisVector {
@@ -78,69 +62,71 @@ namespace { namespace detail {
 
 }}    // namespace ::detail
 
-class EventManager {
-public:
-	EventManager();
+template <typename Callback_t>
+using CallbackStack = std::stack<std::function<Callback_t>>;
 
-	template <typename Callback_t>
-	using CallbackStack = std::stack<std::function<Callback_t>>;
+template <typename Callback_t>
+class [[nodiscard]] Callback_guard {
+	friend class EventManager;
 
-private:
-	template <typename Callback_t>
-	class [[nodiscard]] Callback_guard {
-		friend class EventManager;
-
-		[[nodiscard]] Callback_guard(
-				Callback_t&& callback, CallbackStack<Callback_t>& target)
-				: m_target(target) {
-			m_target.emplace(std::forward<Callback_t>(callback));
-		}
-
-		template <
-				typename Callable,
-				detail::compatible_with_t<Callback_t, Callable>>
-		[[nodiscard]] Callback_guard(
-				Callable&& callback, CallbackStack<Callback_t>& target)
-				: m_target(target) {
-			m_target.emplace(std::forward<Callable>(callback));
-		}
-
-		[[nodiscard]] Callback_guard(
-				std::function<Callback_t>&& callback,
-				CallbackStack<Callback_t>&  target)
-				: m_target(target) {
-			m_target.push(std::move(callback));
-		}
-
-		~Callback_guard() noexcept {
-			m_target.pop();
-		}
-
-		CallbackStack<Callback_t>& m_target;
-
-	public:
-		Callback_guard(const Callback_guard&)            = delete;
-		Callback_guard(Callback_guard&&)                 = delete;
-		Callback_guard& operator=(const Callback_guard&) = delete;
-		Callback_guard& operator=(Callback_guard&&)      = delete;
-	};
-
-	template <typename Callback_t>
-	[[maybe_unused]] Callback_guard(Callback_t*, CallbackStack<Callback_t>&)
-			-> Callback_guard<Callback_t>;
-
-	template <typename Callback_t>
-	[[maybe_unused]] Callback_guard(
-			std::function<Callback_t>&&, CallbackStack<Callback_t>&)
-			-> Callback_guard<Callback_t>;
+	[[nodiscard]] Callback_guard(
+			Callback_t&& callback, CallbackStack<Callback_t>& target)
+			: m_target(target) {
+		m_target.emplace(std::forward<Callback_t>(callback));
+	}
 
 	template <
-			typename Callable, typename Callback_t,
-			std::enable_if_t<std::is_object_v<Callable>, bool> = true>
-	[[maybe_unused]] Callback_guard(Callable&&, CallbackStack<Callback_t>&)
-			-> Callback_guard<Callback_t>;
+			typename Callable, detail::compatible_with_t<Callback_t, Callable>>
+	[[nodiscard]] Callback_guard(
+			Callable&& callback, CallbackStack<Callback_t>& target)
+			: m_target(target) {
+		m_target.emplace(std::forward<Callable>(callback));
+	}
+
+	[[nodiscard]] Callback_guard(
+			std::function<Callback_t>&& callback,
+			CallbackStack<Callback_t>&  target)
+			: m_target(target) {
+		m_target.push(std::move(callback));
+	}
+
+	~Callback_guard() noexcept {
+		m_target.pop();
+	}
+
+	CallbackStack<Callback_t>& m_target;
 
 public:
+	Callback_guard(const Callback_guard&)            = delete;
+	Callback_guard(Callback_guard&&)                 = delete;
+	Callback_guard& operator=(const Callback_guard&) = delete;
+	Callback_guard& operator=(Callback_guard&&)      = delete;
+};
+
+template <typename Callback_t>
+[[maybe_unused]] Callback_guard(Callback_t*, CallbackStack<Callback_t>&)
+		-> Callback_guard<Callback_t>;
+
+template <typename Callback_t>
+[[maybe_unused]] Callback_guard(
+		std::function<Callback_t>&&, CallbackStack<Callback_t>&)
+		-> Callback_guard<Callback_t>;
+
+template <
+		typename Callable, typename Callback_t,
+		std::enable_if_t<std::is_object_v<Callable>, bool> = true>
+[[maybe_unused]] Callback_guard(Callable&&, CallbackStack<Callback_t>&)
+		-> Callback_guard<Callback_t>;
+
+class EventManager {
+public:
+	EventManager* getInstance();
+	virtual ~EventManager();
+	EventManager(const EventManager&)            = delete;
+	EventManager(EventManager&&)                 = delete;
+	EventManager& operator=(const EventManager&) = delete;
+	EventManager& operator=(EventManager&&)      = delete;
+
 	[[nodiscard]] auto register_callback(GamepadAxisCallback callback) {
 		return Callback_guard(callback, gamepadAxisCallbacks);
 	}
@@ -169,47 +155,13 @@ public:
 		return Callback_guard(std::move(fun), breakLoopCallbacks);
 	}
 
-	void handle_events();
+	virtual void handle_events() = 0;
 
-private:
-	bool break_event_loop() const;
-	void handle_event(SDL_Event& event);
-	void handle_event(SDL_ControllerDeviceEvent& event) noexcept;
-	void handle_event(SDL_KeyboardEvent& event) noexcept;
-	void handle_event(SDL_TextInputEvent& event) noexcept;
-	void handle_event(SDL_MouseMotionEvent& event) noexcept;
-	void handle_event(SDL_MouseButtonEvent& event) noexcept;
-	void handle_event(SDL_MouseWheelEvent& event) noexcept;
-	void handle_event(SDL_TouchFingerEvent& event) noexcept;
-	void handle_event(SDL_DropEvent& event) noexcept;
-	void handle_event(SDL_WindowEvent& event) noexcept;
-
-	void handle_background_event();
-	void handle_quit_event();
-
-	void handle_gamepad_axis_input() noexcept;
-
-	SDL_GameController* find_controller() const noexcept;
-	SDL_GameController* open_game_controller(int joystick_index) const noexcept;
-
-	SDL_GameController* active_gamepad = nullptr;
+protected:
+	EventManager();
 
 	CallbackStack<GamepadAxisCallback> gamepadAxisCallbacks;
 	CallbackStack<BreakLoopCallback>   breakLoopCallbacks;
-
-	template <typename Callback_t, typename... Ts>
-	std::invoke_result_t<Callback_t, Ts...> invoke_callback(
-			const CallbackStack<Callback_t>& stack,
-			Ts&&... args) const noexcept {
-		if (!stack.empty()) {
-			const auto& callback = stack.top();
-			return callback(std::forward<Ts>(args)...);
-		}
-		using Result = std::invoke_result_t<Callback_t, Ts...>;
-		if constexpr (!std::is_same_v<void, std::decay_t<Result>>) {
-			return Result{};
-		}
-	}
 };
 
 #endif    // INPUT_MANAGER_H

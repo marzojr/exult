@@ -75,7 +75,50 @@ bool AxisTrigger::isNonzero() const noexcept {
 	return !isZero(left) || !isZero(right);
 }
 
-SDL_GameController* EventManager::open_game_controller(
+class EventManagerImpl : public EventManager {
+public:
+	EventManagerImpl();
+	void handle_events() override;
+
+private:
+	bool break_event_loop() const;
+	void handle_event(SDL_Event& event);
+	void handle_event(SDL_ControllerDeviceEvent& event) noexcept;
+	void handle_event(SDL_KeyboardEvent& event) noexcept;
+	void handle_event(SDL_TextInputEvent& event) noexcept;
+	void handle_event(SDL_MouseMotionEvent& event) noexcept;
+	void handle_event(SDL_MouseButtonEvent& event) noexcept;
+	void handle_event(SDL_MouseWheelEvent& event) noexcept;
+	void handle_event(SDL_TouchFingerEvent& event) noexcept;
+	void handle_event(SDL_DropEvent& event) noexcept;
+	void handle_event(SDL_WindowEvent& event) noexcept;
+
+	void handle_background_event();
+	void handle_quit_event();
+
+	void handle_gamepad_axis_input() noexcept;
+
+	SDL_GameController* find_controller() const noexcept;
+	SDL_GameController* open_game_controller(int joystick_index) const noexcept;
+
+	SDL_GameController* active_gamepad = nullptr;
+
+	template <typename Callback_t, typename... Ts>
+	std::invoke_result_t<Callback_t, Ts...> invoke_callback(
+			const CallbackStack<Callback_t>& stack,
+			Ts&&... args) const noexcept {
+		if (!stack.empty()) {
+			const auto& callback = stack.top();
+			return callback(std::forward<Ts>(args)...);
+		}
+		using Result = std::invoke_result_t<Callback_t, Ts...>;
+		if constexpr (!std::is_same_v<void, std::decay_t<Result>>) {
+			return Result{};
+		}
+	}
+};
+
+SDL_GameController* EventManagerImpl::open_game_controller(
 		int joystick_index) const noexcept {
 	SDL_GameController* input_device = SDL_GameControllerOpen(joystick_index);
 	if (input_device != nullptr) {
@@ -90,7 +133,7 @@ SDL_GameController* EventManager::open_game_controller(
 	return input_device;
 }
 
-SDL_GameController* EventManager::find_controller() const noexcept {
+SDL_GameController* EventManagerImpl::find_controller() const noexcept {
 	for (int i = 0; i < SDL_NumJoysticks(); i++) {
 		if (SDL_IsGameController(i) != 0u) {
 			return open_game_controller(i);
@@ -100,11 +143,11 @@ SDL_GameController* EventManager::find_controller() const noexcept {
 	return nullptr;
 }
 
-EventManager::EventManager() {
+EventManagerImpl::EventManagerImpl() {
 	active_gamepad = find_controller();
 }
 
-void EventManager::handle_gamepad_axis_input() noexcept {
+void EventManagerImpl::handle_gamepad_axis_input() noexcept {
 	if (active_gamepad == nullptr) {
 		// Exit if no active gamepad
 		return;
@@ -115,8 +158,8 @@ void EventManager::handle_gamepad_axis_input() noexcept {
 	auto get_normalized_axis = [&](SDL_GameControllerAxis axis) {
 		// Dead-zone is applied to each axis, X and Y, on the game's 2d
 		// plane. All axis readings below this are ignored
-		float value = SDL_GameControllerGetAxis(active_gamepad, axis)
-					  / static_cast<float>(SDL_JOYSTICK_AXIS_MAX);
+		float value = SDL_GameControllerGetAxis(active_gamepad, axis);
+		value /= static_cast<float>(SDL_JOYSTICK_AXIS_MAX);
 		// Many analog game-controllers report non-zero axis values,
 		// even when the controller isn't moving.  These non-zero
 		// values can change over time, as the thumb-stick is moved
@@ -164,11 +207,11 @@ void EventManager::handle_gamepad_axis_input() noexcept {
 	invoke_callback(gamepadAxisCallbacks, joy_aim, joy_mouse, joy_rise);
 }
 
-bool EventManager::break_event_loop() const {
+bool EventManagerImpl::break_event_loop() const {
 	return invoke_callback(breakLoopCallbacks);
 }
 
-void EventManager::handle_event(SDL_ControllerDeviceEvent& event) noexcept {
+void EventManagerImpl::handle_event(SDL_ControllerDeviceEvent& event) noexcept {
 	switch (event.type) {
 	case SDL_CONTROLLERDEVICEADDED: {
 		// If we are already using a gamepad, skip.
@@ -200,7 +243,7 @@ void EventManager::handle_event(SDL_ControllerDeviceEvent& event) noexcept {
 	}
 }
 
-void EventManager::handle_event(SDL_KeyboardEvent& event) noexcept {
+void EventManagerImpl::handle_event(SDL_KeyboardEvent& event) noexcept {
 	switch (event.type) {
 	case SDL_KEYDOWN:
 		break;
@@ -213,15 +256,15 @@ void EventManager::handle_event(SDL_KeyboardEvent& event) noexcept {
 	}
 }
 
-void EventManager::handle_event(SDL_TextInputEvent& event) noexcept {
+void EventManagerImpl::handle_event(SDL_TextInputEvent& event) noexcept {
 	ignore_unused_variable_warning(event);
 }
 
-void handle_event(SDL_MouseMotionEvent& event) noexcept {
+void EventManagerImpl::handle_event(SDL_MouseMotionEvent& event) noexcept {
 	ignore_unused_variable_warning(event);
 }
 
-void handle_event(SDL_MouseButtonEvent& event) noexcept {
+void EventManagerImpl::handle_event(SDL_MouseButtonEvent& event) noexcept {
 	switch (event.type) {
 	case SDL_MOUSEBUTTONDOWN:
 		break;
@@ -234,7 +277,7 @@ void handle_event(SDL_MouseButtonEvent& event) noexcept {
 	}
 }
 
-void handle_event(SDL_MouseWheelEvent& event) noexcept {
+void EventManagerImpl::handle_event(SDL_MouseWheelEvent& event) noexcept {
 	switch (event.type) {
 	case SDL_FINGERDOWN:
 		break;
@@ -250,20 +293,20 @@ void handle_event(SDL_MouseWheelEvent& event) noexcept {
 	}
 }
 
-void EventManager::handle_event(SDL_DropEvent& event) noexcept {
+void EventManagerImpl::handle_event(SDL_DropEvent& event) noexcept {
 	ignore_unused_variable_warning(event);
 }
 
-void EventManager::handle_background_event() {}
+void EventManagerImpl::handle_background_event() {}
 
-void EventManager::handle_event(SDL_WindowEvent& event) noexcept {
+void EventManagerImpl::handle_event(SDL_WindowEvent& event) noexcept {
 	ignore_unused_variable_warning(event);
 }
 
-void EventManager::handle_quit_event() {}
+void EventManagerImpl::handle_quit_event() {}
 
-void EventManager::handle_event(SDL_Event& event) {
-	switch (static_cast<SDL_EventType>(event.type)) {
+void EventManagerImpl::handle_event(SDL_Event& event) {
+	switch (event.type) {
 	case SDL_CONTROLLERDEVICEADDED:
 	case SDL_CONTROLLERDEVICEREMOVED:
 		handle_event(event.cdevice);
@@ -321,7 +364,12 @@ void EventManager::handle_event(SDL_Event& event) {
 	}
 }
 
-void EventManager::handle_events() {
+EventManager* EventManager::getInstance() {
+	static auto instance(std::make_unique<EventManagerImpl>());
+	return instance.get();
+}
+
+void EventManagerImpl::handle_events() {
 	SDL_Event event;
 	while (!invoke_callback(breakLoopCallbacks) && SDL_PollEvent(&event) != 0) {
 		handle_event(event);
