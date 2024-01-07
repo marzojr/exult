@@ -1474,10 +1474,13 @@ bool SI_Game::new_game(Vga_file& shapes) {
 			gwin->get_win()->show();
 			redraw = false;
 		}
+		SDL_Renderer* renderer
+				= SDL_GetRenderer(gwin->get_win()->get_screen_window());
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
 			Uint16 keysym_unicode = 0;
 			bool   isTextInput    = false;
+			SDL_ConvertEventToRenderCoordinates(renderer, &event);
 			if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN
 				|| event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
 				const SDL_Rect rectName   = {topx + 10, menuy + 10, 130, 16};
@@ -1485,7 +1488,7 @@ bool SI_Game::new_game(Vga_file& shapes) {
 				const SDL_Rect rectOnward = {topx + 10, topy + 180, 130, 16};
 				const SDL_Rect rectReturn = {centerx + 10, topy + 180, 130, 16};
 				SDL_Point      point;
-				gwin->get_win()->screen_to_game_hdpi(
+				gwin->get_win()->screen_to_game(
 						event.button.x, event.button.y, gwin->get_fastmouse(),
 						point.x, point.y);
 				if (SDL_GetRectEnclosingPoints(&point, 1, &rectName, nullptr)) {

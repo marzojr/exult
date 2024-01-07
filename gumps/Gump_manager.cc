@@ -498,12 +498,15 @@ bool Gump_manager::handle_modal_gump_event(Modal_gump* gump, SDL_Event& event) {
 	//          : gwin->get_win()->get_scale();
 	static bool rightclick;
 
-	int    gx;
-	int    gy;
-	Uint16 keysym_unicode = 0;
+	int           gx;
+	int           gy;
+	Uint16        keysym_unicode = 0;
+	SDL_Renderer* renderer
+			= SDL_GetRenderer(gwin->get_win()->get_screen_window());
 
 	switch (event.type) {
 	case SDL_EVENT_FINGER_DOWN: {
+		SDL_ConvertEventToRenderCoordinates(renderer, &event);
 		if ((!Mouse::use_touch_input) && (event.tfinger.fingerId != 0)) {
 			Mouse::use_touch_input = true;
 			gwin->set_painted();
@@ -511,7 +514,8 @@ bool Gump_manager::handle_modal_gump_event(Modal_gump* gump, SDL_Event& event) {
 		break;
 	}
 	case SDL_EVENT_MOUSE_BUTTON_DOWN:
-		gwin->get_win()->screen_to_game_hdpi(
+		SDL_ConvertEventToRenderCoordinates(renderer, &event);
+		gwin->get_win()->screen_to_game(
 				event.button.x, event.button.y, gwin->get_fastmouse(), gx, gy);
 
 #ifdef DEBUG
@@ -537,7 +541,8 @@ bool Gump_manager::handle_modal_gump_event(Modal_gump* gump, SDL_Event& event) {
 		}
 		break;
 	case SDL_EVENT_MOUSE_BUTTON_UP:
-		gwin->get_win()->screen_to_game_hdpi(
+		SDL_ConvertEventToRenderCoordinates(renderer, &event);
+		gwin->get_win()->screen_to_game(
 				event.button.x, event.button.y, gwin->get_fastmouse(), gx, gy);
 		if (g_shortcutBar && g_shortcutBar->handle_event(&event)) {
 			break;
@@ -553,7 +558,8 @@ bool Gump_manager::handle_modal_gump_event(Modal_gump* gump, SDL_Event& event) {
 		}
 		break;
 	case SDL_EVENT_FINGER_MOTION: {
-		gwin->get_win()->screen_to_game_hdpi(
+		SDL_ConvertEventToRenderCoordinates(renderer, &event);
+		gwin->get_win()->screen_to_game(
 				event.button.x, event.button.y, gwin->get_fastmouse(), gx, gy);
 		static int  numFingers = 0;
 		SDL_Finger* finger0    = SDL_GetTouchFinger(event.tfinger.touchId, 0);
@@ -587,7 +593,8 @@ bool Gump_manager::handle_modal_gump_event(Modal_gump* gump, SDL_Event& event) {
 			&& event.motion.which != EXSDL_TOUCH_MOUSEID) {
 			Mouse::use_touch_input = false;
 		}
-		gwin->get_win()->screen_to_game_hdpi(
+		SDL_ConvertEventToRenderCoordinates(renderer, &event);
+		gwin->get_win()->screen_to_game(
 				event.motion.x, event.motion.y, gwin->get_fastmouse(), gx, gy);
 
 		Mouse::mouse->move(gx, gy);

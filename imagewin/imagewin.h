@@ -300,10 +300,9 @@ protected:
 
 	static void static_init();
 
-	static int   force_bpp;
-	static int   desktop_depth;
-	static int   windowed;
-	static float nativescale;
+	static int force_bpp;
+	static int desktop_depth;
+	static int windowed;
 
 public:
 	inline struct SDL_Window* get_screen_window() const {
@@ -346,24 +345,6 @@ public:
 				 + get_start_x();
 			gy = (sy * inter_height) / (scale * get_display_height())
 				 + get_start_y();
-		}
-	}
-
-	void screen_to_game_hdpi(int sx, int sy, bool fast, int& gx, int& gy) {
-		int lgx;
-		int lgy;
-		screen_to_game(sx, sy, fast, lgx, lgy);
-		if (!fullscreen) {
-			// reset nativescale to 1.0 for windowed gaming or toggling
-			// fullscreen/windowed mode uses the wrong nativescale
-			nativescale = 1.0f;
-		}
-		if (nativescale != 1.0f && !fast) {
-			gx = lgx * nativescale;
-			gy = lgy * nativescale;
-		} else {
-			gx = lgx;
-			gy = lgy;
 		}
 	}
 

@@ -174,8 +174,10 @@ static void Drop_dragged_chunk(int chunknum, int x, int y);
 static void Drop_dragged_npc(int npcnum, int x, int y);
 static void Drop_dragged_combo(int cnt, U7_combo_data* combo, int x, int y);
 static int  drag_prevx = 0, drag_prevy = 0;
-static int  drag_shfile   = -1, drag_shpnum   = -1, drag_shfnum   = -1;
-static int  drag_cbcnt    = -1, drag_cbxtiles = -1, drag_cbytiles = -1;
+static int  drag_shfile = -1;
+static int  drag_shpnum = -1, drag_shfnum = -1;
+static int  drag_cbcnt    = -1;
+static int  drag_cbxtiles = -1, drag_cbytiles = -1;
 static int  drag_cbrtiles = -1, drag_cbbtiles = -1;
 #endif
 static void BuildGameMap(BaseGameInfo* game, int mapnum);
@@ -201,8 +203,8 @@ static bool   arg_write_xml    = false;    // Write out game's config. as XML.
 static bool   arg_reset_video  = false;    // Resets the video setings.
 static bool   arg_verify_files = false;    // Verify a game's files.
 
-static bool dragging   = false;    // Object or gump being moved.
-static bool dragged    = false;    // Flag for when obj. moved.
+static bool                 dragging = false;    // Object or gump being moved.
+static bool                 dragged  = false;    // Flag for when obj. moved.
 static bool                 right_on_gump = false;    // Right clicked on gump?
 static int                  show_items_x = 0, show_items_y = 0;
 static unsigned int         show_items_time    = 0;
@@ -1090,7 +1092,7 @@ static void Paint_with_shape(
 	// int x = event.button.x/scale, y = event.button.y/scale;
 	int x;
 	int y;
-	gwin->get_win()->screen_to_game_hdpi(
+	gwin->get_win()->screen_to_game(
 			event.button.x, event.button.y, false, x, y);
 
 	const int tx = (gwin->get_scrolltx() + x / c_tilesize);
@@ -1131,7 +1133,7 @@ static void Paint_with_chunk(
 	static int lastcy = -1;
 	int        x;
 	int        y;
-	gwin->get_win()->screen_to_game_hdpi(
+	gwin->get_win()->screen_to_game(
 			event.button.x, event.button.y, false, x, y);
 	const int cx = (gwin->get_scrolltx() + x / c_tilesize) / c_tiles_per_chunk;
 	const int cy = (gwin->get_scrollty() + y / c_tilesize) / c_tiles_per_chunk;
@@ -1158,7 +1160,7 @@ static void Select_chunks(
 	static int lastcy = -1;
 	int        x;
 	int        y;
-	gwin->get_win()->screen_to_game_hdpi(
+	gwin->get_win()->screen_to_game(
 			event.button.x, event.button.y, false, x, y);
 	const int cx = (gwin->get_scrolltx() + x / c_tilesize) / c_tiles_per_chunk;
 	const int cy = (gwin->get_scrollty() + y / c_tilesize) / c_tiles_per_chunk;
@@ -1192,7 +1194,7 @@ static void Select_for_combo(
 	static Game_object* last_obj = nullptr;
 	int                 x;
 	int                 y;
-	gwin->get_win()->screen_to_game_hdpi(
+	gwin->get_win()->screen_to_game(
 			event.button.x, event.button.y, false, x, y);
 	// int tx = (gwin->get_scrolltx() + x/c_tilesize)%c_num_tiles;
 	// int ty = (gwin->get_scrollty() + y/c_tilesize)%c_num_tiles;
@@ -1291,15 +1293,17 @@ static void Handle_events() {
 		// always check every loop
 		if ((!gwin->is_moving() || gwin->get_step_tile_delta() == 1)
 			&& gwin->main_actor_can_act_charmed()) {
-			int       x;
-			int       y;    // Check for 'stuck' Avatar.
-			float     fx, fy;
+			int           x;
+			int           y;    // Check for 'stuck' Avatar.
+			float         fx, fy, logic_x, logic_y;
+			SDL_Renderer* renderer
+					= SDL_GetRenderer(gwin->get_win()->get_screen_window());
 			const int ms = SDL_GetMouseState(&fx, &fy);
-			x            = int(fx);
-			y            = int(fy);
-			// mouse movement needs to be adjusted for HighDPI
-			gwin->get_win()->screen_to_game_hdpi(
-					x, y, gwin->get_fastmouse(), x, y);
+			SDL_RenderCoordinatesFromWindow(
+					renderer, fx, fy, &logic_x, &logic_y);
+			x = int(logic_x);
+			y = int(logic_y);
+			gwin->get_win()->screen_to_game(x, y, gwin->get_fastmouse(), x, y);
 			if ((SDL_BUTTON(3) & ms) && !right_on_gump) {
 				gwin->start_actor(x, y, Mouse::mouse->avatar_speed);
 			} else if (ticks > last_rest) {
@@ -1413,6 +1417,8 @@ static void Handle_event(SDL_Event& event) {
 	Gump_manager* gump_man = gwin->get_gump_man();
 	Gump*         gump     = nullptr;
 
+	SDL_Renderer* renderer
+			= SDL_GetRenderer(gwin->get_win()->get_screen_window());
 	// For detecting double-clicks.
 	static uint32 last_b1_click     = 0;
 	static uint32 last_b3_click     = 0;
@@ -1422,7 +1428,6 @@ static void Handle_event(SDL_Event& event) {
 	// Quick saving to make sure no game progress gets lost
 	// when the app goes into background
 	case SDL_EVENT_WILL_ENTER_BACKGROUND: {
-		Game_window* gwin = Game_window::get_instance();
 		try {
 			gwin->write();
 		} catch (exult_exception& /*e*/) {
@@ -1521,6 +1526,7 @@ static void Handle_event(SDL_Event& event) {
 	}
 	case SDL_EVENT_MOUSE_BUTTON_DOWN: {
 		SDL_SetWindowGrab(gwin->get_win()->get_screen_window(), SDL_TRUE);
+		SDL_ConvertEventToRenderCoordinates(renderer, &event);
 		if (dont_move_mode) {
 			break;
 		}
@@ -1530,7 +1536,7 @@ static void Handle_event(SDL_Event& event) {
 		}
 		int x;
 		int y;
-		gwin->get_win()->screen_to_game_hdpi(
+		gwin->get_win()->screen_to_game(
 				event.button.x, event.button.y, gwin->get_fastmouse(), x, y);
 		if (event.button.button == 1) {
 			Gump_button* button;
@@ -1658,9 +1664,10 @@ static void Handle_event(SDL_Event& event) {
 		if (dont_move_mode) {
 			break;
 		}
+		SDL_ConvertEventToRenderCoordinates(renderer, &event);
 		int x;
 		int y;
-		gwin->get_win()->screen_to_game_hdpi(
+		gwin->get_win()->screen_to_game(
 				event.button.x, event.button.y, gwin->get_fastmouse(), x, y);
 
 		if (event.button.button == 3) {
@@ -1756,13 +1763,14 @@ static void Handle_event(SDL_Event& event) {
 		break;
 	}
 	case SDL_EVENT_MOUSE_MOTION: {
+		SDL_ConvertEventToRenderCoordinates(renderer, &event);
 		int mx;
 		int my;
 		if (Mouse::use_touch_input
 			&& event.motion.which != EXSDL_TOUCH_MOUSEID) {
 			Mouse::use_touch_input = false;
 		}
-		gwin->get_win()->screen_to_game_hdpi(
+		gwin->get_win()->screen_to_game(
 				event.motion.x, event.motion.y, gwin->get_fastmouse(), mx, my);
 
 		Mouse::mouse->move(mx, my);
@@ -1857,6 +1865,7 @@ static void Handle_event(SDL_Event& event) {
 	case SDL_EVENT_DROP_TEXT:
 	case SDL_EVENT_DROP_FILE: {
 #ifdef USE_EXULTSTUDIO
+		SDL_ConvertEventToRenderCoordinates(renderer, &event);
 		int x;
 		int y;
 		//		float fx, fy;
@@ -1941,6 +1950,7 @@ static void Handle_event(SDL_Event& event) {
 	}
 	case SDL_EVENT_DROP_BEGIN: {
 #ifdef USE_EXULTSTUDIO
+		SDL_ConvertEventToRenderCoordinates(renderer, &event);
 		int   x;
 		int   y;
 		float fx = event.drop.x, fy = event.drop.y;
@@ -1991,6 +2001,9 @@ static void Handle_event(SDL_Event& event) {
 	}
 	case SDL_EVENT_DROP_POSITION: {
 #ifdef USE_EXULTSTUDIO
+		// activate Exult for drag'n'drop
+		SDL_RaiseWindow(gwin->get_win()->get_screen_window());
+		SDL_ConvertEventToRenderCoordinates(renderer, &event);
 		int   x;
 		int   y;
 		float fx = event.drop.x, fy = event.drop.y;
@@ -2038,6 +2051,7 @@ static void Handle_event(SDL_Event& event) {
 		break;
 	}
 	default:
+		SDL_ConvertEventToRenderCoordinates(renderer, &event);
 		if (event.type == ShortcutBar_gump::eventType) {
 			if (!dragged) {
 				if (g_shortcutBar) {    // just in case
@@ -2064,6 +2078,8 @@ static bool Get_click(
 	dragging            = false;    // Init.
 	uint32 last_rotate  = 0;
 	g_waiting_for_click = true;
+	SDL_Renderer* renderer
+			= SDL_GetRenderer(gwin->get_win()->get_screen_window());
 	while (true) {
 		SDL_Event event;
 		Delay();    // Wait a fraction of a second.
@@ -2097,6 +2113,7 @@ static bool Get_click(
 		// Mouse scale factor
 		static bool rightclick;
 		while (SDL_PollEvent(&event)) {
+			SDL_ConvertEventToRenderCoordinates(renderer, &event);
 			switch (event.type) {
 			case SDL_EVENT_MOUSE_BUTTON_DOWN:
 				SDL_SetWindowGrab(
@@ -2107,7 +2124,7 @@ static bool Get_click(
 				if (event.button.button == 3) {
 					rightclick = true;
 				} else if (drag_ok && event.button.button == 1) {
-					gwin->get_win()->screen_to_game_hdpi(
+					gwin->get_win()->screen_to_game(
 							event.button.x, event.button.y,
 							gwin->get_fastmouse(), x, y);
 					dragging = gwin->start_dragging(x, y);
@@ -2121,7 +2138,7 @@ static bool Get_click(
 					break;
 				}
 				if (event.button.button == 1) {
-					gwin->get_win()->screen_to_game_hdpi(
+					gwin->get_win()->screen_to_game(
 							event.button.x, event.button.y,
 							gwin->get_fastmouse(), x, y);
 					const bool drg   = dragging;
@@ -2147,7 +2164,7 @@ static bool Get_click(
 			case SDL_EVENT_MOUSE_MOTION: {
 				int mx;
 				int my;
-				gwin->get_win()->screen_to_game_hdpi(
+				gwin->get_win()->screen_to_game(
 						event.motion.x, event.motion.y, gwin->get_fastmouse(),
 						mx, my);
 
@@ -2278,11 +2295,14 @@ void Wait_for_arrival(
 		Mouse::mouse->hide();    // Turn off mouse.
 		Mouse::mouse_update = false;
 
+		SDL_Renderer* renderer
+				= SDL_GetRenderer(gwin->get_win()->get_screen_window());
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
+			SDL_ConvertEventToRenderCoordinates(renderer, &event);
 			switch (event.type) {
 			case SDL_EVENT_MOUSE_MOTION:
-				gwin->get_win()->screen_to_game_hdpi(
+				gwin->get_win()->screen_to_game(
 						event.motion.x, event.motion.y, gwin->get_fastmouse(),
 						mx, my);
 
@@ -2371,8 +2391,11 @@ void Wizard_eye(long msecs    // Length of time in milliseconds.
 
 		Mouse::mouse->hide();    // Turn off mouse.
 		Mouse::mouse_update = false;
+		SDL_Renderer* renderer
+				= SDL_GetRenderer(gwin->get_win()->get_screen_window());
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
+			SDL_ConvertEventToRenderCoordinates(renderer, &event);
 			switch (event.type) {
 			case SDL_EVENT_FINGER_MOTION: {
 				if (event.tfinger.dy > 0) {
@@ -2390,7 +2413,7 @@ void Wizard_eye(long msecs    // Length of time in milliseconds.
 			case SDL_EVENT_MOUSE_MOTION: {
 				int mx;
 				int my;
-				gwin->get_win()->screen_to_game_hdpi(
+				gwin->get_win()->screen_to_game(
 						event.motion.x, event.motion.y, gwin->get_fastmouse(),
 						mx, my);
 
@@ -2420,14 +2443,15 @@ void Wizard_eye(long msecs    // Length of time in milliseconds.
 			// Right mouse button down?
 			int       x;
 			int       y;
-			float     fx, fy;
+			float     fx, fy, logic_x, logic_y;
 			const int ms = SDL_GetMouseState(&fx, &fy);
-			x            = int(fx);
-			y            = int(fy);
+			SDL_RenderCoordinatesFromWindow(
+					renderer, fx, fy, &logic_x, &logic_y);
+			x = int(logic_x);
+			y = int(logic_y);
 			int mx;
 			int my;
-			// mouse movement of the eye needs to adjust for HighDPI
-			gwin->get_win()->screen_to_game_hdpi(
+			gwin->get_win()->screen_to_game(
 					x, y, gwin->get_fastmouse(), mx, my);
 			if (SDL_BUTTON(3) & ms) {
 				Shift_wizards_eye(mx, my);
@@ -2692,8 +2716,6 @@ void setup_video(
 	const string vidStr(
 			(fullscreen || share_settings) ? "config/video"
 										   : "config/video/window");
-	bool high_dpi;
-	config->value("config/video/highdpi", high_dpi, true);
 	if (read_config) {
 #ifdef DEBUG
 		cout << "Reading video menu adjustable configuration options" << endl;
@@ -2765,8 +2787,6 @@ void setup_video(
 		config->value(vidStr + "/display/height", resy, 768);
 		config->value(vidStr + "/game/width", gw, 320);
 		config->value(vidStr + "/game/height", gh, 200);
-		// SDL_SetHint(SDL_HINT_VIDEO_HIGHDPI_DISABLED, high_dpi ? "0" : "1");
-		// Cannot be Disabled in SDL3
 		config->value(vidStr + "/fill_mode", fmode_string, default_fmode);
 		fillmode = Image_window::string_to_fillmode(fmode_string.c_str());
 		if (fillmode == 0) {
@@ -2800,7 +2820,6 @@ void setup_video(
 		config->set((vidStr + "/scale_method").c_str(), scalerName, false);
 		config->set((vidStr + "/fill_mode").c_str(), fmode_string, false);
 		config->set((vidStr + "/fill_scaler").c_str(), fillScalerName, false);
-		config->set("config/video/highdpi", high_dpi ? "yes" : "no", false);
 	}
 	if (video_init) {
 #ifdef DEBUG
@@ -2876,7 +2895,7 @@ static void Move_grid(
 	// int scale = gwin->get_win()->get_scale();
 	// x /= scale;           // Watch for scaled window.
 	// y /= scale;
-	gwin->get_win()->screen_to_game_hdpi(x, y, false, x, y);
+	gwin->get_win()->screen_to_game(x, y, false, x, y);
 
 	const int lift = cheat.get_edit_lift();
 	x += lift * 4 - 1;    // Take lift into account, round.
@@ -2886,7 +2905,7 @@ static void Move_grid(
 	tx += tiles_right;
 	ty += tiles_below;
 	if (prevx != -1) {    // See if moved to a new tile.
-		gwin->get_win()->screen_to_game_hdpi(prevx, prevy, false, prevx, prevy);
+		gwin->get_win()->screen_to_game(prevx, prevy, false, prevx, prevy);
 		prevx += lift * 4 - 1;    // Take lift into account, round.
 		prevy += lift * 4 - 1;
 		int ptx = prevx / c_tilesize;
@@ -3016,7 +3035,7 @@ static void Drop_dragged_shape(
 	}
 	cheat.clear_selected();    // Remove old selected.
 	gwin->get_map()->set_map_modified();
-	gwin->get_win()->screen_to_game_hdpi(x, y, false, x, y);
+	gwin->get_win()->screen_to_game(x, y, false, x, y);
 	const ShapeID sid(shape, frame);
 	if (gwin->skip_lift == 0) {    // Editing terrain?
 		int        tx = (gwin->get_scrolltx() + x / c_tilesize) % c_num_tiles;
@@ -3059,7 +3078,7 @@ static void Drop_dragged_chunk(
 	if (!cheat.in_map_editor()) {    // Get into editing mode.
 		cheat.toggle_map_editor();
 	}
-	gwin->get_win()->screen_to_game_hdpi(x, y, false, x, y);
+	gwin->get_win()->screen_to_game(x, y, false, x, y);
 	cout << "Last drag pos: (" << x << ", " << y << ')' << endl;
 	cout << "Set chunk (" << chunknum << ')' << endl;
 	// Need chunk-coordinates.
@@ -3081,7 +3100,7 @@ static void Drop_dragged_npc(
 	if (!cheat.in_map_editor()) {    // Get into editing mode.
 		cheat.toggle_map_editor();
 	}
-	gwin->get_win()->screen_to_game_hdpi(x, y, false, x, y);
+	gwin->get_win()->screen_to_game(x, y, false, x, y);
 	cout << "Last drag pos: (" << x << ", " << y << ')' << endl;
 	cout << "Set npc (" << npcnum << ')' << endl;
 	Actor* npc = gwin->get_npc(npcnum);
@@ -3115,7 +3134,7 @@ void Drop_dragged_combo(
 		cheat.toggle_map_editor();
 	}
 	cheat.clear_selected();    // Remove old selected.
-	gwin->get_win()->screen_to_game_hdpi(x, y, false, x, y);
+	gwin->get_win()->screen_to_game(x, y, false, x, y);
 	const int at_lift = cheat.get_edit_lift();
 	x += at_lift * 4 - 1;    // Take lift into account, round.
 	y += at_lift * 4 - 1;

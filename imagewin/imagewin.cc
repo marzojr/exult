@@ -94,9 +94,6 @@ const bool& Image_window::AnyResAllowed = Image_window::any_res_allowed;
 int Image_window::force_bpp     = 0;
 int Image_window::desktop_depth = 0;
 int Image_window::windowed      = 0;
-// When HighDPI is enabled we will end up with a different native scale factor,
-// so we need to define the default
-float Image_window::nativescale = 1.0f;
 
 const int Image_window::guard_band = 4;
 
@@ -656,32 +653,19 @@ bool Image_window::create_scale_surfaces(int w, int h, int bpp) {
 
 	SDL_DisplayID original_displayID = SDL_GetDisplayForWindow(screen_window);
 
-	if (fullscreen) {
-		// getting new native scale for highdpi is active
-		// or if it is disabled but a highdpi resolution is still being used
-		nativescale = SDL_GetWindowDisplayScale(screen_window);
-		bool high_dpi;
-		config->value("config/video/highdpi", high_dpi, true);
-		if (high_dpi) {
-			int dw;
-			int dh;
-			// with HighDPi this returns the higher resolutions
-			SDL_GetCurrentRenderOutputSize(screen_renderer, &dw, &dh);
-			w                            = dw;
-			h                            = dh;
-			const Resolution res         = {w, h};
-			p_resolutions[(w << 16) | h] = res;
-			// high resolution fullscreen needs this to make the whole screen
-			// available
-			SDL_SetRenderLogicalPresentation(
-					screen_renderer, w, h, SDL_LOGICAL_PRESENTATION_LETTERBOX,
-					SDL_SCALEMODE_LINEAR);
-		} else {
-			SDL_SetRenderLogicalPresentation(
-					screen_renderer, w, h, SDL_LOGICAL_PRESENTATION_LETTERBOX,
-					SDL_SCALEMODE_LINEAR);
-		}
-	} else {
+#ifdef __IOS__
+	int dw;
+	int dh;
+	SDL_GetWindowSizeInPixels(screen_window, &dw, &dh);
+	w                            = dw;
+	h                            = dh;
+	const Resolution res         = {w, h};
+	p_resolutions[(w << 16) | h] = res;
+#endif
+	SDL_SetRenderLogicalPresentation(
+			screen_renderer, w, h, SDL_LOGICAL_PRESENTATION_LETTERBOX,
+			SDL_SCALEMODE_LINEAR);
+	if (!fullscreen) {
 		// make sure the window has the right dimensions
 		SDL_SetWindowSize(screen_window, w, h);
 		// center the window on the screen

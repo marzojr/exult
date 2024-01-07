@@ -329,7 +329,6 @@ void VideoOptions_gump::load_settings(bool Fullscreen) {
 	o_fill_scaler     = fill_scaler;
 	o_fill_mode       = fill_mode;
 	o_game_resolution = game_resolution;
-	o_highdpi         = highdpi;
 }
 
 VideoOptions_gump::VideoOptions_gump()
@@ -346,10 +345,6 @@ VideoOptions_gump::VideoOptions_gump()
 			this, &VideoOptions_gump::toggle_fullscreen, enabledtext,
 			fullscreen, colx[2], rowy[0], 74);
 #endif
-	config->value("config/video/highdpi", highdpi, false);
-	buttons[id_high_dpi] = std::make_unique<VideoTextToggle>(
-			this, &VideoOptions_gump::toggle_high_dpi, enabledtext, highdpi,
-			colx[2], rowy[2], 74);
 	config->value("config/video/share_video_settings", share_settings, false);
 
 	std::vector<std::string> yesNO = {"No", "Yes"};
@@ -399,14 +394,6 @@ void VideoOptions_gump::save_settings() {
 			return;
 		}
 	}
-	if (highdpi != o_highdpi) {
-		if (!Yesno_gump::ask(
-					"After toggling HighDPI you will need to restart "
-					"Exult!\nApply anyway?",
-					"TINY_BLACK_FONT")) {
-			return;
-		}
-	}
 	gwin->resized(
 			resx, resy, fullscreen != 0, gw, gh, scaling + 1, scaler, fill_mode,
 			fill_scaler ? Image_window::bilinear : Image_window::point);
@@ -443,7 +430,6 @@ void VideoOptions_gump::save_settings() {
 				fullscreen != 0, SET_CONFIG, resx, resy, gw, gh, scaling + 1,
 				scaler, fill_mode,
 				fill_scaler ? Image_window::bilinear : Image_window::point);
-		config->set("config/video/highdpi", highdpi ? "yes" : "no", false);
 		config->write_back();
 		o_resolution      = resolution;
 		o_scaling         = scaling;
@@ -452,7 +438,6 @@ void VideoOptions_gump::save_settings() {
 		o_fill_mode       = fill_mode;
 		o_fill_scaler     = fill_scaler;
 		o_share_settings  = share_settings;
-		o_highdpi         = highdpi;
 	}
 }
 
@@ -480,7 +465,6 @@ void VideoOptions_gump::paint() {
 	font->paint_text(
 			iwin->get_ib8(), "Resolution:", x + colx[0], y + rowy[1] + 1);
 #endif
-	font->paint_text(iwin->get_ib8(), "HighDPI:", x + colx[0], y + rowy[2] + 1);
 	font->paint_text(iwin->get_ib8(), "Scaler:", x + colx[0], y + rowy[3] + 1);
 	if (buttons[id_scaling] != nullptr) {
 		font->paint_text(
