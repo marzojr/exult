@@ -421,12 +421,12 @@ static Uint32 didMouseUp(Uint32 interval, void* param) {
 /*
  * Runs on main thread.
  */
-void ShortcutBar_gump::handleMouseUp(SDL_Event& event) {
-	if (event.user.code != ShortcutBar_gump::SHORTCUT_BAR_MOUSE_UP) {
+void ShortcutBar_gump::handleMouseUp(SDL_UserEvent& event) {
+	if (event.code != ShortcutBar_gump::SHORTCUT_BAR_MOUSE_UP) {
 		return;
 	}
 	sintptr button;
-	std::memcpy(&button, &event.user.data1, sizeof(sintptr));
+	std::memcpy(&button, &event.data1, sizeof(sintptr));
 	if (button >= 0 && button < numButtons) {
 		onItemClicked(button, false);
 		if (timerId != 0) {

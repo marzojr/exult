@@ -20,13 +20,13 @@
 
 #include "ShortcutBar_gump.h"
 #include "actors.h"
+#include "exult.h"
 #include "game.h"
 #include "gamewin.h"
 #include "ignore_unused_variable_warning.h"
+#include "menulist.h"
 #include "mouse.h"
 #include "touchui.h"
-
-#include <SDL_video.h>
 
 #include <cmath>
 #include <iostream>
@@ -40,28 +40,20 @@
 #include <SDL.h>
 #include <SDL_error.h>
 #include <SDL_events.h>
-#include <SDL_gamecontroller.h>
-
+#ifdef USE_EXULTSTUDIO /* Only needed for communication with exult studio */
+#	include <SDL_syswm.h>
+#endif
 #ifdef __GNUC__
 #	pragma GCC diagnostic pop
 #endif    // __GNUC__
 
-#ifdef USE_EXULTSTUDIO /* Only needed for communication with exult studio */
-#	ifdef _WIN32
-#		include "windrag.h"
-#	endif
-
-#	include "server.h"
-
-#	include <SDL_syswm.h>
-
+#if defined(USE_EXULTSTUDIO) && defined(_WIN32)
+#	include "windrag.h"
 void Move_dragged_shape(
 		int shape, int frame, int x, int y, int prevx, int prevy, bool show);
-#	ifdef _WIN32
 void Move_dragged_combo(
 		int xtiles, int ytiles, int tiles_right, int tiles_below, int x, int y,
 		int prevx, int prevy, bool show);
-#	endif
 void Drop_dragged_shape(int shape, int frame, int x, int y);
 void Drop_dragged_chunk(int chunknum, int x, int y);
 void Drop_dragged_npc(int npcnum, int x, int y);
@@ -90,6 +82,29 @@ namespace {
 		T v2    = f2;
 		return isZero(v1 - v2);
 	}
+
+	constexpr MouseButton translateMouseButton(int button) {
+		using Tp = std::underlying_type_t<MouseButton>;
+		static_assert(
+				(static_cast<Tp>(MouseButton::Left) == SDL_BUTTON_LEFT)
+				&& (static_cast<Tp>(MouseButton::Middle) == SDL_BUTTON_MIDDLE)
+				&& (static_cast<Tp>(MouseButton::Right) == SDL_BUTTON_RIGHT)
+				&& (static_cast<Tp>(MouseButton::X1) == SDL_BUTTON_X1)
+				&& (static_cast<Tp>(MouseButton::X2) == SDL_BUTTON_X2));
+		return static_cast<MouseButton>(button);
+	};
+
+	constexpr MouseButtonMask translateMouseMasks(intptr_t button) {
+		using Tp = std::underlying_type_t<MouseButtonMask>;
+		static_assert(
+				(static_cast<Tp>(MouseButtonMask::Left) == SDL_BUTTON_LMASK)
+				&& (static_cast<Tp>(MouseButtonMask::Middle)
+					== SDL_BUTTON_MMASK)
+				&& (static_cast<Tp>(MouseButtonMask::Right) == SDL_BUTTON_RMASK)
+				&& (static_cast<Tp>(MouseButtonMask::X1) == SDL_BUTTON_X1MASK)
+				&& (static_cast<Tp>(MouseButtonMask::X2) == SDL_BUTTON_X2MASK));
+		return static_cast<MouseButtonMask>(button);
+	};
 }    // namespace
 
 bool AxisVector::isNonzero() const noexcept {
@@ -104,11 +119,27 @@ bool FingerMotion::isNonzero() const noexcept {
 	return !isZero(x) || !isZero(y);
 }
 
-MousePosition::MousePosition() {
-	SDL_GetMouseState(&x, &y);
+MousePosition::MousePosition(get_from_sdl_tag) {
+	int x_;
+	int y_;
+	SDL_GetMouseState(&x_, &y_);
+	set(x_, y_);
 }
 
-MousePosition::MousePosition(int x_, int y_) : x(x_), y(y_) {}
+MousePosition::MousePosition(int x_, int y_) {
+	set(x_, y_);
+}
+
+void MousePosition::set(int x_, int y_) {
+	Game_window* gwin = Game_window::get_instance();
+	gwin->get_win()->screen_to_game(x_, y_, gwin->get_fastmouse(), x, y);
+}
+
+MouseMotion::MouseMotion(int x_, int y_) {
+	// Note: maybe not needed?
+	Game_window* gwin = Game_window::get_instance();
+	gwin->get_win()->screen_to_game(x_, y_, gwin->get_fastmouse(), x, y);
+}
 
 #if defined(USE_EXULTSTUDIO) && defined(_WIN32)
 struct OleDeleter {
@@ -142,8 +173,10 @@ private:
 	void handle_event(SDL_DropEvent& event) noexcept;
 	void handle_event(SDL_WindowEvent& event) noexcept;
 
-	void handle_background_event();
+	void handle_background_event() noexcept;
 	void handle_quit_event();
+	void handle_custom_touch_input_event(SDL_UserEvent& event) noexcept;
+	void handle_custom_mouse_up_event(SDL_UserEvent& event) noexcept;
 
 	void handle_gamepad_axis_input() noexcept;
 
@@ -199,6 +232,10 @@ SDL_GameController* EventManagerImpl::find_controller() const noexcept {
 
 EventManagerImpl::EventManagerImpl() {
 	active_gamepad = find_controller();
+}
+
+bool EventManagerImpl::break_event_loop() const {
+	return invoke_callback(breakLoopCallbacks);
 }
 
 void EventManagerImpl::handle_gamepad_axis_input() noexcept {
@@ -261,10 +298,6 @@ void EventManagerImpl::handle_gamepad_axis_input() noexcept {
 	invoke_callback(gamepadAxisCallbacks, joy_aim, joy_mouse, joy_rise);
 }
 
-bool EventManagerImpl::break_event_loop() const {
-	return invoke_callback(breakLoopCallbacks);
-}
-
 void EventManagerImpl::handle_event(SDL_ControllerDeviceEvent& event) noexcept {
 	switch (event.type) {
 	case SDL_CONTROLLERDEVICEADDED: {
@@ -298,6 +331,7 @@ void EventManagerImpl::handle_event(SDL_ControllerDeviceEvent& event) noexcept {
 }
 
 void EventManagerImpl::handle_event(SDL_KeyboardEvent& event) noexcept {
+	// TODO: Implement this
 	switch (event.type) {
 	case SDL_KEYDOWN:
 		break;
@@ -312,27 +346,46 @@ void EventManagerImpl::handle_event(SDL_KeyboardEvent& event) noexcept {
 
 void EventManagerImpl::handle_event(SDL_TextInputEvent& event) noexcept {
 	ignore_unused_variable_warning(event);
-}
-
-void EventManagerImpl::handle_event(SDL_MouseMotionEvent& event) noexcept {
-	ignore_unused_variable_warning(event);
+	// TODO: Implement this
 }
 
 void EventManagerImpl::handle_event(SDL_MouseButtonEvent& event) noexcept {
+	MouseEvent kind;
 	switch (event.type) {
 	case SDL_MOUSEBUTTONDOWN:
+		kind = MouseEvent::Pressed;
 		break;
 
 	case SDL_MOUSEBUTTONUP:
+		kind = MouseEvent::Released;
 		break;
 
 	default:
-		break;
+		return;
 	}
+	MouseButton buttonID = translateMouseButton(event.button);
+	if (buttonID != MouseButton::Invalid) {
+		invoke_callback(
+				mouseButtonCallbacks, kind, buttonID, event.clicks,
+				MousePosition(event.x, event.y));
+	}
+}
+
+void EventManagerImpl::handle_event(SDL_MouseMotionEvent& event) noexcept {
+	if (Mouse::use_touch_input && event.which != EXSDL_TOUCH_MOUSEID) {
+		Mouse::use_touch_input = false;
+	}
+	MousePosition mouse(event.x, event.y);
+	Mouse::mouse->move(mouse.x, mouse.y);
+	Mouse::mouse_update      = true;
+	MouseButtonMask buttonID = translateMouseMasks(event.state);
+	invoke_callback(mouseMotionCallbacks, buttonID, mouse);
 }
 
 void EventManagerImpl::handle_event(SDL_MouseWheelEvent& event) noexcept {
 	ignore_unused_variable_warning(event);
+	MouseMotion delta(event.x, event.y);
+	invoke_callback(mouseWheelCallbacks, delta);
 }
 
 void EventManagerImpl::handle_event(SDL_TouchFingerEvent& event) noexcept {
@@ -371,11 +424,11 @@ void EventManagerImpl::handle_event(SDL_TouchFingerEvent& event) noexcept {
 void EventManagerImpl::handle_event(SDL_DropEvent& event) noexcept {
 	invoke_callback(
 			dropFileCallbacks, event.type, reinterpret_cast<uint8*>(event.file),
-			MousePosition());
+			MousePosition(get_from_sdl_tag{}));
 	SDL_free(event.file);
 }
 
-void EventManagerImpl::handle_background_event() {
+void EventManagerImpl::handle_background_event() noexcept {
 	invoke_callback(appEventCallbacks, AppEvents::OnEnterBackground);
 }
 
@@ -394,10 +447,29 @@ void EventManagerImpl::handle_event(SDL_WindowEvent& event) noexcept {
 			return WindowEvents::Unhandled;
 		}
 	}();
-	invoke_callback(windowEventCallbacks, eventID, MousePosition());
+	invoke_callback(
+			windowEventCallbacks, eventID, MousePosition(get_from_sdl_tag{}));
 }
 
-void EventManagerImpl::handle_quit_event() {}
+void EventManagerImpl::handle_quit_event() {
+	// TODO: Implement this
+}
+
+void EventManagerImpl::handle_custom_touch_input_event(
+		SDL_UserEvent& event) noexcept {
+	if (event.code == TouchUI::EVENT_CODE_TEXT_INPUT) {
+		const auto* text = static_cast<const char*>(event.data1);
+		invoke_callback(touchInputCallbacks, text);
+		free(event.data1);
+	}
+}
+
+void EventManagerImpl::handle_custom_mouse_up_event(
+		SDL_UserEvent& event) noexcept {
+	if (event.code == ShortcutBar_gump::SHORTCUT_BAR_MOUSE_UP) {
+		invoke_callback(shortcutBarClickCallbacks, event);
+	}
+}
 
 void EventManagerImpl::handle_event(SDL_Event& event) {
 	switch (event.type) {
@@ -452,7 +524,9 @@ void EventManagerImpl::handle_event(SDL_Event& event) {
 
 	default:
 		if (event.type == TouchUI::eventType) {
+			handle_custom_touch_input_event(event.user);
 		} else if (event.type == ShortcutBar_gump::eventType) {
+			handle_custom_mouse_up_event(event.user);
 		}
 		break;
 	}

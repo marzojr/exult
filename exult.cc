@@ -1906,7 +1906,7 @@ static void Handle_event(SDL_Event& event) {
 		if (event.type == ShortcutBar_gump::eventType) {
 			if (!dragged) {
 				if (g_shortcutBar) {    // just in case
-					g_shortcutBar->handleMouseUp(event);
+					g_shortcutBar->handleMouseUp(event.user);
 				}
 			}
 			dragging = dragged = false;
