@@ -26,6 +26,20 @@
 #include <utility>
 
 // Callback related stuff.
+struct MousePosition {
+	int x;
+	int y;
+	MousePosition();
+	MousePosition(int x_, int y_);
+};
+
+// This is called before every call to SDL_PollEvent. If the callback returns
+// true, the event loop is terminated.
+using BreakLoopCallback = bool();
+
+// If a gamepad is connected, this callback is called after processing all
+// events for the current tick. The game mouse is updated to be in the position
+// indicated by 'pos' before the callback.
 struct AxisVector {
 	float x;
 	float y;
@@ -38,13 +52,11 @@ struct AxisTrigger {
 	bool  isNonzero() const noexcept;
 };
 
-struct MousePosition {
-	int x;
-	int y;
-	MousePosition();
-	MousePosition(int x_, int y_);
-};
+using GamepadAxisCallback
+		= void(const AxisVector& leftAxis, const AxisVector& rightAxis,
+			   const AxisTrigger& triggers);
 
+// This callback is called when any of the monitored events happen.
 enum class WindowEvents {
 	Unhandled,
 	Enter,           // Window has gained mouse focus
@@ -53,11 +65,10 @@ enum class WindowEvents {
 	Focus_Lost,      // Window has lost keyboard focus
 };
 
-using GamepadAxisCallback
-		= void(const AxisVector& leftAxis, const AxisVector& rightAxis,
-			   const AxisTrigger& triggers);
-using BreakLoopCallback   = bool();
 using WindowEventCallback = void(WindowEvents event, const MousePosition& pos);
+
+// This event is called whenever a drop from ES happens, if it was enabled by a
+// call to EventManager::enable_dropfile.
 using DropFileCallback
 		= void(uint32 type, const uint8* file, const MousePosition& pos);
 
@@ -147,20 +158,6 @@ public:
 	EventManager& operator=(const EventManager&) = delete;
 	EventManager& operator=(EventManager&&)      = delete;
 
-	[[nodiscard]] auto register_callback(GamepadAxisCallback callback) {
-		return Callback_guard(callback, gamepadAxisCallbacks);
-	}
-
-	template <
-			typename F, typename T,
-			detail::compatible_with_t<GamepadAxisCallback, F, T*> = true>
-	[[nodiscard]] auto register_callback(F callback, T* data) {
-		using namespace std::placeholders;
-		std::function<GamepadAxisCallback> fun
-				= std::bind(callback, data, _1, _2, _3, _4);
-		return Callback_guard(std::move(fun), gamepadAxisCallbacks);
-	}
-
 	[[nodiscard]] auto register_callback(BreakLoopCallback callback) {
 		return Callback_guard(callback, breakLoopCallbacks);
 	}
@@ -173,6 +170,20 @@ public:
 		std::function<BreakLoopCallback> fun
 				= std::bind(callback, data, _1, _2);
 		return Callback_guard(std::move(fun), breakLoopCallbacks);
+	}
+
+	[[nodiscard]] auto register_callback(GamepadAxisCallback callback) {
+		return Callback_guard(callback, gamepadAxisCallbacks);
+	}
+
+	template <
+			typename F, typename T,
+			detail::compatible_with_t<GamepadAxisCallback, F, T*> = true>
+	[[nodiscard]] auto register_callback(F callback, T* data) {
+		using namespace std::placeholders;
+		std::function<GamepadAxisCallback> fun
+				= std::bind(callback, data, _1, _2, _3, _4);
+		return Callback_guard(std::move(fun), gamepadAxisCallbacks);
 	}
 
 	[[nodiscard]] auto register_callback(DropFileCallback callback) {
@@ -209,8 +220,8 @@ public:
 protected:
 	EventManager();
 
-	CallbackStack<GamepadAxisCallback> gamepadAxisCallbacks;
 	CallbackStack<BreakLoopCallback>   breakLoopCallbacks;
+	CallbackStack<GamepadAxisCallback> gamepadAxisCallbacks;
 	CallbackStack<WindowEventCallback> windowEventCallbacks;
 	CallbackStack<DropFileCallback>    dropFileCallbacks;
 };
