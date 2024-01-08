@@ -50,6 +50,9 @@ using GamepadAxisCallback
 		= void(const AxisVector& leftAxis, const AxisVector& rightAxis,
 			   const AxisTrigger& triggers);
 
+// This callback is called when compositing text is finished.
+using TextInputCallback = void(char chr);
+
 // This callback is called when mouse buttons are pressed or released.
 struct get_from_sdl_tag {};
 
@@ -170,8 +173,7 @@ using DropFileCallback
 // clicking the 'X' button on the window).
 using QuitEventCallback = void();
 
-// This callback is called whenever a drop from ES happens, if it was enabled by
-// a call to EventManager::enable_dropfile.
+// This callback is called when the TouchUI custom event happens.
 using TouchInputCallback = void(const char* text);
 
 // This callback is called on a delayed click is performed at the shortcutbar.
@@ -289,6 +291,19 @@ public:
 		std::function<GamepadAxisCallback> fun
 				= std::bind(callback, data, _1, _2, _3);
 		return Callback_guard(std::move(fun), gamepadAxisCallbacks);
+	}
+
+	[[nodiscard]] auto register_callback(TextInputCallback callback) {
+		return Callback_guard(callback, textInputCallbacks);
+	}
+
+	template <
+			typename F, typename T,
+			detail::compatible_with_t<TextInputCallback, F, T*> = true>
+	[[nodiscard]] auto register_callback(F callback, T* data) {
+		using namespace std::placeholders;
+		std::function<TextInputCallback> fun = std::bind(callback, data, _1);
+		return Callback_guard(std::move(fun), textInputCallbacks);
 	}
 
 	[[nodiscard]] auto register_callback(MouseButtonCallback callback) {
@@ -436,6 +451,7 @@ protected:
 
 	CallbackStack<BreakLoopCallback>        breakLoopCallbacks;
 	CallbackStack<GamepadAxisCallback>      gamepadAxisCallbacks;
+	CallbackStack<TextInputCallback>        textInputCallbacks;
 	CallbackStack<MouseButtonCallback>      mouseButtonCallbacks;
 	CallbackStack<MouseMotionCallback>      mouseMotionCallbacks;
 	CallbackStack<MouseWheelCallback>       mouseWheelCallbacks;

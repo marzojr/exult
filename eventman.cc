@@ -83,7 +83,7 @@ namespace {
 		return isZero(v1 - v2);
 	}
 
-	constexpr MouseButton translateMouseButton(int button) {
+	constexpr MouseButton translateMouseButton(int button) noexcept {
 		using Tp = std::underlying_type_t<MouseButton>;
 		static_assert(
 				(static_cast<Tp>(MouseButton::Left) == SDL_BUTTON_LEFT)
@@ -94,7 +94,7 @@ namespace {
 		return static_cast<MouseButton>(button);
 	};
 
-	constexpr MouseButtonMask translateMouseMasks(intptr_t button) {
+	constexpr MouseButtonMask translateMouseMasks(intptr_t button) noexcept {
 		using Tp = std::underlying_type_t<MouseButtonMask>;
 		static_assert(
 				(static_cast<Tp>(MouseButtonMask::Left) == SDL_BUTTON_LMASK)
@@ -346,7 +346,14 @@ void EventManagerImpl::handle_event(SDL_KeyboardEvent& event) noexcept {
 
 void EventManagerImpl::handle_event(SDL_TextInputEvent& event) noexcept {
 	ignore_unused_variable_warning(event);
-	// TODO: Implement this
+	// TODO: This would be a good place to convert input text into the game's
+	// codepage. Currently, let's just silently convert non-ASCII characters
+	// into '?'.
+	char chr = event.text[0];
+	if ((chr & 0x80) != 0) {
+		chr = '?';
+	}
+	invoke_callback(textInputCallbacks, chr);
 }
 
 void EventManagerImpl::handle_event(SDL_MouseButtonEvent& event) noexcept {
