@@ -452,7 +452,7 @@ void EventManagerImpl::handle_event(SDL_WindowEvent& event) noexcept {
 }
 
 void EventManagerImpl::handle_quit_event() {
-	// TODO: Implement this
+	invoke_callback(quitEventCallback);
 }
 
 void EventManagerImpl::handle_custom_touch_input_event(

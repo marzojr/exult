@@ -166,6 +166,10 @@ using WindowEventCallback = void(WindowEvents event, const MousePosition& pos);
 using DropFileCallback
 		= void(uint32 type, const uint8* file, const MousePosition& pos);
 
+// This callback is called when user requests the program to finish (e.g., by
+// clicking the 'X' button on the window).
+using QuitEventCallback = void();
+
 // This callback is called whenever a drop from ES happens, if it was enabled by
 // a call to EventManager::enable_dropfile.
 using TouchInputCallback = void(const char* text);
@@ -383,6 +387,19 @@ public:
 		return Callback_guard(std::move(fun), dropFileCallbacks);
 	}
 
+	[[nodiscard]] auto register_callback(QuitEventCallback callback) {
+		return Callback_guard(callback, quitEventCallback);
+	}
+
+	template <
+			typename F, typename T,
+			detail::compatible_with_t<QuitEventCallback, F, T*> = true>
+	[[nodiscard]] auto register_callback(F callback, T* data) {
+		using namespace std::placeholders;
+		std::function<QuitEventCallback> fun = std::bind(callback, data, _1);
+		return Callback_guard(std::move(fun), quitEventCallback);
+	}
+
 	[[nodiscard]] auto register_callback(TouchInputCallback callback) {
 		return Callback_guard(callback, touchInputCallbacks);
 	}
@@ -426,6 +443,7 @@ protected:
 	CallbackStack<WindowEventCallback>      windowEventCallbacks;
 	CallbackStack<AppEventCallback>         appEventCallbacks;
 	CallbackStack<DropFileCallback>         dropFileCallbacks;
+	CallbackStack<QuitEventCallback>        quitEventCallback;
 	CallbackStack<TouchInputCallback>       touchInputCallbacks;
 	CallbackStack<ShortcutBarClickCallback> shortcutBarClickCallbacks;
 };
