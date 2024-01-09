@@ -186,10 +186,7 @@ namespace { namespace detail {
 
 	template <typename R, typename... Args, typename F, typename... Ts>
 	struct is_compatible_with<R(Args...), F, Ts...>
-			: std::bool_constant<
-					  std::is_invocable_r_v<R, F, Ts..., Args...>
-					  && std::is_same_v<
-							  R, std::invoke_result_t<F, Ts..., Args...>>> {};
+			: std::is_invocable_r<R, F, Ts..., Args...> {};
 
 	template <typename C, typename F, typename... Ts>
 	[[maybe_unused]] constexpr inline const bool is_compatible_with_v
@@ -199,6 +196,25 @@ namespace { namespace detail {
 	using compatible_with_t
 			= std::enable_if_t<is_compatible_with_v<C, F, Ts...>, bool>;
 
+	template <typename T, typename... Args>
+	[[maybe_unused]] auto tuple_append(T&& t, Args&&... args) {
+		return std::tuple_cat(
+				std::forward<T>(t), std::forward_as_tuple(args...));
+	}
+
+	template <typename F, typename... FrontArgs>
+	[[maybe_unused]] decltype(auto) bind_front(
+			F&& callable, FrontArgs&&... args) {
+		return [functor   = std::forward<F>(callable),
+				frontArgs = std::make_tuple(std::forward<FrontArgs>(args)...)](
+					   auto&&... backArgs) {
+			return std::apply(
+					functor,
+					tuple_append(
+							frontArgs,
+							std::forward<decltype(backArgs)>(backArgs)...));
+		};
+	}
 }}    // namespace ::detail
 
 template <typename Callback_t>
@@ -206,6 +222,9 @@ using CallbackStack = std::stack<std::function<Callback_t>>;
 
 template <typename Callback_t>
 class [[nodiscard]] Callback_guard {
+	CallbackStack<Callback_t>& m_target;
+
+public:
 	friend class EventManager;
 
 	[[nodiscard]] Callback_guard(
@@ -233,9 +252,6 @@ class [[nodiscard]] Callback_guard {
 		m_target.pop();
 	}
 
-	CallbackStack<Callback_t>& m_target;
-
-public:
 	Callback_guard(const Callback_guard&)            = delete;
 	Callback_guard(Callback_guard&&)                 = delete;
 	Callback_guard& operator=(const Callback_guard&) = delete;
@@ -266,180 +282,211 @@ public:
 	EventManager& operator=(const EventManager&) = delete;
 	EventManager& operator=(EventManager&&)      = delete;
 
-	[[nodiscard]] auto register_callback(BreakLoopCallback callback) {
+	[[nodiscard]] auto register_one_callback(BreakLoopCallback* callback) {
 		return Callback_guard(callback, breakLoopCallbacks);
 	}
 
 	template <
-			typename F, typename T,
+			typename T, typename F,
 			detail::compatible_with_t<BreakLoopCallback, F, T*> = true>
-	[[nodiscard]] auto register_callback(F callback, T* data) {
-		using namespace std::placeholders;
-		std::function<BreakLoopCallback> fun = std::bind(callback, data);
+	[[nodiscard]] auto register_one_callback(T* data, F&& callback) {
+		std::function<BreakLoopCallback> fun
+				= detail::bind_front(std::forward<F>(callback), data);
 		return Callback_guard(std::move(fun), breakLoopCallbacks);
 	}
 
-	[[nodiscard]] auto register_callback(GamepadAxisCallback callback) {
+	[[nodiscard]] auto register_one_callback(GamepadAxisCallback* callback) {
 		return Callback_guard(callback, gamepadAxisCallbacks);
 	}
 
 	template <
-			typename F, typename T,
+			typename T, typename F,
 			detail::compatible_with_t<GamepadAxisCallback, F, T*> = true>
-	[[nodiscard]] auto register_callback(F callback, T* data) {
-		using namespace std::placeholders;
+	[[nodiscard]] auto register_one_callback(T* data, F&& callback) {
 		std::function<GamepadAxisCallback> fun
-				= std::bind(callback, data, _1, _2, _3);
+				= detail::bind_front(std::forward<F>(callback), data);
 		return Callback_guard(std::move(fun), gamepadAxisCallbacks);
 	}
 
-	[[nodiscard]] auto register_callback(TextInputCallback callback) {
+	[[nodiscard]] auto register_one_callback(TextInputCallback* callback) {
 		return Callback_guard(callback, textInputCallbacks);
 	}
 
 	template <
-			typename F, typename T,
+			typename T, typename F,
 			detail::compatible_with_t<TextInputCallback, F, T*> = true>
-	[[nodiscard]] auto register_callback(F callback, T* data) {
-		using namespace std::placeholders;
-		std::function<TextInputCallback> fun = std::bind(callback, data, _1);
+	[[nodiscard]] auto register_one_callback(T* data, F&& callback) {
+		std::function<TextInputCallback> fun
+				= detail::bind_front(std::forward<F>(callback), data);
 		return Callback_guard(std::move(fun), textInputCallbacks);
 	}
 
-	[[nodiscard]] auto register_callback(MouseButtonCallback callback) {
+	[[nodiscard]] auto register_one_callback(MouseButtonCallback* callback) {
 		return Callback_guard(callback, mouseButtonCallbacks);
 	}
 
 	template <
-			typename F, typename T,
+			typename T, typename F,
 			detail::compatible_with_t<MouseButtonCallback, F, T*> = true>
-	[[nodiscard]] auto register_callback(F callback, T* data) {
-		using namespace std::placeholders;
+	[[nodiscard]] auto register_one_callback(T* data, F&& callback) {
 		std::function<MouseButtonCallback> fun
-				= std::bind(callback, data, _1, _2, _3, _4);
+				= detail::bind_front(std::forward<F>(callback), data);
 		return Callback_guard(std::move(fun), mouseButtonCallbacks);
 	}
 
-	[[nodiscard]] auto register_callback(MouseMotionCallback callback) {
+	[[nodiscard]] auto register_one_callback(MouseMotionCallback* callback) {
 		return Callback_guard(callback, mouseMotionCallbacks);
 	}
 
 	template <
-			typename F, typename T,
+			typename T, typename F,
 			detail::compatible_with_t<MouseMotionCallback, F, T*> = true>
-	[[nodiscard]] auto register_callback(F callback, T* data) {
-		using namespace std::placeholders;
+	[[nodiscard]] auto register_one_callback(T* data, F&& callback) {
 		std::function<MouseMotionCallback> fun
-				= std::bind(callback, data, _1, _2);
+				= detail::bind_front(std::forward<F>(callback), data);
 		return Callback_guard(std::move(fun), mouseMotionCallbacks);
 	}
 
-	[[nodiscard]] auto register_callback(MouseWheelCallback callback) {
+	[[nodiscard]] auto register_one_callback(MouseWheelCallback* callback) {
 		return Callback_guard(callback, mouseWheelCallbacks);
 	}
 
 	template <
-			typename F, typename T,
+			typename T, typename F,
 			detail::compatible_with_t<MouseWheelCallback, F, T*> = true>
-	[[nodiscard]] auto register_callback(F callback, T* data) {
-		using namespace std::placeholders;
-		std::function<MouseWheelCallback> fun = std::bind(callback, data, _1);
+	[[nodiscard]] auto register_one_callback(T* data, F&& callback) {
+		std::function<MouseWheelCallback> fun
+				= detail::bind_front(std::forward<F>(callback), data);
 		return Callback_guard(std::move(fun), mouseWheelCallbacks);
 	}
 
-	[[nodiscard]] auto register_callback(FingerMotionCallback callback) {
+	[[nodiscard]] auto register_one_callback(FingerMotionCallback* callback) {
 		return Callback_guard(callback, fingerMotionCallbacks);
 	}
 
 	template <
-			typename F, typename T,
+			typename T, typename F,
 			detail::compatible_with_t<FingerMotionCallback, F, T*> = true>
-	[[nodiscard]] auto register_callback(F callback, T* data) {
-		using namespace std::placeholders;
+	[[nodiscard]] auto register_one_callback(T* data, F&& callback) {
 		std::function<FingerMotionCallback> fun
-				= std::bind(callback, data, _1, _2);
+				= detail::bind_front(std::forward<F>(callback), data);
 		return Callback_guard(std::move(fun), fingerMotionCallbacks);
 	}
 
-	[[nodiscard]] auto register_callback(AppEventCallback callback) {
+	[[nodiscard]] auto register_one_callback(AppEventCallback* callback) {
 		return Callback_guard(callback, appEventCallbacks);
 	}
 
 	template <
-			typename F, typename T,
+			typename T, typename F,
 			detail::compatible_with_t<AppEventCallback, F, T*> = true>
-	[[nodiscard]] auto register_callback(F callback, T* data) {
-		using namespace std::placeholders;
-		std::function<AppEventCallback> fun = std::bind(callback, data, _1);
+	[[nodiscard]] auto register_one_callback(T* data, F&& callback) {
+		std::function<AppEventCallback> fun
+				= detail::bind_front(std::forward<F>(callback), data);
 		return Callback_guard(std::move(fun), appEventCallbacks);
 	}
 
-	[[nodiscard]] auto register_callback(WindowEventCallback callback) {
+	[[nodiscard]] auto register_one_callback(WindowEventCallback* callback) {
 		return Callback_guard(callback, windowEventCallbacks);
 	}
 
 	template <
-			typename F, typename T,
+			typename T, typename F,
 			detail::compatible_with_t<WindowEventCallback, F, T*> = true>
-	[[nodiscard]] auto register_callback(F callback, T* data) {
-		using namespace std::placeholders;
+	[[nodiscard]] auto register_one_callback(T* data, F&& callback) {
 		std::function<WindowEventCallback> fun
-				= std::bind(callback, data, _1, _2);
+				= detail::bind_front(std::forward<F>(callback), data);
 		return Callback_guard(std::move(fun), windowEventCallbacks);
 	}
 
-	[[nodiscard]] auto register_callback(DropFileCallback callback) {
+	[[nodiscard]] auto register_one_callback(DropFileCallback* callback) {
 		return Callback_guard(callback, dropFileCallbacks);
 	}
 
 	template <
-			typename F, typename T,
+			typename T, typename F,
 			detail::compatible_with_t<DropFileCallback, F, T*> = true>
-	[[nodiscard]] auto register_callback(F callback, T* data) {
-		using namespace std::placeholders;
+	[[nodiscard]] auto register_one_callback(T* data, F&& callback) {
 		std::function<DropFileCallback> fun
-				= std::bind(callback, data, _1, _2, _3);
+				= detail::bind_front(std::forward<F>(callback), data);
 		return Callback_guard(std::move(fun), dropFileCallbacks);
 	}
 
-	[[nodiscard]] auto register_callback(QuitEventCallback callback) {
+	[[nodiscard]] auto register_one_callback(QuitEventCallback* callback) {
 		return Callback_guard(callback, quitEventCallback);
 	}
 
 	template <
-			typename F, typename T,
+			typename T, typename F,
 			detail::compatible_with_t<QuitEventCallback, F, T*> = true>
-	[[nodiscard]] auto register_callback(F callback, T* data) {
-		using namespace std::placeholders;
-		std::function<QuitEventCallback> fun = std::bind(callback, data, _1);
+	[[nodiscard]] auto register_one_callback(T* data, F&& callback) {
+		std::function<QuitEventCallback> fun
+				= detail::bind_front(std::forward<F>(callback), data);
 		return Callback_guard(std::move(fun), quitEventCallback);
 	}
 
-	[[nodiscard]] auto register_callback(TouchInputCallback callback) {
+	[[nodiscard]] auto register_one_callback(TouchInputCallback* callback) {
 		return Callback_guard(callback, touchInputCallbacks);
 	}
 
 	template <
-			typename F, typename T,
+			typename T, typename F,
 			detail::compatible_with_t<TouchInputCallback, F, T*> = true>
-	[[nodiscard]] auto register_callback(F callback, T* data) {
-		using namespace std::placeholders;
-		std::function<TouchInputCallback> fun = std::bind(callback, data, _1);
+	[[nodiscard]] auto register_one_callback(T* data, F&& callback) {
+		std::function<TouchInputCallback> fun
+				= detail::bind_front(std::forward<F>(callback), data);
 		return Callback_guard(std::move(fun), touchInputCallbacks);
 	}
 
-	[[nodiscard]] auto register_callback(ShortcutBarClickCallback callback) {
+	[[nodiscard]] auto register_one_callback(
+			ShortcutBarClickCallback* callback) {
 		return Callback_guard(callback, shortcutBarClickCallbacks);
 	}
 
 	template <
-			typename F, typename T,
+			typename T, typename F,
 			detail::compatible_with_t<ShortcutBarClickCallback, F, T*> = true>
-	[[nodiscard]] auto register_callback(F callback, T* data) {
-		using namespace std::placeholders;
+	[[nodiscard]] auto register_one_callback(T* data, F&& callback) {
 		std::function<ShortcutBarClickCallback> fun
-				= std::bind(callback, data, _1);
+				= detail::bind_front(std::forward<F>(callback), data);
 		return Callback_guard(std::move(fun), shortcutBarClickCallbacks);
+	}
+
+	template <
+			typename... Fs,
+			std::enable_if_t<
+					std::conjunction_v<std::is_invocable<
+							decltype(&EventManager::register_one_callback<Fs>),
+							std::add_pointer_t<EventManager>, Fs>...>,
+					bool>
+			= true>
+	[[nodiscard]] auto register_callbacks(Fs&&... callback) {
+		if constexpr (sizeof...(Fs) == 1) {
+			return register_one_callback(std::forward<Fs...>(callback...));
+		} else {
+			return std::make_tuple(
+					register_one_callback(std::forward<Fs>(callback))...);
+		}
+	}
+
+	template <
+			typename T, typename... Fs,
+			std::enable_if_t<
+					std::conjunction_v<std::is_invocable<
+							decltype(&EventManager::register_one_callback<
+									 T, Fs>),
+							std::add_pointer_t<EventManager>,
+							std::add_pointer_t<T>, Fs>...>,
+					bool>
+			= true>
+	[[nodiscard]] auto register_callbacks(T* data, Fs&&... callback) {
+		if constexpr (sizeof...(Fs) == 1) {
+			return register_one_callback(
+					data, std::forward<Fs...>(callback...));
+		} else {
+			return std::make_tuple(
+					register_one_callback(data, std::forward<Fs>(callback))...);
+		}
 	}
 
 	virtual void handle_events()    = 0;
