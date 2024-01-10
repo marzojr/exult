@@ -192,8 +192,8 @@ private:
 
 	template <typename Callback_t, typename... Ts>
 	std::invoke_result_t<Callback_t, Ts...> invoke_callback(
-			const CallbackStack<Callback_t>& stack,
 			Ts&&... args) const noexcept {
+		auto& stack = get_callback_stack<Callback_t>();
 		if (!stack.empty()) {
 			const auto& callback = stack.top();
 			return callback(std::forward<Ts>(args)...);
@@ -235,7 +235,7 @@ EventManagerImpl::EventManagerImpl() {
 }
 
 bool EventManagerImpl::break_event_loop() const {
-	return invoke_callback(breakLoopCallbacks);
+	return invoke_callback<BreakLoopCallback>();
 }
 
 void EventManagerImpl::handle_gamepad_axis_input() noexcept {
@@ -295,7 +295,7 @@ void EventManagerImpl::handle_gamepad_axis_input() noexcept {
 		SDL_SetWindowGrab(gwin->get_win()->get_screen_window(), SDL_FALSE);
 	}
 
-	invoke_callback(gamepadAxisCallbacks, joy_aim, joy_mouse, joy_rise);
+	invoke_callback<GamepadAxisCallback>(joy_aim, joy_mouse, joy_rise);
 }
 
 void EventManagerImpl::handle_event(SDL_ControllerDeviceEvent& event) noexcept {
@@ -353,7 +353,7 @@ void EventManagerImpl::handle_event(SDL_TextInputEvent& event) noexcept {
 	if ((chr & 0x80) != 0) {
 		chr = '?';
 	}
-	invoke_callback(textInputCallbacks, chr);
+	invoke_callback<TextInputCallback>(chr);
 }
 
 void EventManagerImpl::handle_event(SDL_MouseButtonEvent& event) noexcept {
@@ -372,9 +372,8 @@ void EventManagerImpl::handle_event(SDL_MouseButtonEvent& event) noexcept {
 	}
 	MouseButton buttonID = translateMouseButton(event.button);
 	if (buttonID != MouseButton::Invalid) {
-		invoke_callback(
-				mouseButtonCallbacks, kind, buttonID, event.clicks,
-				MousePosition(event.x, event.y));
+		invoke_callback<MouseButtonCallback>(
+				kind, buttonID, event.clicks, MousePosition(event.x, event.y));
 	}
 }
 
@@ -386,13 +385,13 @@ void EventManagerImpl::handle_event(SDL_MouseMotionEvent& event) noexcept {
 	Mouse::mouse->move(mouse.x, mouse.y);
 	Mouse::mouse_update      = true;
 	MouseButtonMask buttonID = translateMouseMasks(event.state);
-	invoke_callback(mouseMotionCallbacks, buttonID, mouse);
+	invoke_callback<MouseMotionCallback>(buttonID, mouse);
 }
 
 void EventManagerImpl::handle_event(SDL_MouseWheelEvent& event) noexcept {
 	ignore_unused_variable_warning(event);
 	MouseMotion delta(event.x, event.y);
-	invoke_callback(mouseWheelCallbacks, delta);
+	invoke_callback<MouseWheelCallback>(delta);
 }
 
 void EventManagerImpl::handle_event(SDL_TouchFingerEvent& event) noexcept {
@@ -417,9 +416,8 @@ void EventManagerImpl::handle_event(SDL_TouchFingerEvent& event) noexcept {
 		}
 		int numFingers = SDL_GetNumTouchFingers(event.touchId);
 		if (numFingers >= 1) {
-			invoke_callback(
-					fingerMotionCallbacks, numFingers,
-					FingerMotion{event.dx, event.dy});
+			invoke_callback<FingerMotionCallback>(
+					numFingers, FingerMotion{event.dx, event.dy});
 		}
 		break;
 	}
@@ -429,14 +427,14 @@ void EventManagerImpl::handle_event(SDL_TouchFingerEvent& event) noexcept {
 }
 
 void EventManagerImpl::handle_event(SDL_DropEvent& event) noexcept {
-	invoke_callback(
-			dropFileCallbacks, event.type, reinterpret_cast<uint8*>(event.file),
+	invoke_callback<DropFileCallback>(
+			event.type, reinterpret_cast<uint8*>(event.file),
 			MousePosition(get_from_sdl_tag{}));
 	SDL_free(event.file);
 }
 
 void EventManagerImpl::handle_background_event() noexcept {
-	invoke_callback(appEventCallbacks, AppEvents::OnEnterBackground);
+	invoke_callback<AppEventCallback>(AppEvents::OnEnterBackground);
 }
 
 void EventManagerImpl::handle_event(SDL_WindowEvent& event) noexcept {
@@ -454,19 +452,19 @@ void EventManagerImpl::handle_event(SDL_WindowEvent& event) noexcept {
 			return WindowEvents::Unhandled;
 		}
 	}();
-	invoke_callback(
-			windowEventCallbacks, eventID, MousePosition(get_from_sdl_tag{}));
+	invoke_callback<WindowEventCallback>(
+			eventID, MousePosition(get_from_sdl_tag{}));
 }
 
 void EventManagerImpl::handle_quit_event() {
-	invoke_callback(quitEventCallback);
+	invoke_callback<QuitEventCallback>();
 }
 
 void EventManagerImpl::handle_custom_touch_input_event(
 		SDL_UserEvent& event) noexcept {
 	if (event.code == TouchUI::EVENT_CODE_TEXT_INPUT) {
 		const auto* text = static_cast<const char*>(event.data1);
-		invoke_callback(touchInputCallbacks, text);
+		invoke_callback<TouchInputCallback>(text);
 		free(event.data1);
 	}
 }
@@ -474,7 +472,7 @@ void EventManagerImpl::handle_custom_touch_input_event(
 void EventManagerImpl::handle_custom_mouse_up_event(
 		SDL_UserEvent& event) noexcept {
 	if (event.code == ShortcutBar_gump::SHORTCUT_BAR_MOUSE_UP) {
-		invoke_callback(shortcutBarClickCallbacks, event);
+		invoke_callback<ShortcutBarClickCallback>(event);
 	}
 }
 
@@ -546,7 +544,7 @@ EventManager* EventManager::getInstance() {
 
 void EventManagerImpl::handle_events() {
 	SDL_Event event;
-	while (!invoke_callback(breakLoopCallbacks) && SDL_PollEvent(&event) != 0) {
+	while (!break_event_loop() && SDL_PollEvent(&event) != 0) {
 		handle_event(event);
 	}
 
