@@ -21,6 +21,7 @@
 
 #include <common_types.h>
 
+#include <functional>
 #include <stack>
 #include <type_traits>
 #include <utility>
@@ -350,18 +351,17 @@ namespace { namespace detail {
 
 	// Deduction guides for making use of the guard easier.
 	template <typename Callback_t>
-	[[maybe_unused]] Callback_guard(Callback_t*, CallbackStack<Callback_t>&)
+	Callback_guard(Callback_t*, CallbackStack<Callback_t>&)
 			-> Callback_guard<Callback_t>;
 
 	template <typename Callback_t>
-	[[maybe_unused]] Callback_guard(
-			std::function<Callback_t>&&, CallbackStack<Callback_t>&)
+	Callback_guard(std::function<Callback_t>&&, CallbackStack<Callback_t>&)
 			-> Callback_guard<Callback_t>;
 
 	template <
 			typename Callable, typename Callback_t,
 			std::enable_if_t<std::is_object_v<Callable>, bool> = true>
-	[[maybe_unused]] Callback_guard(Callable&&, CallbackStack<Callback_t>&)
+	Callback_guard(Callable&&, CallbackStack<Callback_t>&)
 			-> Callback_guard<Callback_t>;
 
 	// A meta-list with all callback types.
@@ -397,9 +397,11 @@ namespace { namespace detail {
 }}    // namespace ::detail
 
 class EventManager {
+protected:
 	template <typename Callback>
 	using CallbackStack    = detail::CallbackStack<Callback>;
 	using Callback_tuple_t = detail::Callback_tuple_t;
+	Callback_tuple_t callbackStacks;
 
 	template <typename Callback>
 	CallbackStack<Callback>& get_callback_stack() {
@@ -411,9 +413,11 @@ class EventManager {
 		return std::get<CallbackStack<Callback>>(callbackStacks);
 	}
 
+	EventManager() = default;
+
 public:
 	EventManager* getInstance();
-	virtual ~EventManager();
+	virtual ~EventManager() = default;
 	EventManager(const EventManager&)            = delete;
 	EventManager(EventManager&&)                 = delete;
 	EventManager& operator=(const EventManager&) = delete;
@@ -498,11 +502,6 @@ public:
 	virtual void handle_events()    = 0;
 	virtual void enable_dropfile()  = 0;
 	virtual void disable_dropfile() = 0;
-
-protected:
-	EventManager();
-
-	Callback_tuple_t callbackStacks;
 };
 
 #endif    // INPUT_MANAGER_H
