@@ -188,6 +188,10 @@ using A = std::invoke_result<
 
 namespace { namespace detail {
 	// Some stuff for constraining templates.
+	// Cheeky alias for clarity.
+	template <bool Condition>
+	using require = std::enable_if_t<Condition, bool>;
+
 	// A helper meta-function. I needed this because std::invoke_result is NOT
 	// SFINAE-friendly.
 	template <typename R, typename F, typename... Ts>
@@ -218,8 +222,7 @@ namespace { namespace detail {
 	using compatible_with = is_compatible_with<C, F, Ts...>;
 
 	template <typename C, typename F, typename... Ts>
-	using compatible_with_t
-			= std::enable_if_t<is_compatible_with_v<C, F, Ts...>, bool>;
+	using compatible_with_t = require<is_compatible_with_v<C, F, Ts...>>;
 
 	// A c++17 version of std::bind_front. Another thing in favor of c++20?
 	// From https://stackoverflow.com/a/64714179/5103768
@@ -296,6 +299,18 @@ namespace { namespace detail {
 
 	// A custom version of the filter function which passes additional
 	// arguments to the predicate.
+	template <template <typename...> typename Pred, typename Arg1, typename T>
+	using filter_helper1 = std::conditional_t<
+			Pred<T, Arg1>::value, Type_list<T>, Type_list<>>;
+
+	template <
+			template <typename...> typename Pred, typename Arg1, typename... Ts>
+	using filter1 = typename concat<filter_helper1<Pred, Arg1, Ts>...>::type;
+
+	// Underlying data structure for event manager.
+	template <typename Callback_t>
+	using CallbackStack = std::stack<std::function<Callback_t>>;
+
 	template <
 			template <typename...> typename Pred, typename Arg1, typename Arg2,
 			typename T>
@@ -316,37 +331,46 @@ namespace { namespace detail {
 	// callbacks.
 	template <typename Callback_t>
 	class [[nodiscard]] Callback_guard {
-		CallbackStack<Callback_t>& m_target;
+		CallbackStack<Callback_t>* m_target = nullptr;
 
 	public:
 		[[nodiscard]] Callback_guard(
 				Callback_t&& callback, CallbackStack<Callback_t>& target)
-				: m_target(target) {
-			m_target.emplace(std::forward<Callback_t>(callback));
+				: m_target(&target) {
+			m_target->emplace(std::forward<Callback_t>(callback));
 		}
 
 		template <typename Callable, compatible_with_t<Callback_t, Callable>>
 		[[nodiscard]] Callback_guard(
 				Callable&& callback, CallbackStack<Callback_t>& target)
-				: m_target(target) {
-			m_target.emplace(std::forward<Callable>(callback));
+				: m_target(&target) {
+			m_target->emplace(std::forward<Callable>(callback));
 		}
 
 		[[nodiscard]] Callback_guard(
 				std::function<Callback_t>&& callback,
 				CallbackStack<Callback_t>&  target)
-				: m_target(target) {
-			m_target.push(std::move(callback));
+				: m_target(&target) {
+			m_target->push(std::move(callback));
 		}
 
 		~Callback_guard() noexcept {
-			m_target.pop();
+			if (m_target != nullptr) {
+				m_target->pop();
+			}
 		}
 
+		Callback_guard()                                 = default;
 		Callback_guard(const Callback_guard&)            = delete;
-		Callback_guard(Callback_guard&&)                 = delete;
 		Callback_guard& operator=(const Callback_guard&) = delete;
-		Callback_guard& operator=(Callback_guard&&)      = delete;
+
+		Callback_guard(Callback_guard&& other) noexcept
+				: m_target(std::exchange(other.m_target, nullptr)) {}
+
+		Callback_guard& operator=(Callback_guard&& other) noexcept {
+			m_target = std::exchange(other.m_target, nullptr);
+			return *this;
+		}
 	};
 
 	// Deduction guides for making use of the guard easier.
@@ -360,7 +384,7 @@ namespace { namespace detail {
 
 	template <
 			typename Callable, typename Callback_t,
-			std::enable_if_t<std::is_object_v<Callable>, bool> = true>
+			require<std::is_object_v<Callable>> = true>
 	Callback_guard(Callable&&, CallbackStack<Callback_t>&)
 			-> Callback_guard<Callback_t>;
 
@@ -381,18 +405,44 @@ namespace { namespace detail {
 			= decltype(tuple_from_type_list(std::declval<Callback_list>()));
 
 	// Meta functions and types for constraining templates.
+	template <typename F, typename... Ts>
+	[[maybe_unused]] constexpr auto apply_compatible_with_filter1(
+			detail::Type_list<Ts...>)
+			-> detail::filter1<detail::compatible_with, F, Ts...>;
+
+	template <typename F>
+	using has_compatible_callback1 = std::integral_constant<
+			bool,
+			decltype(apply_compatible_with_filter1<F>(Callback_list{}))::size
+					== 1>;
+
+	template <typename F>
+	[[maybe_unused]] constexpr inline const bool has_compatible_callback1_v
+			= has_compatible_callback1<F>::value;
+
+	template <typename F>
+	using get_compatible_callback1 =
+			typename decltype(apply_compatible_with_filter1<F>(
+					Callback_list{}))::head;
+
 	template <typename F, typename T, typename... Ts>
-	[[maybe_unused]] constexpr auto apply_compatible_with_filter(
+	[[maybe_unused]] constexpr auto apply_compatible_with_filter2(
 			detail::Type_list<Ts...>)
 			-> detail::filter2<detail::compatible_with, F, T, Ts...>;
 
 	template <typename F, typename T>
-	using has_compatible_callback
-			= decltype(apply_compatible_with_filter<F, T>(Callback_list{}));
+	using has_compatible_callback2 = std::integral_constant<
+			bool,
+			decltype(apply_compatible_with_filter2<F, T>(Callback_list{}))::size
+					== 1>;
 
 	template <typename F, typename T>
-	using get_compatible_callback =
-			typename decltype(apply_compatible_with_filter<F, T>(
+	[[maybe_unused]] constexpr inline const bool has_compatible_callback2_v
+			= has_compatible_callback2<F, T>::value;
+
+	template <typename F, typename T>
+	using get_compatible_callback2 =
+			typename decltype(apply_compatible_with_filter2<F, T>(
 					Callback_list{}))::head;
 }}    // namespace ::detail
 
@@ -416,56 +466,72 @@ protected:
 	EventManager() = default;
 
 public:
-	EventManager* getInstance();
-	virtual ~EventManager() = default;
+	static EventManager* getInstance();
+	virtual ~EventManager()                      = default;
 	EventManager(const EventManager&)            = delete;
 	EventManager(EventManager&&)                 = delete;
 	EventManager& operator=(const EventManager&) = delete;
 	EventManager& operator=(EventManager&&)      = delete;
 
-	// Registers one callback (based on type). Accepts function pointers only.
-	// TODO: Make this work with functors and lambdas with the right signature.
+	// Registers one callback (based on type). For function pointers or
+	// references.
 	template <
 			typename Callback,
-			std::enable_if_t<
-					std::is_same_v<
-							decltype(std::get<CallbackStack<Callback>>(
-									std::declval<Callback_tuple_t&>())),
-							CallbackStack<Callback>&>,
-					bool>
+			detail::require<std::conjunction_v<
+					std::is_function<std::remove_reference_t<
+							std::remove_pointer_t<Callback>>>,
+					detail::has_compatible_callback1<std::remove_reference_t<
+							std::remove_pointer_t<Callback>>>>>
 			= true>
-	[[nodiscard]] auto register_one_callback(Callback* callback) {
-		return detail::Callback_guard(callback, get_callback_stack<Callback>());
+	[[nodiscard]] auto register_one_callback(Callback&& callback) {
+		return detail::Callback_guard(
+				std::forward<Callback>(callback),
+				get_callback_stack<std::remove_reference_t<
+						std::remove_pointer_t<Callback>>>());
+	}
+
+	// Registers one callback (based on type). For functors and lambdas.
+	template <
+			typename Callback,
+			detail::require<std::conjunction_v<
+					std::is_object<std::remove_reference_t<
+							std::remove_pointer_t<Callback>>>,
+					detail::has_compatible_callback1<std::remove_reference_t<
+							std::remove_pointer_t<Callback>>>>>
+			= true>
+	[[nodiscard]] auto register_one_callback(Callback&& callback) {
+		using Cb = std::remove_reference_t<std::remove_pointer_t<Callback>>;
+		using Functor = detail::get_compatible_callback1<Cb>;
+		std::function<Functor> fun(std::forward<Callback>(callback));
+		return detail::Callback_guard(
+				std::move(fun), get_callback_stack<Functor>());
 	}
 
 	// Registers one callback (based on type). Accepts various callables, but
-	// expects that they need a parameter of type T* to be passed at the front.
-	// Also works with pointer-to-member functions.
-	// TODO: Make this accept references as well.
+	// expects that they need a parameter of type T (pointer or reference) that
+	// needs to be passed at the front. Also works with pointer-to-member
+	// functions.
 	template <
 			typename T, typename F,
-			std::enable_if_t<
-					detail::has_compatible_callback<F, T*>::size == 1, bool>
-			= true>
-	[[nodiscard]] auto register_one_callback(T* data, F&& callback) {
-		using Callback = detail::get_compatible_callback<F, T*>;
+			detail::require<detail::has_compatible_callback2_v<F, T>> = true>
+	[[nodiscard]] auto register_one_callback(T&& data, F&& callback) {
+		using Callback = detail::get_compatible_callback2<F, T>;
 		std::function<Callback> fun
 				= detail::bind_front(std::forward<F>(callback), data);
 		return detail::Callback_guard(
 				std::move(fun), get_callback_stack<Callback>());
 	}
 
-	// Registers many callbacks (based on type). Accepts function pointers only.
-	// TODO: Make this work with functors and lambdas with the right signature.
+	// Registers many callbacks (based on type). Forwards each parameter to its
+	// own call to register_one_callback, then aggregates the results.
 	template <
 			typename... Fs,
-			std::enable_if_t<
-					std::conjunction_v<std::is_invocable<
-							decltype(&EventManager::register_one_callback<Fs>),
-							std::add_pointer_t<EventManager>, Fs>...>,
-					bool>
+			detail::require<std::conjunction_v<std::is_invocable<
+					decltype(&EventManager::register_one_callback<Fs>),
+					std::add_pointer_t<EventManager>, Fs>...>>
 			= true>
 	[[nodiscard]] auto register_callbacks(Fs&&... callback) {
+		static_assert(sizeof...(Fs) != 0);
 		if constexpr (sizeof...(Fs) == 1) {
 			return register_one_callback(std::forward<Fs...>(callback...));
 		} else {
@@ -474,22 +540,18 @@ public:
 		}
 	}
 
-	// Registers many callbacks (based on type). Accepts various callables, but
-	// expects that they all need a parameter of type T* to be passed at the
-	// front, and that all callables use the same parameter at the front. Also
-	// works with pointer-to-member functions.
-	// TODO: Make this accept references as well.
+	// Registers many callbacks (based on type). Splits off the first argument,
+	// then forwards it along with each of the remaining parameter to their own
+	// calls to register_one_callback, then aggregates the results.
+
 	template <
 			typename T, typename... Fs,
-			std::enable_if_t<
-					std::conjunction_v<std::is_invocable<
-							decltype(&EventManager::register_one_callback<
-									 T, Fs>),
-							std::add_pointer_t<EventManager>,
-							std::add_pointer_t<T>, Fs>...>,
-					bool>
+			detail::require<std::conjunction_v<std::is_invocable<
+					decltype(&EventManager::register_one_callback<T, Fs>),
+					std::add_pointer_t<EventManager>, T, Fs>...>>
 			= true>
-	[[nodiscard]] auto register_callbacks(T* data, Fs&&... callback) {
+	[[nodiscard]] auto register_callbacks(T&& data, Fs&&... callback) {
+		static_assert(sizeof...(Fs) != 0);
 		if constexpr (sizeof...(Fs) == 1) {
 			return register_one_callback(
 					data, std::forward<Fs...>(callback...));

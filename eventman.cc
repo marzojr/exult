@@ -16,6 +16,10 @@
  *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#ifdef HAVE_CONFIG_H
+#	include <config.h>
+#endif
+
 #include "eventman.h"
 
 #include "ShortcutBar_gump.h"
@@ -61,9 +65,7 @@ void Drop_dragged_combo(int cnt, U7_combo_data* combo, int x, int y);
 #endif
 
 namespace {
-	template <
-			typename T,
-			std::enable_if_t<std::is_floating_point_v<T>, bool> = true>
+	template <typename T, detail::require<std::is_floating_point_v<T>> = true>
 	[[maybe_unused]] inline bool isZero(T val) noexcept {
 		const int result = std::fpclassify(val);
 		return result == FP_SUBNORMAL || result == FP_ZERO;
@@ -71,10 +73,9 @@ namespace {
 
 	template <
 			typename T1, typename T2,
-			std::enable_if_t<
+			detail::require<
 					std::is_floating_point_v<T1>
-							&& std::is_floating_point_v<T2>,
-					bool>
+					&& std::is_floating_point_v<T2>>
 			= true>
 	[[maybe_unused]] inline bool floatCompare(T1 f1, T2 f2) noexcept {
 		using T = std::common_type_t<T1, T2>;
@@ -83,7 +84,7 @@ namespace {
 		return isZero(v1 - v2);
 	}
 
-	constexpr MouseButton translateMouseButton(int button) noexcept {
+	constexpr inline MouseButton translateMouseButton(int button) noexcept {
 		using Tp = std::underlying_type_t<MouseButton>;
 		static_assert(
 				(static_cast<Tp>(MouseButton::Left) == SDL_BUTTON_LEFT)
@@ -94,7 +95,8 @@ namespace {
 		return static_cast<MouseButton>(button);
 	};
 
-	constexpr MouseButtonMask translateMouseMasks(intptr_t button) noexcept {
+	constexpr inline MouseButtonMask translateMouseMasks(
+			intptr_t button) noexcept {
 		using Tp = std::underlying_type_t<MouseButtonMask>;
 		static_assert(
 				(static_cast<Tp>(MouseButtonMask::Left) == SDL_BUTTON_LMASK)
@@ -161,27 +163,28 @@ public:
 	void disable_dropfile() override;
 
 private:
-	bool break_event_loop() const;
-	void handle_event(SDL_Event& event);
-	void handle_event(SDL_ControllerDeviceEvent& event) noexcept;
-	void handle_event(SDL_KeyboardEvent& event) noexcept;
-	void handle_event(SDL_TextInputEvent& event) noexcept;
-	void handle_event(SDL_MouseMotionEvent& event) noexcept;
-	void handle_event(SDL_MouseButtonEvent& event) noexcept;
-	void handle_event(SDL_MouseWheelEvent& event) noexcept;
-	void handle_event(SDL_TouchFingerEvent& event) noexcept;
-	void handle_event(SDL_DropEvent& event) noexcept;
-	void handle_event(SDL_WindowEvent& event) noexcept;
+	inline bool break_event_loop() const;
+	inline void handle_event(SDL_Event& event);
+	inline void handle_event(SDL_ControllerDeviceEvent& event) noexcept;
+	inline void handle_event(SDL_KeyboardEvent& event) noexcept;
+	inline void handle_event(SDL_TextInputEvent& event) noexcept;
+	inline void handle_event(SDL_MouseMotionEvent& event) noexcept;
+	inline void handle_event(SDL_MouseButtonEvent& event) noexcept;
+	inline void handle_event(SDL_MouseWheelEvent& event) noexcept;
+	inline void handle_event(SDL_TouchFingerEvent& event) noexcept;
+	inline void handle_event(SDL_DropEvent& event) noexcept;
+	inline void handle_event(SDL_WindowEvent& event) noexcept;
 
-	void handle_background_event() noexcept;
-	void handle_quit_event();
-	void handle_custom_touch_input_event(SDL_UserEvent& event) noexcept;
-	void handle_custom_mouse_up_event(SDL_UserEvent& event) noexcept;
+	inline void handle_background_event() noexcept;
+	inline void handle_quit_event();
+	inline void handle_custom_touch_input_event(SDL_UserEvent& event) noexcept;
+	inline void handle_custom_mouse_up_event(SDL_UserEvent& event) noexcept;
 
-	void handle_gamepad_axis_input() noexcept;
+	inline void handle_gamepad_axis_input() noexcept;
 
-	SDL_GameController* find_controller() const noexcept;
-	SDL_GameController* open_game_controller(int joystick_index) const noexcept;
+	inline SDL_GameController* find_controller() const noexcept;
+	inline SDL_GameController* open_game_controller(
+			int joystick_index) const noexcept;
 
 	SDL_GameController* active_gamepad = nullptr;
 
@@ -582,3 +585,90 @@ void EventManagerImpl::disable_dropfile() {
 #	endif
 #endif
 }
+
+#ifdef DEBUG
+namespace {
+	[[maybe_unused]] void cb1(
+			const AxisVector&, const AxisVector&, const AxisTrigger&) {}
+
+	[[maybe_unused]] void cb2(
+			EventManager*, const AxisVector&, const AxisVector&,
+			const AxisTrigger&) {}
+
+	struct cb3 {
+		[[maybe_unused]] void cb(
+				const AxisVector&, const AxisVector&, const AxisTrigger&) {}
+
+		[[maybe_unused]] bool cb2() {
+			return false;
+		}
+	};
+
+	struct cb4 {
+		[[maybe_unused]] void operator()(
+				const AxisVector&, const AxisVector&, const AxisTrigger&) {}
+	};
+
+	[[maybe_unused]] void test_callbacks() {
+		auto* events = EventManager::getInstance();
+		{ auto guard = events->register_one_callback(cb1); }
+		{ auto guard = events->register_one_callback(events, cb2); }
+		{
+			cb3 vcb3;
+			static_assert(detail::has_compatible_callback2_v<
+						  decltype(&cb3::cb), cb3*>);
+			{ auto guard = events->register_one_callback(&vcb3, &cb3::cb); }
+			{
+				auto guard
+						= events->register_callbacks(vcb3, &cb3::cb, &cb3::cb2);
+			}
+		}
+		{
+			cb4 vcb4;
+			{
+				auto guard = events->register_one_callback(
+						&vcb4, &cb4::operator());
+			}
+			{
+				auto guard
+						= events->register_one_callback(vcb4, &cb4::operator());
+			}
+		}
+		{
+			auto guard = events->register_one_callback(
+					+[](const AxisVector&, const AxisVector&,
+						const AxisTrigger&) {});
+		}
+		{
+			auto vcb6 = [events](
+								const AxisVector&, const AxisVector&,
+								const AxisTrigger&) {
+				events->enable_dropfile();
+			};
+			using T6 = std::remove_reference_t<
+					std::remove_pointer_t<decltype(vcb6)>>;
+			static_assert(!std::is_function_v<T6>);
+			static_assert(std::is_object_v<T6>);
+			static_assert(detail::has_compatible_callback1_v<T6>);
+			static_assert(std::is_invocable_v<
+						  T6, const AxisVector&, const AxisVector&,
+						  const AxisTrigger&>);
+			auto guard = events->register_one_callback(vcb6);
+		}
+		{
+			auto guard = events->register_one_callback(
+					[events](
+							const AxisVector&, const AxisVector&,
+							const AxisTrigger&) {
+						events->enable_dropfile();
+					});
+		}
+		{
+			auto guard = events->register_callbacks(
+					cb1, +[]() {
+						return true;
+					});
+		}
+	}
+}    // namespace
+#endif
