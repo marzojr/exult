@@ -84,7 +84,58 @@ namespace {
 		return isZero(v1 - v2);
 	}
 
-	constexpr inline MouseButton translateMouseButton(int button) noexcept {
+	constexpr inline ControllerButton translateControllerButton(
+			uint8 button) noexcept {
+		using Tp = std::underlying_type_t<ControllerButton>;
+		static_assert(
+				(static_cast<Tp>(ControllerButton::Invalid)
+				 == SDL_CONTROLLER_BUTTON_INVALID)
+				&& (static_cast<Tp>(ControllerButton::A)
+					== SDL_CONTROLLER_BUTTON_A)
+				&& (static_cast<Tp>(ControllerButton::B)
+					== SDL_CONTROLLER_BUTTON_B)
+				&& (static_cast<Tp>(ControllerButton::X)
+					== SDL_CONTROLLER_BUTTON_X)
+				&& (static_cast<Tp>(ControllerButton::Y)
+					== SDL_CONTROLLER_BUTTON_Y)
+				&& (static_cast<Tp>(ControllerButton::Back)
+					== SDL_CONTROLLER_BUTTON_BACK)
+				&& (static_cast<Tp>(ControllerButton::Guide)
+					== SDL_CONTROLLER_BUTTON_GUIDE)
+				&& (static_cast<Tp>(ControllerButton::Start)
+					== SDL_CONTROLLER_BUTTON_START)
+				&& (static_cast<Tp>(ControllerButton::LeftStick)
+					== SDL_CONTROLLER_BUTTON_LEFTSTICK)
+				&& (static_cast<Tp>(ControllerButton::RightStick)
+					== SDL_CONTROLLER_BUTTON_RIGHTSTICK)
+				&& (static_cast<Tp>(ControllerButton::LeftShoulder)
+					== SDL_CONTROLLER_BUTTON_LEFTSHOULDER)
+				&& (static_cast<Tp>(ControllerButton::RightShoulder)
+					== SDL_CONTROLLER_BUTTON_RIGHTSHOULDER)
+				&& (static_cast<Tp>(ControllerButton::DPad_Up)
+					== SDL_CONTROLLER_BUTTON_DPAD_UP)
+				&& (static_cast<Tp>(ControllerButton::DPad_Down)
+					== SDL_CONTROLLER_BUTTON_DPAD_DOWN)
+				&& (static_cast<Tp>(ControllerButton::DPad_Left)
+					== SDL_CONTROLLER_BUTTON_DPAD_LEFT)
+				&& (static_cast<Tp>(ControllerButton::DPad_Right)
+					== SDL_CONTROLLER_BUTTON_DPAD_RIGHT)
+				&& (static_cast<Tp>(ControllerButton::Misc1)
+					== SDL_CONTROLLER_BUTTON_MISC1)
+				&& (static_cast<Tp>(ControllerButton::Paddle1)
+					== SDL_CONTROLLER_BUTTON_PADDLE1)
+				&& (static_cast<Tp>(ControllerButton::Paddle2)
+					== SDL_CONTROLLER_BUTTON_PADDLE2)
+				&& (static_cast<Tp>(ControllerButton::Paddle3)
+					== SDL_CONTROLLER_BUTTON_PADDLE3)
+				&& (static_cast<Tp>(ControllerButton::Paddle4)
+					== SDL_CONTROLLER_BUTTON_PADDLE4)
+				&& (static_cast<Tp>(ControllerButton::Touchpad)
+					== SDL_CONTROLLER_BUTTON_TOUCHPAD));
+		return static_cast<ControllerButton>(button);
+	}
+
+	constexpr inline MouseButton translateMouseButton(uint8 button) noexcept {
 		using Tp = std::underlying_type_t<MouseButton>;
 		static_assert(
 				(static_cast<Tp>(MouseButton::Left) == SDL_BUTTON_LEFT)
@@ -96,7 +147,7 @@ namespace {
 	};
 
 	constexpr inline MouseButtonMask translateMouseMasks(
-			intptr_t button) noexcept {
+			uint32 button) noexcept {
 		using Tp = std::underlying_type_t<MouseButtonMask>;
 		static_assert(
 				(static_cast<Tp>(MouseButtonMask::Left) == SDL_BUTTON_LMASK)
@@ -166,6 +217,7 @@ private:
 	inline bool break_event_loop() const;
 	inline void handle_event(SDL_Event& event);
 	inline void handle_event(SDL_ControllerDeviceEvent& event) noexcept;
+	inline void handle_event(SDL_ControllerButtonEvent& event) noexcept;
 	inline void handle_event(SDL_KeyboardEvent& event) noexcept;
 	inline void handle_event(SDL_TextInputEvent& event) noexcept;
 	inline void handle_event(SDL_MouseMotionEvent& event) noexcept;
@@ -333,6 +385,17 @@ void EventManagerImpl::handle_event(SDL_ControllerDeviceEvent& event) noexcept {
 	}
 }
 
+void EventManagerImpl::handle_event(SDL_ControllerButtonEvent& event) noexcept {
+	// TODO: Maybe convert to mouse buttons here?
+	const ControllerEvent  kind     = event.type == SDL_CONTROLLERBUTTONDOWN
+											  ? ControllerEvent::Pressed
+											  : ControllerEvent::Released;
+	const ControllerButton buttonID = translateControllerButton(event.button);
+	if (buttonID != ControllerButton::Invalid) {
+		invoke_callback<ControllerCallback>(kind, buttonID);
+	}
+}
+
 void EventManagerImpl::handle_event(SDL_KeyboardEvent& event) noexcept {
 	const KeyboardEvent kind = event.type == SDL_KEYDOWN
 									   ? KeyboardEvent::Pressed
@@ -469,6 +532,11 @@ void EventManagerImpl::handle_event(SDL_Event& event) {
 	case SDL_CONTROLLERDEVICEADDED:
 	case SDL_CONTROLLERDEVICEREMOVED:
 		handle_event(event.cdevice);
+		break;
+
+	case SDL_CONTROLLERBUTTONDOWN:
+	case SDL_CONTROLLERBUTTONUP:
+		handle_event(event.cbutton);
 		break;
 
 	case SDL_KEYDOWN:

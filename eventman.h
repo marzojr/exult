@@ -53,6 +53,45 @@ using GamepadAxisCallback
 		= void(const AxisVector& leftAxis, const AxisVector& rightAxis,
 			   const AxisTrigger& triggers);
 
+// Controller button up/down callbacks.
+enum class ControllerEvent {
+	Pressed,
+	Released,
+};
+
+// Note: recreating this enum here so that:
+// (1) we don'y have to include the SDL include in the header;
+// (2) to better isolate against SDL changes.
+enum class ControllerButton {
+	Invalid = -1,
+	A,
+	B,
+	X,
+	Y,
+	Back,
+	Guide,
+	Start,
+	LeftStick,
+	RightStick,
+	LeftShoulder,
+	RightShoulder,
+	DPad_Up,
+	DPad_Down,
+	DPad_Left,
+	DPad_Right,
+	// Xbox Series X share button, PS5 microphone button, Nintendo Switch Pro
+	// capture button, Amazon Luna microphone button
+	Misc1,
+	Paddle1,     // Xbox Elite paddle P1 (upper left, facing the back)
+	Paddle2,     // Xbox Elite paddle P3 (upper right, facing the back)
+	Paddle3,     // Xbox Elite paddle P2 (lower left, facing the back)
+	Paddle4,     // Xbox Elite paddle P4 (lower right, facing the back)
+	Touchpad,    // PS4/PS5 touchpad button
+};
+
+using ControllerCallback
+		= void(ControllerEvent type, const ControllerButton sym);
+
 // Keyboard key up/down callbacks.
 enum class KeyboardEvent {
 	Pressed,
@@ -77,6 +116,9 @@ struct MousePosition {
 	void set(int x_, int y_);
 };
 
+// Note: recreating this enum here so that:
+// (1) we don'y have to include the SDL include in the header;
+// (2) to better isolate against SDL changes.
 enum class MouseButton {
 	Invalid = 0,
 	Left    = 1,
@@ -86,6 +128,9 @@ enum class MouseButton {
 	X2      = 5,
 };
 
+// Note: recreating this enum here so that:
+// (1) we don'y have to include the SDL include in the header;
+// (2) to better isolate against SDL changes.
 enum class MouseButtonMask {
 	None   = 0,
 	Left   = 1,
@@ -401,11 +446,11 @@ namespace { namespace detail {
 
 	// A meta-list with all callback types.
 	using Callback_list = detail::Type_list<
-			BreakLoopCallback, GamepadAxisCallback, KeyboardCallback,
-			TextInputCallback, MouseButtonCallback, MouseMotionCallback,
-			MouseWheelCallback, FingerMotionCallback, WindowEventCallback,
-			AppEventCallback, DropFileCallback, QuitEventCallback,
-			TouchInputCallback, ShortcutBarClickCallback>;
+			BreakLoopCallback, GamepadAxisCallback, ControllerCallback,
+			KeyboardCallback, TextInputCallback, MouseButtonCallback,
+			MouseMotionCallback, MouseWheelCallback, FingerMotionCallback,
+			WindowEventCallback, AppEventCallback, DropFileCallback,
+			QuitEventCallback, TouchInputCallback, ShortcutBarClickCallback>;
 
 	// Meta function that generates the type of the main data structure of the
 	// event manager.
