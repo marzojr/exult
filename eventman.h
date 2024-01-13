@@ -19,7 +19,9 @@
 #ifndef INPUT_MANAGER_H
 #define INPUT_MANAGER_H
 
-#include <common_types.h>
+#include "common_types.h"
+
+#include <SDL_keycode.h>
 
 #include <functional>
 #include <stack>
@@ -50,6 +52,15 @@ struct AxisTrigger {
 using GamepadAxisCallback
 		= void(const AxisVector& leftAxis, const AxisVector& rightAxis,
 			   const AxisTrigger& triggers);
+
+// Keyboard key up/down callbacks.
+enum class KeyboardEvent {
+	Pressed,
+	Released,
+};
+
+using KeyboardCallback
+		= void(KeyboardEvent type, const SDL_KeyCode sym, const SDL_Keymod mod);
 
 // This callback is called when compositing text is finished.
 using TextInputCallback = void(char chr);
@@ -390,11 +401,11 @@ namespace { namespace detail {
 
 	// A meta-list with all callback types.
 	using Callback_list = detail::Type_list<
-			BreakLoopCallback, GamepadAxisCallback, TextInputCallback,
-			MouseButtonCallback, MouseMotionCallback, MouseWheelCallback,
-			FingerMotionCallback, WindowEventCallback, AppEventCallback,
-			DropFileCallback, QuitEventCallback, TouchInputCallback,
-			ShortcutBarClickCallback>;
+			BreakLoopCallback, GamepadAxisCallback, KeyboardCallback,
+			TextInputCallback, MouseButtonCallback, MouseMotionCallback,
+			MouseWheelCallback, FingerMotionCallback, WindowEventCallback,
+			AppEventCallback, DropFileCallback, QuitEventCallback,
+			TouchInputCallback, ShortcutBarClickCallback>;
 
 	// Meta function that generates the type of the main data structure of the
 	// event manager.

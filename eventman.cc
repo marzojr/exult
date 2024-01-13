@@ -334,17 +334,12 @@ void EventManagerImpl::handle_event(SDL_ControllerDeviceEvent& event) noexcept {
 }
 
 void EventManagerImpl::handle_event(SDL_KeyboardEvent& event) noexcept {
-	// TODO: Implement this
-	switch (event.type) {
-	case SDL_KEYDOWN:
-		break;
-
-	case SDL_KEYUP:
-		break;
-
-	default:
-		break;
-	}
+	const KeyboardEvent kind = event.type == SDL_KEYDOWN
+									   ? KeyboardEvent::Pressed
+									   : KeyboardEvent::Released;
+	const auto          sym  = static_cast<SDL_KeyCode>(event.keysym.sym);
+	const auto          mod  = static_cast<SDL_Keymod>(event.keysym.mod);
+	invoke_callback<KeyboardCallback>(kind, sym, mod);
 }
 
 void EventManagerImpl::handle_event(SDL_TextInputEvent& event) noexcept {
@@ -360,20 +355,10 @@ void EventManagerImpl::handle_event(SDL_TextInputEvent& event) noexcept {
 }
 
 void EventManagerImpl::handle_event(SDL_MouseButtonEvent& event) noexcept {
-	MouseEvent kind;
-	switch (event.type) {
-	case SDL_MOUSEBUTTONDOWN:
-		kind = MouseEvent::Pressed;
-		break;
-
-	case SDL_MOUSEBUTTONUP:
-		kind = MouseEvent::Released;
-		break;
-
-	default:
-		return;
-	}
-	MouseButton buttonID = translateMouseButton(event.button);
+	const MouseEvent kind     = event.type == SDL_MOUSEBUTTONDOWN
+										? MouseEvent::Pressed
+										: MouseEvent::Released;
+	MouseButton      buttonID = translateMouseButton(event.button);
 	if (buttonID != MouseButton::Invalid) {
 		invoke_callback<MouseButtonCallback>(
 				kind, buttonID, event.clicks, MousePosition(event.x, event.y));
