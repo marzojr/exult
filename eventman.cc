@@ -266,11 +266,11 @@ SDL_GameController* EventManagerImpl::open_game_controller(
 	if (input_device != nullptr) {
 		SDL_GameControllerGetJoystick(input_device);
 		std::cout << "Game controller attached and open: \""
-				  << SDL_GameControllerName(input_device) << '"' << std::endl;
+				  << SDL_GameControllerName(input_device) << "\"\n";
 	} else {
 		std::cout
 				<< "Game controller attached, but it failed to open. Error: \""
-				<< SDL_GetError() << '"' << std::endl;
+				<< SDL_GetError() << "\"\n";
 	}
 	return input_device;
 }
@@ -374,7 +374,7 @@ void EventManagerImpl::handle_event(SDL_ControllerDeviceEvent& event) noexcept {
 							   SDL_GameControllerGetJoystick(active_gamepad))) {
 			std::cout << "Game controller \""
 					  << SDL_GameControllerName(active_gamepad)
-					  << "\" detached and closed." << std::endl;
+					  << "\" detached and closed.\n";
 			SDL_GameControllerClose(active_gamepad);
 			active_gamepad = find_controller();
 		}
@@ -622,7 +622,7 @@ void EventManagerImpl::enable_dropfile() {
 			Drop_dragged_chunk, Drop_dragged_npc, Drop_dragged_combo));
 	if (FAILED(RegisterDragDrop(hgwin, windnd.get()))) {
 		windnd.reset();
-		std::cout << "Something's wrong with OLE2 ..." << std::endl;
+		std::cout << "Something's wrong with OLE2 ...\n";
 	}
 #	endif
 #endif

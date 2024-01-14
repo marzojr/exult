@@ -429,6 +429,11 @@ namespace { namespace detail {
 		}
 	};
 
+#ifdef __clang__
+#	pragma GCC diagnostic push
+#	pragma GCC diagnostic ignored "-Wunused-template"
+#endif    // __clang__
+
 	// Deduction guides for making use of the guard easier.
 	template <typename Callback_t>
 	Callback_guard(Callback_t*, CallbackStack<Callback_t>&)
@@ -443,6 +448,10 @@ namespace { namespace detail {
 			require<std::is_object_v<Callable>> = true>
 	Callback_guard(Callable&&, CallbackStack<Callback_t>&)
 			-> Callback_guard<Callback_t>;
+
+#ifdef __clang__
+#	pragma GCC diagnostic pop
+#endif    // __clang__
 
 	// A meta-list with all callback types.
 	using Callback_list = detail::Type_list<
