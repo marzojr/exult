@@ -45,7 +45,9 @@
 #include <SDL_error.h>
 #include <SDL_events.h>
 #ifdef USE_EXULTSTUDIO /* Only needed for communication with exult studio */
+#	define Font _XFont_
 #	include <SDL_syswm.h>
+#	undef Font
 #endif
 #ifdef __GNUC__
 #	pragma GCC diagnostic pop
