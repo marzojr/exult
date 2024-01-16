@@ -22,7 +22,6 @@
 
 #include "eventman.h"
 
-#include "ShortcutBar_gump.h"
 #include "actors.h"
 #include "exult.h"
 #include "game.h"
@@ -215,6 +214,8 @@ public:
 	void enable_dropfile() override;
 	void disable_dropfile() override;
 
+	void do_mouse_up(MouseButton buttonID);
+
 private:
 	inline bool break_event_loop() const;
 	inline void handle_event(SDL_Event& event);
@@ -240,7 +241,14 @@ private:
 	inline SDL_GameController* open_game_controller(
 			int joystick_index) const noexcept;
 
-	SDL_GameController* active_gamepad = nullptr;
+	SDL_GameController* active_gamepad{nullptr};
+	uint32      double_click_event_type{std::numeric_limits<uint32>::max()};
+	SDL_TimerID double_click_timer_id{0};
+
+	enum {
+		INVALID_EVENT    = 0,
+		DELAYED_MOUSE_UP = 0x45585545
+	};
 
 #if defined(USE_EXULTSTUDIO) && defined(_WIN32)
 	WindndPtr windnd{nullptr, OleDeleter{}};
@@ -261,6 +269,35 @@ private:
 		}
 	}
 };
+
+struct MouseUpData {
+	EventManagerImpl* eventMan;
+	MouseButton       buttonID;
+
+	MouseUpData(EventManagerImpl* eman, MouseButton button)
+			: eventMan(eman), buttonID(button) {}
+};
+
+extern "C" uint32 DoMouseUp(uint32 interval, void* param) {
+	ignore_unused_variable_warning(interval);
+	auto* data = static_cast<MouseUpData*>(param);
+	data->eventMan->do_mouse_up(data->buttonID);
+	delete data;
+	return 0;
+};
+
+void EventManagerImpl::do_mouse_up(MouseButton buttonID) {
+	SDL_Event event;
+	SDL_zero(event);
+	event.type      = double_click_event_type;
+	event.user.code = DELAYED_MOUSE_UP;
+	auto  button    = static_cast<uintptr>(buttonID);
+	void* data;
+	std::memcpy(&data, &button, sizeof(uintptr));
+	event.user.data1 = data;
+	event.user.data2 = nullptr;
+	SDL_PushEvent(&event);
+}
 
 SDL_GameController* EventManagerImpl::open_game_controller(
 		int joystick_index) const noexcept {
@@ -288,7 +325,8 @@ SDL_GameController* EventManagerImpl::find_controller() const noexcept {
 }
 
 EventManagerImpl::EventManagerImpl() {
-	active_gamepad = find_controller();
+	active_gamepad          = find_controller();
+	double_click_event_type = SDL_RegisterEvents(1);
 }
 
 bool EventManagerImpl::break_event_loop() const {
@@ -420,13 +458,30 @@ void EventManagerImpl::handle_event(SDL_TextInputEvent& event) noexcept {
 }
 
 void EventManagerImpl::handle_event(SDL_MouseButtonEvent& event) noexcept {
-	const MouseEvent kind     = event.type == SDL_MOUSEBUTTONDOWN
-										? MouseEvent::Pressed
-										: MouseEvent::Released;
-	MouseButton      buttonID = translateMouseButton(event.button);
+	const MouseButton buttonID = translateMouseButton(event.button);
 	if (buttonID != MouseButton::Invalid) {
+		const MouseEvent kind   = event.type == SDL_MOUSEBUTTONDOWN
+										  ? MouseEvent::Pressed
+										  : MouseEvent::Released;
+		const uint32     clicks = event.clicks;
+		if (kind == MouseEvent::Released && clicks == 1
+			&& buttonID != MouseButton::Middle) {
+			constexpr static const uint32 delay_ms = 500;
+			auto data{std::make_unique<MouseUpData>(this, buttonID)};
+			double_click_timer_id
+					= SDL_AddTimer(delay_ms, DoMouseUp, data.release());
+			return;
+		}
+		const SDL_bool state
+				= kind == MouseEvent::Pressed ? SDL_TRUE : SDL_FALSE;
+		Game_window* gwin = Game_window::get_instance();
+		SDL_SetWindowGrab(gwin->get_win()->get_screen_window(), state);
+		if (double_click_timer_id == 0) {
+			SDL_RemoveTimer(double_click_timer_id);
+			double_click_timer_id = 0;
+		}
 		invoke_callback<MouseButtonCallback>(
-				kind, buttonID, event.clicks, MousePosition(event.x, event.y));
+				kind, buttonID, clicks, MousePosition(event.x, event.y));
 	}
 }
 
@@ -524,8 +579,20 @@ void EventManagerImpl::handle_custom_touch_input_event(
 
 void EventManagerImpl::handle_custom_mouse_up_event(
 		SDL_UserEvent& event) noexcept {
-	if (event.code == ShortcutBar_gump::SHORTCUT_BAR_MOUSE_UP) {
-		invoke_callback<ShortcutBarClickCallback>(event);
+	if (event.code == DELAYED_MOUSE_UP) {
+		uintptr data;
+		std::memcpy(&data, &event.data1, sizeof(uintptr));
+		const MouseEvent kind     = MouseEvent::Released;
+		const uint32     clicks   = 1;
+		const auto       buttonID = static_cast<MouseButton>(data);
+		Game_window*     gwin     = Game_window::get_instance();
+		SDL_SetWindowGrab(gwin->get_win()->get_screen_window(), SDL_FALSE);
+		if (double_click_timer_id == 0) {
+			SDL_RemoveTimer(double_click_timer_id);
+			double_click_timer_id = 0;
+		}
+		invoke_callback<MouseButtonCallback>(
+				kind, buttonID, clicks, MousePosition(get_from_sdl_tag{}));
 	}
 }
 
@@ -588,7 +655,7 @@ void EventManagerImpl::handle_event(SDL_Event& event) {
 	default:
 		if (event.type == TouchUI::eventType) {
 			handle_custom_touch_input_event(event.user);
-		} else if (event.type == ShortcutBar_gump::eventType) {
+		} else if (event.type == double_click_event_type) {
 			handle_custom_mouse_up_event(event.user);
 		}
 		break;
