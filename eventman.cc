@@ -86,291 +86,302 @@ namespace {
 		return isZero(v1 - v2);
 	}
 
-	constexpr inline KeyCode translateKeyCode(uint32 code) noexcept {
-		using Tp = std::underlying_type_t<KeyCode>;
+	constexpr inline KeyCodes translateKeyCode(uint32 code) noexcept {
+		using Tp = std::underlying_type_t<KeyCodes>;
 		static_assert(
-				static_cast<Tp>(KeyCode::Key_Unknown) == SDLK_UNKNOWN
-				&& static_cast<Tp>(KeyCode::Key_Return) == SDLK_RETURN
-				&& static_cast<Tp>(KeyCode::Key_Escape) == SDLK_ESCAPE
-				&& static_cast<Tp>(KeyCode::Key_Backspace) == SDLK_BACKSPACE
-				&& static_cast<Tp>(KeyCode::Key_Tab) == SDLK_TAB
-				&& static_cast<Tp>(KeyCode::Key_Space) == SDLK_SPACE
-				&& static_cast<Tp>(KeyCode::Key_Exclaim) == SDLK_EXCLAIM
-				&& static_cast<Tp>(KeyCode::Key_DblQuote) == SDLK_QUOTEDBL
-				&& static_cast<Tp>(KeyCode::Key_Hash) == SDLK_HASH
-				&& static_cast<Tp>(KeyCode::Key_Percent) == SDLK_PERCENT
-				&& static_cast<Tp>(KeyCode::Key_Dollar) == SDLK_DOLLAR
-				&& static_cast<Tp>(KeyCode::Key_Ampersand) == SDLK_AMPERSAND
-				&& static_cast<Tp>(KeyCode::Key_Quote) == SDLK_QUOTE
-				&& static_cast<Tp>(KeyCode::Key_LeftParen) == SDLK_LEFTPAREN
-				&& static_cast<Tp>(KeyCode::Key_RightParen) == SDLK_RIGHTPAREN
-				&& static_cast<Tp>(KeyCode::Key_Asterisk) == SDLK_ASTERISK
-				&& static_cast<Tp>(KeyCode::Key_Plus) == SDLK_PLUS
-				&& static_cast<Tp>(KeyCode::Key_Comma) == SDLK_COMMA
-				&& static_cast<Tp>(KeyCode::Key_Minus) == SDLK_MINUS
-				&& static_cast<Tp>(KeyCode::Key_Period) == SDLK_PERIOD
-				&& static_cast<Tp>(KeyCode::Key_Slash) == SDLK_SLASH
-				&& static_cast<Tp>(KeyCode::Key_0) == SDLK_0
-				&& static_cast<Tp>(KeyCode::Key_1) == SDLK_1
-				&& static_cast<Tp>(KeyCode::Key_2) == SDLK_2
-				&& static_cast<Tp>(KeyCode::Key_3) == SDLK_3
-				&& static_cast<Tp>(KeyCode::Key_4) == SDLK_4
-				&& static_cast<Tp>(KeyCode::Key_5) == SDLK_5
-				&& static_cast<Tp>(KeyCode::Key_6) == SDLK_6
-				&& static_cast<Tp>(KeyCode::Key_7) == SDLK_7
-				&& static_cast<Tp>(KeyCode::Key_8) == SDLK_8
-				&& static_cast<Tp>(KeyCode::Key_9) == SDLK_9
-				&& static_cast<Tp>(KeyCode::Key_Colon) == SDLK_COLON
-				&& static_cast<Tp>(KeyCode::Key_Semicolon) == SDLK_SEMICOLON
-				&& static_cast<Tp>(KeyCode::Key_Less) == SDLK_LESS
-				&& static_cast<Tp>(KeyCode::Key_Equals) == SDLK_EQUALS
-				&& static_cast<Tp>(KeyCode::Key_Greater) == SDLK_GREATER
-				&& static_cast<Tp>(KeyCode::Key_Question) == SDLK_QUESTION
-				&& static_cast<Tp>(KeyCode::Key_At) == SDLK_AT
-				&& static_cast<Tp>(KeyCode::Key_LeftBracket) == SDLK_LEFTBRACKET
-				&& static_cast<Tp>(KeyCode::Key_Backslash) == SDLK_BACKSLASH
-				&& static_cast<Tp>(KeyCode::Key_RightBracket)
+				static_cast<Tp>(KeyCodes::Key_Unknown) == SDLK_UNKNOWN
+				&& static_cast<Tp>(KeyCodes::Key_Return) == SDLK_RETURN
+				&& static_cast<Tp>(KeyCodes::Key_Escape) == SDLK_ESCAPE
+				&& static_cast<Tp>(KeyCodes::Key_Backspace) == SDLK_BACKSPACE
+				&& static_cast<Tp>(KeyCodes::Key_Tab) == SDLK_TAB
+				&& static_cast<Tp>(KeyCodes::Key_Space) == SDLK_SPACE
+				&& static_cast<Tp>(KeyCodes::Key_Exclaim) == SDLK_EXCLAIM
+				&& static_cast<Tp>(KeyCodes::Key_DblQuote) == SDLK_QUOTEDBL
+				&& static_cast<Tp>(KeyCodes::Key_Hash) == SDLK_HASH
+				&& static_cast<Tp>(KeyCodes::Key_Percent) == SDLK_PERCENT
+				&& static_cast<Tp>(KeyCodes::Key_Dollar) == SDLK_DOLLAR
+				&& static_cast<Tp>(KeyCodes::Key_Ampersand) == SDLK_AMPERSAND
+				&& static_cast<Tp>(KeyCodes::Key_Quote) == SDLK_QUOTE
+				&& static_cast<Tp>(KeyCodes::Key_LeftParen) == SDLK_LEFTPAREN
+				&& static_cast<Tp>(KeyCodes::Key_RightParen) == SDLK_RIGHTPAREN
+				&& static_cast<Tp>(KeyCodes::Key_Asterisk) == SDLK_ASTERISK
+				&& static_cast<Tp>(KeyCodes::Key_Plus) == SDLK_PLUS
+				&& static_cast<Tp>(KeyCodes::Key_Comma) == SDLK_COMMA
+				&& static_cast<Tp>(KeyCodes::Key_Minus) == SDLK_MINUS
+				&& static_cast<Tp>(KeyCodes::Key_Period) == SDLK_PERIOD
+				&& static_cast<Tp>(KeyCodes::Key_Slash) == SDLK_SLASH
+				&& static_cast<Tp>(KeyCodes::Key_0) == SDLK_0
+				&& static_cast<Tp>(KeyCodes::Key_1) == SDLK_1
+				&& static_cast<Tp>(KeyCodes::Key_2) == SDLK_2
+				&& static_cast<Tp>(KeyCodes::Key_3) == SDLK_3
+				&& static_cast<Tp>(KeyCodes::Key_4) == SDLK_4
+				&& static_cast<Tp>(KeyCodes::Key_5) == SDLK_5
+				&& static_cast<Tp>(KeyCodes::Key_6) == SDLK_6
+				&& static_cast<Tp>(KeyCodes::Key_7) == SDLK_7
+				&& static_cast<Tp>(KeyCodes::Key_8) == SDLK_8
+				&& static_cast<Tp>(KeyCodes::Key_9) == SDLK_9
+				&& static_cast<Tp>(KeyCodes::Key_Colon) == SDLK_COLON
+				&& static_cast<Tp>(KeyCodes::Key_Semicolon) == SDLK_SEMICOLON
+				&& static_cast<Tp>(KeyCodes::Key_Less) == SDLK_LESS
+				&& static_cast<Tp>(KeyCodes::Key_Equals) == SDLK_EQUALS
+				&& static_cast<Tp>(KeyCodes::Key_Greater) == SDLK_GREATER
+				&& static_cast<Tp>(KeyCodes::Key_Question) == SDLK_QUESTION
+				&& static_cast<Tp>(KeyCodes::Key_At) == SDLK_AT
+				&& static_cast<Tp>(KeyCodes::Key_LeftBracket)
+						   == SDLK_LEFTBRACKET
+				&& static_cast<Tp>(KeyCodes::Key_Backslash) == SDLK_BACKSLASH
+				&& static_cast<Tp>(KeyCodes::Key_RightBracket)
 						   == SDLK_RIGHTBRACKET
-				&& static_cast<Tp>(KeyCode::Key_Caret) == SDLK_CARET
-				&& static_cast<Tp>(KeyCode::Key_Underscore) == SDLK_UNDERSCORE
-				&& static_cast<Tp>(KeyCode::Key_Backquote) == SDLK_BACKQUOTE
-				&& static_cast<Tp>(KeyCode::Key_a) == SDLK_a
-				&& static_cast<Tp>(KeyCode::Key_b) == SDLK_b
-				&& static_cast<Tp>(KeyCode::Key_c) == SDLK_c
-				&& static_cast<Tp>(KeyCode::Key_d) == SDLK_d
-				&& static_cast<Tp>(KeyCode::Key_e) == SDLK_e
-				&& static_cast<Tp>(KeyCode::Key_f) == SDLK_f
-				&& static_cast<Tp>(KeyCode::Key_g) == SDLK_g
-				&& static_cast<Tp>(KeyCode::Key_h) == SDLK_h
-				&& static_cast<Tp>(KeyCode::Key_i) == SDLK_i
-				&& static_cast<Tp>(KeyCode::Key_j) == SDLK_j
-				&& static_cast<Tp>(KeyCode::Key_k) == SDLK_k
-				&& static_cast<Tp>(KeyCode::Key_l) == SDLK_l
-				&& static_cast<Tp>(KeyCode::Key_m) == SDLK_m
-				&& static_cast<Tp>(KeyCode::Key_n) == SDLK_n
-				&& static_cast<Tp>(KeyCode::Key_o) == SDLK_o
-				&& static_cast<Tp>(KeyCode::Key_p) == SDLK_p
-				&& static_cast<Tp>(KeyCode::Key_q) == SDLK_q
-				&& static_cast<Tp>(KeyCode::Key_r) == SDLK_r
-				&& static_cast<Tp>(KeyCode::Key_s) == SDLK_s
-				&& static_cast<Tp>(KeyCode::Key_t) == SDLK_t
-				&& static_cast<Tp>(KeyCode::Key_u) == SDLK_u
-				&& static_cast<Tp>(KeyCode::Key_v) == SDLK_v
-				&& static_cast<Tp>(KeyCode::Key_w) == SDLK_w
-				&& static_cast<Tp>(KeyCode::Key_x) == SDLK_x
-				&& static_cast<Tp>(KeyCode::Key_y) == SDLK_y
-				&& static_cast<Tp>(KeyCode::Key_z) == SDLK_z
-				&& static_cast<Tp>(KeyCode::Key_CapsLock) == SDLK_CAPSLOCK
-				&& static_cast<Tp>(KeyCode::Key_F1) == SDLK_F1
-				&& static_cast<Tp>(KeyCode::Key_F2) == SDLK_F2
-				&& static_cast<Tp>(KeyCode::Key_F3) == SDLK_F3
-				&& static_cast<Tp>(KeyCode::Key_F4) == SDLK_F4
-				&& static_cast<Tp>(KeyCode::Key_F5) == SDLK_F5
-				&& static_cast<Tp>(KeyCode::Key_F6) == SDLK_F6
-				&& static_cast<Tp>(KeyCode::Key_F7) == SDLK_F7
-				&& static_cast<Tp>(KeyCode::Key_F8) == SDLK_F8
-				&& static_cast<Tp>(KeyCode::Key_F9) == SDLK_F9
-				&& static_cast<Tp>(KeyCode::Key_F10) == SDLK_F10
-				&& static_cast<Tp>(KeyCode::Key_F11) == SDLK_F11
-				&& static_cast<Tp>(KeyCode::Key_F12) == SDLK_F12
-				&& static_cast<Tp>(KeyCode::Key_PrintScreen) == SDLK_PRINTSCREEN
-				&& static_cast<Tp>(KeyCode::Key_ScrollLock) == SDLK_SCROLLLOCK
-				&& static_cast<Tp>(KeyCode::Key_Pause) == SDLK_PAUSE
-				&& static_cast<Tp>(KeyCode::Key_Insert) == SDLK_INSERT
-				&& static_cast<Tp>(KeyCode::Key_Home) == SDLK_HOME
-				&& static_cast<Tp>(KeyCode::Key_PageUp) == SDLK_PAGEUP
-				&& static_cast<Tp>(KeyCode::Key_Delete) == SDLK_DELETE
-				&& static_cast<Tp>(KeyCode::Key_End) == SDLK_END
-				&& static_cast<Tp>(KeyCode::Key_PageDown) == SDLK_PAGEDOWN
-				&& static_cast<Tp>(KeyCode::Key_Right) == SDLK_RIGHT
-				&& static_cast<Tp>(KeyCode::Key_Left) == SDLK_LEFT
-				&& static_cast<Tp>(KeyCode::Key_Down) == SDLK_DOWN
-				&& static_cast<Tp>(KeyCode::Key_Up) == SDLK_UP
-				&& static_cast<Tp>(KeyCode::Key_NumLockClear)
+				&& static_cast<Tp>(KeyCodes::Key_Caret) == SDLK_CARET
+				&& static_cast<Tp>(KeyCodes::Key_Underscore) == SDLK_UNDERSCORE
+				&& static_cast<Tp>(KeyCodes::Key_Backquote) == SDLK_BACKQUOTE
+				&& static_cast<Tp>(KeyCodes::Key_a) == SDLK_a
+				&& static_cast<Tp>(KeyCodes::Key_b) == SDLK_b
+				&& static_cast<Tp>(KeyCodes::Key_c) == SDLK_c
+				&& static_cast<Tp>(KeyCodes::Key_d) == SDLK_d
+				&& static_cast<Tp>(KeyCodes::Key_e) == SDLK_e
+				&& static_cast<Tp>(KeyCodes::Key_f) == SDLK_f
+				&& static_cast<Tp>(KeyCodes::Key_g) == SDLK_g
+				&& static_cast<Tp>(KeyCodes::Key_h) == SDLK_h
+				&& static_cast<Tp>(KeyCodes::Key_i) == SDLK_i
+				&& static_cast<Tp>(KeyCodes::Key_j) == SDLK_j
+				&& static_cast<Tp>(KeyCodes::Key_k) == SDLK_k
+				&& static_cast<Tp>(KeyCodes::Key_l) == SDLK_l
+				&& static_cast<Tp>(KeyCodes::Key_m) == SDLK_m
+				&& static_cast<Tp>(KeyCodes::Key_n) == SDLK_n
+				&& static_cast<Tp>(KeyCodes::Key_o) == SDLK_o
+				&& static_cast<Tp>(KeyCodes::Key_p) == SDLK_p
+				&& static_cast<Tp>(KeyCodes::Key_q) == SDLK_q
+				&& static_cast<Tp>(KeyCodes::Key_r) == SDLK_r
+				&& static_cast<Tp>(KeyCodes::Key_s) == SDLK_s
+				&& static_cast<Tp>(KeyCodes::Key_t) == SDLK_t
+				&& static_cast<Tp>(KeyCodes::Key_u) == SDLK_u
+				&& static_cast<Tp>(KeyCodes::Key_v) == SDLK_v
+				&& static_cast<Tp>(KeyCodes::Key_w) == SDLK_w
+				&& static_cast<Tp>(KeyCodes::Key_x) == SDLK_x
+				&& static_cast<Tp>(KeyCodes::Key_y) == SDLK_y
+				&& static_cast<Tp>(KeyCodes::Key_z) == SDLK_z
+				&& static_cast<Tp>(KeyCodes::Key_CapsLock) == SDLK_CAPSLOCK
+				&& static_cast<Tp>(KeyCodes::Key_F1) == SDLK_F1
+				&& static_cast<Tp>(KeyCodes::Key_F2) == SDLK_F2
+				&& static_cast<Tp>(KeyCodes::Key_F3) == SDLK_F3
+				&& static_cast<Tp>(KeyCodes::Key_F4) == SDLK_F4
+				&& static_cast<Tp>(KeyCodes::Key_F5) == SDLK_F5
+				&& static_cast<Tp>(KeyCodes::Key_F6) == SDLK_F6
+				&& static_cast<Tp>(KeyCodes::Key_F7) == SDLK_F7
+				&& static_cast<Tp>(KeyCodes::Key_F8) == SDLK_F8
+				&& static_cast<Tp>(KeyCodes::Key_F9) == SDLK_F9
+				&& static_cast<Tp>(KeyCodes::Key_F10) == SDLK_F10
+				&& static_cast<Tp>(KeyCodes::Key_F11) == SDLK_F11
+				&& static_cast<Tp>(KeyCodes::Key_F12) == SDLK_F12
+				&& static_cast<Tp>(KeyCodes::Key_PrintScreen)
+						   == SDLK_PRINTSCREEN
+				&& static_cast<Tp>(KeyCodes::Key_ScrollLock) == SDLK_SCROLLLOCK
+				&& static_cast<Tp>(KeyCodes::Key_Pause) == SDLK_PAUSE
+				&& static_cast<Tp>(KeyCodes::Key_Insert) == SDLK_INSERT
+				&& static_cast<Tp>(KeyCodes::Key_Home) == SDLK_HOME
+				&& static_cast<Tp>(KeyCodes::Key_PageUp) == SDLK_PAGEUP
+				&& static_cast<Tp>(KeyCodes::Key_Delete) == SDLK_DELETE
+				&& static_cast<Tp>(KeyCodes::Key_End) == SDLK_END
+				&& static_cast<Tp>(KeyCodes::Key_PageDown) == SDLK_PAGEDOWN
+				&& static_cast<Tp>(KeyCodes::Key_Right) == SDLK_RIGHT
+				&& static_cast<Tp>(KeyCodes::Key_Left) == SDLK_LEFT
+				&& static_cast<Tp>(KeyCodes::Key_Down) == SDLK_DOWN
+				&& static_cast<Tp>(KeyCodes::Key_Up) == SDLK_UP
+				&& static_cast<Tp>(KeyCodes::Key_NumLockClear)
 						   == SDLK_NUMLOCKCLEAR
-				&& static_cast<Tp>(KeyCode::Key_KP_Divide) == SDLK_KP_DIVIDE
-				&& static_cast<Tp>(KeyCode::Key_KP_Multiply) == SDLK_KP_MULTIPLY
-				&& static_cast<Tp>(KeyCode::Key_KP_Minus) == SDLK_KP_MINUS
-				&& static_cast<Tp>(KeyCode::Key_KP_Plus) == SDLK_KP_PLUS
-				&& static_cast<Tp>(KeyCode::Key_KP_Enter) == SDLK_KP_ENTER
-				&& static_cast<Tp>(KeyCode::Key_KP_1) == SDLK_KP_1
-				&& static_cast<Tp>(KeyCode::Key_KP_2) == SDLK_KP_2
-				&& static_cast<Tp>(KeyCode::Key_KP_3) == SDLK_KP_3
-				&& static_cast<Tp>(KeyCode::Key_KP_4) == SDLK_KP_4
-				&& static_cast<Tp>(KeyCode::Key_KP_5) == SDLK_KP_5
-				&& static_cast<Tp>(KeyCode::Key_KP_6) == SDLK_KP_6
-				&& static_cast<Tp>(KeyCode::Key_KP_7) == SDLK_KP_7
-				&& static_cast<Tp>(KeyCode::Key_KP_8) == SDLK_KP_8
-				&& static_cast<Tp>(KeyCode::Key_KP_9) == SDLK_KP_9
-				&& static_cast<Tp>(KeyCode::Key_KP_0) == SDLK_KP_0
-				&& static_cast<Tp>(KeyCode::Key_KP_Period) == SDLK_KP_PERIOD
-				&& static_cast<Tp>(KeyCode::Key_Application) == SDLK_APPLICATION
-				&& static_cast<Tp>(KeyCode::Key_Power) == SDLK_POWER
-				&& static_cast<Tp>(KeyCode::Key_KP_Equals) == SDLK_KP_EQUALS
-				&& static_cast<Tp>(KeyCode::Key_F13) == SDLK_F13
-				&& static_cast<Tp>(KeyCode::Key_F14) == SDLK_F14
-				&& static_cast<Tp>(KeyCode::Key_F15) == SDLK_F15
-				&& static_cast<Tp>(KeyCode::Key_F16) == SDLK_F16
-				&& static_cast<Tp>(KeyCode::Key_F17) == SDLK_F17
-				&& static_cast<Tp>(KeyCode::Key_F18) == SDLK_F18
-				&& static_cast<Tp>(KeyCode::Key_F19) == SDLK_F19
-				&& static_cast<Tp>(KeyCode::Key_F20) == SDLK_F20
-				&& static_cast<Tp>(KeyCode::Key_F21) == SDLK_F21
-				&& static_cast<Tp>(KeyCode::Key_F22) == SDLK_F22
-				&& static_cast<Tp>(KeyCode::Key_F23) == SDLK_F23
-				&& static_cast<Tp>(KeyCode::Key_F24) == SDLK_F24
-				&& static_cast<Tp>(KeyCode::Key_Execute) == SDLK_EXECUTE
-				&& static_cast<Tp>(KeyCode::Key_Help) == SDLK_HELP
-				&& static_cast<Tp>(KeyCode::Key_Menu) == SDLK_MENU
-				&& static_cast<Tp>(KeyCode::Key_Select) == SDLK_SELECT
-				&& static_cast<Tp>(KeyCode::Key_Stop) == SDLK_STOP
-				&& static_cast<Tp>(KeyCode::Key_Again) == SDLK_AGAIN
-				&& static_cast<Tp>(KeyCode::Key_Undo) == SDLK_UNDO
-				&& static_cast<Tp>(KeyCode::Key_Cut) == SDLK_CUT
-				&& static_cast<Tp>(KeyCode::Key_Copy) == SDLK_COPY
-				&& static_cast<Tp>(KeyCode::Key_Paste) == SDLK_PASTE
-				&& static_cast<Tp>(KeyCode::Key_Find) == SDLK_FIND
-				&& static_cast<Tp>(KeyCode::Key_Mute) == SDLK_MUTE
-				&& static_cast<Tp>(KeyCode::Key_VolumeUp) == SDLK_VOLUMEUP
-				&& static_cast<Tp>(KeyCode::Key_VolumeDown) == SDLK_VOLUMEDOWN
-				&& static_cast<Tp>(KeyCode::Key_KP_Comma) == SDLK_KP_COMMA
-				&& static_cast<Tp>(KeyCode::Key_KP_EqualsAS400)
+				&& static_cast<Tp>(KeyCodes::Key_KP_Divide) == SDLK_KP_DIVIDE
+				&& static_cast<Tp>(KeyCodes::Key_KP_Multiply)
+						   == SDLK_KP_MULTIPLY
+				&& static_cast<Tp>(KeyCodes::Key_KP_Minus) == SDLK_KP_MINUS
+				&& static_cast<Tp>(KeyCodes::Key_KP_Plus) == SDLK_KP_PLUS
+				&& static_cast<Tp>(KeyCodes::Key_KP_Enter) == SDLK_KP_ENTER
+				&& static_cast<Tp>(KeyCodes::Key_KP_1) == SDLK_KP_1
+				&& static_cast<Tp>(KeyCodes::Key_KP_2) == SDLK_KP_2
+				&& static_cast<Tp>(KeyCodes::Key_KP_3) == SDLK_KP_3
+				&& static_cast<Tp>(KeyCodes::Key_KP_4) == SDLK_KP_4
+				&& static_cast<Tp>(KeyCodes::Key_KP_5) == SDLK_KP_5
+				&& static_cast<Tp>(KeyCodes::Key_KP_6) == SDLK_KP_6
+				&& static_cast<Tp>(KeyCodes::Key_KP_7) == SDLK_KP_7
+				&& static_cast<Tp>(KeyCodes::Key_KP_8) == SDLK_KP_8
+				&& static_cast<Tp>(KeyCodes::Key_KP_9) == SDLK_KP_9
+				&& static_cast<Tp>(KeyCodes::Key_KP_0) == SDLK_KP_0
+				&& static_cast<Tp>(KeyCodes::Key_KP_Period) == SDLK_KP_PERIOD
+				&& static_cast<Tp>(KeyCodes::Key_Application)
+						   == SDLK_APPLICATION
+				&& static_cast<Tp>(KeyCodes::Key_Power) == SDLK_POWER
+				&& static_cast<Tp>(KeyCodes::Key_KP_Equals) == SDLK_KP_EQUALS
+				&& static_cast<Tp>(KeyCodes::Key_F13) == SDLK_F13
+				&& static_cast<Tp>(KeyCodes::Key_F14) == SDLK_F14
+				&& static_cast<Tp>(KeyCodes::Key_F15) == SDLK_F15
+				&& static_cast<Tp>(KeyCodes::Key_F16) == SDLK_F16
+				&& static_cast<Tp>(KeyCodes::Key_F17) == SDLK_F17
+				&& static_cast<Tp>(KeyCodes::Key_F18) == SDLK_F18
+				&& static_cast<Tp>(KeyCodes::Key_F19) == SDLK_F19
+				&& static_cast<Tp>(KeyCodes::Key_F20) == SDLK_F20
+				&& static_cast<Tp>(KeyCodes::Key_F21) == SDLK_F21
+				&& static_cast<Tp>(KeyCodes::Key_F22) == SDLK_F22
+				&& static_cast<Tp>(KeyCodes::Key_F23) == SDLK_F23
+				&& static_cast<Tp>(KeyCodes::Key_F24) == SDLK_F24
+				&& static_cast<Tp>(KeyCodes::Key_Execute) == SDLK_EXECUTE
+				&& static_cast<Tp>(KeyCodes::Key_Help) == SDLK_HELP
+				&& static_cast<Tp>(KeyCodes::Key_Menu) == SDLK_MENU
+				&& static_cast<Tp>(KeyCodes::Key_Select) == SDLK_SELECT
+				&& static_cast<Tp>(KeyCodes::Key_Stop) == SDLK_STOP
+				&& static_cast<Tp>(KeyCodes::Key_Again) == SDLK_AGAIN
+				&& static_cast<Tp>(KeyCodes::Key_Undo) == SDLK_UNDO
+				&& static_cast<Tp>(KeyCodes::Key_Cut) == SDLK_CUT
+				&& static_cast<Tp>(KeyCodes::Key_Copy) == SDLK_COPY
+				&& static_cast<Tp>(KeyCodes::Key_Paste) == SDLK_PASTE
+				&& static_cast<Tp>(KeyCodes::Key_Find) == SDLK_FIND
+				&& static_cast<Tp>(KeyCodes::Key_Mute) == SDLK_MUTE
+				&& static_cast<Tp>(KeyCodes::Key_VolumeUp) == SDLK_VOLUMEUP
+				&& static_cast<Tp>(KeyCodes::Key_VolumeDown) == SDLK_VOLUMEDOWN
+				&& static_cast<Tp>(KeyCodes::Key_KP_Comma) == SDLK_KP_COMMA
+				&& static_cast<Tp>(KeyCodes::Key_KP_EqualsAS400)
 						   == SDLK_KP_EQUALSAS400
-				&& static_cast<Tp>(KeyCode::Key_AltErase) == SDLK_ALTERASE
-				&& static_cast<Tp>(KeyCode::Key_SysReq) == SDLK_SYSREQ
-				&& static_cast<Tp>(KeyCode::Key_Cancel) == SDLK_CANCEL
-				&& static_cast<Tp>(KeyCode::Key_Clear) == SDLK_CLEAR
-				&& static_cast<Tp>(KeyCode::Key_Prior) == SDLK_PRIOR
-				&& static_cast<Tp>(KeyCode::Key_Return2) == SDLK_RETURN2
-				&& static_cast<Tp>(KeyCode::Key_Separator) == SDLK_SEPARATOR
-				&& static_cast<Tp>(KeyCode::Key_Out) == SDLK_OUT
-				&& static_cast<Tp>(KeyCode::Key_Oper) == SDLK_OPER
-				&& static_cast<Tp>(KeyCode::Key_ClearAgain) == SDLK_CLEARAGAIN
-				&& static_cast<Tp>(KeyCode::Key_CrSel) == SDLK_CRSEL
-				&& static_cast<Tp>(KeyCode::Key_ExSel) == SDLK_EXSEL
-				&& static_cast<Tp>(KeyCode::Key_KP_00) == SDLK_KP_00
-				&& static_cast<Tp>(KeyCode::Key_KP_000) == SDLK_KP_000
-				&& static_cast<Tp>(KeyCode::Key_ThousandsSeparator)
+				&& static_cast<Tp>(KeyCodes::Key_AltErase) == SDLK_ALTERASE
+				&& static_cast<Tp>(KeyCodes::Key_SysReq) == SDLK_SYSREQ
+				&& static_cast<Tp>(KeyCodes::Key_Cancel) == SDLK_CANCEL
+				&& static_cast<Tp>(KeyCodes::Key_Clear) == SDLK_CLEAR
+				&& static_cast<Tp>(KeyCodes::Key_Prior) == SDLK_PRIOR
+				&& static_cast<Tp>(KeyCodes::Key_Return2) == SDLK_RETURN2
+				&& static_cast<Tp>(KeyCodes::Key_Separator) == SDLK_SEPARATOR
+				&& static_cast<Tp>(KeyCodes::Key_Out) == SDLK_OUT
+				&& static_cast<Tp>(KeyCodes::Key_Oper) == SDLK_OPER
+				&& static_cast<Tp>(KeyCodes::Key_ClearAgain) == SDLK_CLEARAGAIN
+				&& static_cast<Tp>(KeyCodes::Key_CrSel) == SDLK_CRSEL
+				&& static_cast<Tp>(KeyCodes::Key_ExSel) == SDLK_EXSEL
+				&& static_cast<Tp>(KeyCodes::Key_KP_00) == SDLK_KP_00
+				&& static_cast<Tp>(KeyCodes::Key_KP_000) == SDLK_KP_000
+				&& static_cast<Tp>(KeyCodes::Key_ThousandsSeparator)
 						   == SDLK_THOUSANDSSEPARATOR
-				&& static_cast<Tp>(KeyCode::Key_DecimalSeparator)
+				&& static_cast<Tp>(KeyCodes::Key_DecimalSeparator)
 						   == SDLK_DECIMALSEPARATOR
-				&& static_cast<Tp>(KeyCode::Key_CurrencyUnit)
+				&& static_cast<Tp>(KeyCodes::Key_CurrencyUnit)
 						   == SDLK_CURRENCYUNIT
-				&& static_cast<Tp>(KeyCode::Key_CurrencySubunit)
+				&& static_cast<Tp>(KeyCodes::Key_CurrencySubunit)
 						   == SDLK_CURRENCYSUBUNIT
-				&& static_cast<Tp>(KeyCode::Key_KP_LeftParen)
+				&& static_cast<Tp>(KeyCodes::Key_KP_LeftParen)
 						   == SDLK_KP_LEFTPAREN
-				&& static_cast<Tp>(KeyCode::Key_KP_RightParen)
+				&& static_cast<Tp>(KeyCodes::Key_KP_RightParen)
 						   == SDLK_KP_RIGHTPAREN
-				&& static_cast<Tp>(KeyCode::Key_KP_LeftBrace)
+				&& static_cast<Tp>(KeyCodes::Key_KP_LeftBrace)
 						   == SDLK_KP_LEFTBRACE
-				&& static_cast<Tp>(KeyCode::Key_KP_RightBrace)
+				&& static_cast<Tp>(KeyCodes::Key_KP_RightBrace)
 						   == SDLK_KP_RIGHTBRACE
-				&& static_cast<Tp>(KeyCode::Key_KP_Tab) == SDLK_KP_TAB
-				&& static_cast<Tp>(KeyCode::Key_KP_Backspace)
+				&& static_cast<Tp>(KeyCodes::Key_KP_Tab) == SDLK_KP_TAB
+				&& static_cast<Tp>(KeyCodes::Key_KP_Backspace)
 						   == SDLK_KP_BACKSPACE
-				&& static_cast<Tp>(KeyCode::Key_KP_A) == SDLK_KP_A
-				&& static_cast<Tp>(KeyCode::Key_KP_B) == SDLK_KP_B
-				&& static_cast<Tp>(KeyCode::Key_KP_C) == SDLK_KP_C
-				&& static_cast<Tp>(KeyCode::Key_KP_D) == SDLK_KP_D
-				&& static_cast<Tp>(KeyCode::Key_KP_E) == SDLK_KP_E
-				&& static_cast<Tp>(KeyCode::Key_KP_F) == SDLK_KP_F
-				&& static_cast<Tp>(KeyCode::Key_KP_Xor) == SDLK_KP_XOR
-				&& static_cast<Tp>(KeyCode::Key_KP_Power) == SDLK_KP_POWER
-				&& static_cast<Tp>(KeyCode::Key_KP_Percent) == SDLK_KP_PERCENT
-				&& static_cast<Tp>(KeyCode::Key_KP_Less) == SDLK_KP_LESS
-				&& static_cast<Tp>(KeyCode::Key_KP_Greater) == SDLK_KP_GREATER
-				&& static_cast<Tp>(KeyCode::Key_KP_Ampersand)
+				&& static_cast<Tp>(KeyCodes::Key_KP_A) == SDLK_KP_A
+				&& static_cast<Tp>(KeyCodes::Key_KP_B) == SDLK_KP_B
+				&& static_cast<Tp>(KeyCodes::Key_KP_C) == SDLK_KP_C
+				&& static_cast<Tp>(KeyCodes::Key_KP_D) == SDLK_KP_D
+				&& static_cast<Tp>(KeyCodes::Key_KP_E) == SDLK_KP_E
+				&& static_cast<Tp>(KeyCodes::Key_KP_F) == SDLK_KP_F
+				&& static_cast<Tp>(KeyCodes::Key_KP_Xor) == SDLK_KP_XOR
+				&& static_cast<Tp>(KeyCodes::Key_KP_Power) == SDLK_KP_POWER
+				&& static_cast<Tp>(KeyCodes::Key_KP_Percent) == SDLK_KP_PERCENT
+				&& static_cast<Tp>(KeyCodes::Key_KP_Less) == SDLK_KP_LESS
+				&& static_cast<Tp>(KeyCodes::Key_KP_Greater) == SDLK_KP_GREATER
+				&& static_cast<Tp>(KeyCodes::Key_KP_Ampersand)
 						   == SDLK_KP_AMPERSAND
-				&& static_cast<Tp>(KeyCode::Key_KP_DblAmpersand)
+				&& static_cast<Tp>(KeyCodes::Key_KP_DblAmpersand)
 						   == SDLK_KP_DBLAMPERSAND
-				&& static_cast<Tp>(KeyCode::Key_KP_VerticalBar)
+				&& static_cast<Tp>(KeyCodes::Key_KP_VerticalBar)
 						   == SDLK_KP_VERTICALBAR
-				&& static_cast<Tp>(KeyCode::Key_KP_DblVerticalBar)
+				&& static_cast<Tp>(KeyCodes::Key_KP_DblVerticalBar)
 						   == SDLK_KP_DBLVERTICALBAR
-				&& static_cast<Tp>(KeyCode::Key_KP_Colon) == SDLK_KP_COLON
-				&& static_cast<Tp>(KeyCode::Key_KP_Hash) == SDLK_KP_HASH
-				&& static_cast<Tp>(KeyCode::Key_KP_Space) == SDLK_KP_SPACE
-				&& static_cast<Tp>(KeyCode::Key_KP_At) == SDLK_KP_AT
-				&& static_cast<Tp>(KeyCode::Key_KP_Exclamation)
+				&& static_cast<Tp>(KeyCodes::Key_KP_Colon) == SDLK_KP_COLON
+				&& static_cast<Tp>(KeyCodes::Key_KP_Hash) == SDLK_KP_HASH
+				&& static_cast<Tp>(KeyCodes::Key_KP_Space) == SDLK_KP_SPACE
+				&& static_cast<Tp>(KeyCodes::Key_KP_At) == SDLK_KP_AT
+				&& static_cast<Tp>(KeyCodes::Key_KP_Exclamation)
 						   == SDLK_KP_EXCLAM
-				&& static_cast<Tp>(KeyCode::Key_KP_MemStore) == SDLK_KP_MEMSTORE
-				&& static_cast<Tp>(KeyCode::Key_KP_MemRecall)
+				&& static_cast<Tp>(KeyCodes::Key_KP_MemStore)
+						   == SDLK_KP_MEMSTORE
+				&& static_cast<Tp>(KeyCodes::Key_KP_MemRecall)
 						   == SDLK_KP_MEMRECALL
-				&& static_cast<Tp>(KeyCode::Key_KP_MemClear) == SDLK_KP_MEMCLEAR
-				&& static_cast<Tp>(KeyCode::Key_KP_MemAdd) == SDLK_KP_MEMADD
-				&& static_cast<Tp>(KeyCode::Key_KP_MemSubtract)
+				&& static_cast<Tp>(KeyCodes::Key_KP_MemClear)
+						   == SDLK_KP_MEMCLEAR
+				&& static_cast<Tp>(KeyCodes::Key_KP_MemAdd) == SDLK_KP_MEMADD
+				&& static_cast<Tp>(KeyCodes::Key_KP_MemSubtract)
 						   == SDLK_KP_MEMSUBTRACT
-				&& static_cast<Tp>(KeyCode::Key_KP_MemMultiply)
+				&& static_cast<Tp>(KeyCodes::Key_KP_MemMultiply)
 						   == SDLK_KP_MEMMULTIPLY
-				&& static_cast<Tp>(KeyCode::Key_KP_MemDivide)
+				&& static_cast<Tp>(KeyCodes::Key_KP_MemDivide)
 						   == SDLK_KP_MEMDIVIDE
-				&& static_cast<Tp>(KeyCode::Key_KP_PlusMinus)
+				&& static_cast<Tp>(KeyCodes::Key_KP_PlusMinus)
 						   == SDLK_KP_PLUSMINUS
-				&& static_cast<Tp>(KeyCode::Key_KP_Clear) == SDLK_KP_CLEAR
-				&& static_cast<Tp>(KeyCode::Key_KP_ClearEntry)
+				&& static_cast<Tp>(KeyCodes::Key_KP_Clear) == SDLK_KP_CLEAR
+				&& static_cast<Tp>(KeyCodes::Key_KP_ClearEntry)
 						   == SDLK_KP_CLEARENTRY
-				&& static_cast<Tp>(KeyCode::Key_KP_Binary) == SDLK_KP_BINARY
-				&& static_cast<Tp>(KeyCode::Key_KP_Octal) == SDLK_KP_OCTAL
-				&& static_cast<Tp>(KeyCode::Key_KP_Decimal) == SDLK_KP_DECIMAL
-				&& static_cast<Tp>(KeyCode::Key_KP_Hexadecimal)
+				&& static_cast<Tp>(KeyCodes::Key_KP_Binary) == SDLK_KP_BINARY
+				&& static_cast<Tp>(KeyCodes::Key_KP_Octal) == SDLK_KP_OCTAL
+				&& static_cast<Tp>(KeyCodes::Key_KP_Decimal) == SDLK_KP_DECIMAL
+				&& static_cast<Tp>(KeyCodes::Key_KP_Hexadecimal)
 						   == SDLK_KP_HEXADECIMAL
-				&& static_cast<Tp>(KeyCode::Key_LeftCtrl) == SDLK_LCTRL
-				&& static_cast<Tp>(KeyCode::Key_LeftShift) == SDLK_LSHIFT
-				&& static_cast<Tp>(KeyCode::Key_LeftAlt) == SDLK_LALT
-				&& static_cast<Tp>(KeyCode::Key_LeftGUI) == SDLK_LGUI
-				&& static_cast<Tp>(KeyCode::Key_RightCtrl) == SDLK_RCTRL
-				&& static_cast<Tp>(KeyCode::Key_RightShift) == SDLK_RSHIFT
-				&& static_cast<Tp>(KeyCode::Key_RightAlt) == SDLK_RALT
-				&& static_cast<Tp>(KeyCode::Key_RightGUI) == SDLK_RGUI
-				&& static_cast<Tp>(KeyCode::Key_Mode) == SDLK_MODE
-				&& static_cast<Tp>(KeyCode::Key_AudioNext) == SDLK_AUDIONEXT
-				&& static_cast<Tp>(KeyCode::Key_AudioPrev) == SDLK_AUDIOPREV
-				&& static_cast<Tp>(KeyCode::Key_AudioStop) == SDLK_AUDIOSTOP
-				&& static_cast<Tp>(KeyCode::Key_AudioPlay) == SDLK_AUDIOPLAY
-				&& static_cast<Tp>(KeyCode::Key_AudioMute) == SDLK_AUDIOMUTE
-				&& static_cast<Tp>(KeyCode::Key_MediaSelect) == SDLK_MEDIASELECT
-				&& static_cast<Tp>(KeyCode::Key_WWW) == SDLK_WWW
-				&& static_cast<Tp>(KeyCode::Key_Mail) == SDLK_MAIL
-				&& static_cast<Tp>(KeyCode::Key_Calculator) == SDLK_CALCULATOR
-				&& static_cast<Tp>(KeyCode::Key_Computer) == SDLK_COMPUTER
-				&& static_cast<Tp>(KeyCode::Key_AC_Search) == SDLK_AC_SEARCH
-				&& static_cast<Tp>(KeyCode::Key_AC_Home) == SDLK_AC_HOME
-				&& static_cast<Tp>(KeyCode::Key_AC_Back) == SDLK_AC_BACK
-				&& static_cast<Tp>(KeyCode::Key_AC_Forward) == SDLK_AC_FORWARD
-				&& static_cast<Tp>(KeyCode::Key_AC_Stop) == SDLK_AC_STOP
-				&& static_cast<Tp>(KeyCode::Key_AC_Refresh) == SDLK_AC_REFRESH
-				&& static_cast<Tp>(KeyCode::Key_AC_Bookmarks)
+				&& static_cast<Tp>(KeyCodes::Key_LeftCtrl) == SDLK_LCTRL
+				&& static_cast<Tp>(KeyCodes::Key_LeftShift) == SDLK_LSHIFT
+				&& static_cast<Tp>(KeyCodes::Key_LeftAlt) == SDLK_LALT
+				&& static_cast<Tp>(KeyCodes::Key_LeftGUI) == SDLK_LGUI
+				&& static_cast<Tp>(KeyCodes::Key_RightCtrl) == SDLK_RCTRL
+				&& static_cast<Tp>(KeyCodes::Key_RightShift) == SDLK_RSHIFT
+				&& static_cast<Tp>(KeyCodes::Key_RightAlt) == SDLK_RALT
+				&& static_cast<Tp>(KeyCodes::Key_RightGUI) == SDLK_RGUI
+				&& static_cast<Tp>(KeyCodes::Key_Mode) == SDLK_MODE
+				&& static_cast<Tp>(KeyCodes::Key_AudioNext) == SDLK_AUDIONEXT
+				&& static_cast<Tp>(KeyCodes::Key_AudioPrev) == SDLK_AUDIOPREV
+				&& static_cast<Tp>(KeyCodes::Key_AudioStop) == SDLK_AUDIOSTOP
+				&& static_cast<Tp>(KeyCodes::Key_AudioPlay) == SDLK_AUDIOPLAY
+				&& static_cast<Tp>(KeyCodes::Key_AudioMute) == SDLK_AUDIOMUTE
+				&& static_cast<Tp>(KeyCodes::Key_MediaSelect)
+						   == SDLK_MEDIASELECT
+				&& static_cast<Tp>(KeyCodes::Key_WWW) == SDLK_WWW
+				&& static_cast<Tp>(KeyCodes::Key_Mail) == SDLK_MAIL
+				&& static_cast<Tp>(KeyCodes::Key_Calculator) == SDLK_CALCULATOR
+				&& static_cast<Tp>(KeyCodes::Key_Computer) == SDLK_COMPUTER
+				&& static_cast<Tp>(KeyCodes::Key_AC_Search) == SDLK_AC_SEARCH
+				&& static_cast<Tp>(KeyCodes::Key_AC_Home) == SDLK_AC_HOME
+				&& static_cast<Tp>(KeyCodes::Key_AC_Back) == SDLK_AC_BACK
+				&& static_cast<Tp>(KeyCodes::Key_AC_Forward) == SDLK_AC_FORWARD
+				&& static_cast<Tp>(KeyCodes::Key_AC_Stop) == SDLK_AC_STOP
+				&& static_cast<Tp>(KeyCodes::Key_AC_Refresh) == SDLK_AC_REFRESH
+				&& static_cast<Tp>(KeyCodes::Key_AC_Bookmarks)
 						   == SDLK_AC_BOOKMARKS
-				&& static_cast<Tp>(KeyCode::Key_BrightnessDown)
+				&& static_cast<Tp>(KeyCodes::Key_BrightnessDown)
 						   == SDLK_BRIGHTNESSDOWN
-				&& static_cast<Tp>(KeyCode::Key_BrightnessUp)
+				&& static_cast<Tp>(KeyCodes::Key_BrightnessUp)
 						   == SDLK_BRIGHTNESSUP
-				&& static_cast<Tp>(KeyCode::Key_DisplaySwitch)
+				&& static_cast<Tp>(KeyCodes::Key_DisplaySwitch)
 						   == SDLK_DISPLAYSWITCH
-				&& static_cast<Tp>(KeyCode::Key_KbdIllumToggle)
+				&& static_cast<Tp>(KeyCodes::Key_KbdIllumToggle)
 						   == SDLK_KBDILLUMTOGGLE
-				&& static_cast<Tp>(KeyCode::Key_KbdIllumDown)
+				&& static_cast<Tp>(KeyCodes::Key_KbdIllumDown)
 						   == SDLK_KBDILLUMDOWN
-				&& static_cast<Tp>(KeyCode::Key_KbdIllumUp) == SDLK_KBDILLUMUP
-				&& static_cast<Tp>(KeyCode::Key_Eject) == SDLK_EJECT
-				&& static_cast<Tp>(KeyCode::Key_Sleep) == SDLK_SLEEP
-				&& static_cast<Tp>(KeyCode::Key_App1) == SDLK_APP1
-				&& static_cast<Tp>(KeyCode::Key_App2) == SDLK_APP2
-				&& static_cast<Tp>(KeyCode::Key_AudioRewind) == SDLK_AUDIOREWIND
-				&& static_cast<Tp>(KeyCode::Key_AudioFastforward)
+				&& static_cast<Tp>(KeyCodes::Key_KbdIllumUp) == SDLK_KBDILLUMUP
+				&& static_cast<Tp>(KeyCodes::Key_Eject) == SDLK_EJECT
+				&& static_cast<Tp>(KeyCodes::Key_Sleep) == SDLK_SLEEP
+				&& static_cast<Tp>(KeyCodes::Key_App1) == SDLK_APP1
+				&& static_cast<Tp>(KeyCodes::Key_App2) == SDLK_APP2
+				&& static_cast<Tp>(KeyCodes::Key_AudioRewind)
+						   == SDLK_AUDIOREWIND
+				&& static_cast<Tp>(KeyCodes::Key_AudioFastforward)
 						   == SDLK_AUDIOFASTFORWARD
-				&& static_cast<Tp>(KeyCode::Key_SoftLeft) == SDLK_SOFTLEFT
-				&& static_cast<Tp>(KeyCode::Key_SoftRight) == SDLK_SOFTRIGHT
-				&& static_cast<Tp>(KeyCode::Key_Call) == SDLK_CALL
-				&& static_cast<Tp>(KeyCode::Key_EndCall) == SDLK_ENDCALL);
-		return static_cast<KeyCode>(code);
-	};
+#if SDL_VERSION_ATLEAST(2, 28, 5)
+				&& static_cast<Tp>(KeyCodes::Key_SoftLeft) == SDLK_SOFTLEFT
+				&& static_cast<Tp>(KeyCodes::Key_SoftRight) == SDLK_SOFTRIGHT
+				&& static_cast<Tp>(KeyCodes::Key_Call) == SDLK_CALL
+				&& static_cast<Tp>(KeyCodes::Key_EndCall) == SDLK_ENDCALL
+#endif
+		);
+		return static_cast<KeyCodes>(code);
+	}
 
 	constexpr inline KeyMod translateKeyMods(uint32 mods) noexcept {
 		using Tp = std::underlying_type_t<KeyMod>;
 		static_assert(
-				static_cast<Tp>(KeyMod::None) == KMOD_NONE
+				static_cast<Tp>(KeyMod::NoMods) == KMOD_NONE
 				&& static_cast<Tp>(KeyMod::LeftShift) == KMOD_LSHIFT
 				&& static_cast<Tp>(KeyMod::RightShift) == KMOD_RSHIFT
 				&& static_cast<Tp>(KeyMod::LeftCtrl) == KMOD_LCTRL
@@ -389,7 +400,7 @@ namespace {
 				&& static_cast<Tp>(KeyMod::GUI) == KMOD_GUI
 				&& static_cast<Tp>(KeyMod::Reserved) == KMOD_RESERVED);
 		return static_cast<KeyMod>(mods);
-	};
+	}
 
 	constexpr inline ControllerButton translateControllerButton(
 			uint8 button) noexcept {
@@ -451,7 +462,7 @@ namespace {
 				&& (static_cast<Tp>(MouseButton::X1) == SDL_BUTTON_X1)
 				&& (static_cast<Tp>(MouseButton::X2) == SDL_BUTTON_X2));
 		return static_cast<MouseButton>(button);
-	};
+	}
 
 	constexpr inline MouseButtonMask translateMouseMasks(
 			uint32 button) noexcept {
@@ -464,7 +475,7 @@ namespace {
 				&& (static_cast<Tp>(MouseButtonMask::X1) == SDL_BUTTON_X1MASK)
 				&& (static_cast<Tp>(MouseButtonMask::X2) == SDL_BUTTON_X2MASK));
 		return static_cast<MouseButtonMask>(button);
-	};
+	}
 }    // namespace
 
 bool AxisVector::isNonzero() const noexcept {
@@ -590,7 +601,7 @@ extern "C" uint32 DoMouseUp(uint32 interval, void* param) {
 	data->eventMan->do_mouse_up(data->buttonID);
 	delete data;
 	return 0;
-};
+}
 
 void EventManagerImpl::do_mouse_up(MouseButton buttonID) {
 	SDL_Event event;

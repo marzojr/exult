@@ -104,7 +104,7 @@ namespace {
 	}
 }    // namespace
 
-enum class KeyCode {
+enum class KeyCodes {
 	Key_Unknown            = 0,
 	Key_Return             = '\r',
 	Key_Escape             = '\x1B',
@@ -355,7 +355,7 @@ enum class KeyCode {
  * \brief Enumeration of valid key mods (possibly OR'd together).
  */
 enum class KeyMod {
-	None       = 0x0000,
+	NoMods     = 0x0000,
 	LeftShift  = 0x0001,
 	RightShift = 0x0002,
 	LeftCtrl   = 0x0040,
@@ -400,7 +400,7 @@ constexpr inline KeyMod operator&(KeyMod lhs, KeyMod rhs) {
 }
 
 using KeyboardCallback
-		= void(KeyboardEvent type, const KeyCode sym, const KeyMod mod);
+		= void(KeyboardEvent type, const KeyCodes sym, const KeyMod mod);
 
 // This callback is called when compositing text is finished.
 using TextInputCallback = void(char chr);
