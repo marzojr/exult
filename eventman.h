@@ -538,11 +538,6 @@ using TouchInputCallback = void(const char* text);
 struct SDL_UserEvent;
 using ShortcutBarClickCallback = void(SDL_UserEvent& event);
 
-class EventManager;
-using A = std::invoke_result<
-		bool (EventManager::*)(), EventManager*, const AxisVector&,
-		const AxisVector&, const AxisTrigger&>;
-
 namespace { namespace detail {
 	// Some stuff for constraining templates.
 	// Cheeky alias for clarity.
