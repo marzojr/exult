@@ -68,9 +68,8 @@ void Drop_dragged_combo(int cnt, U7_combo_data* combo, int x, int y);
 
 namespace {
 	template <typename T, detail::require<std::is_floating_point_v<T>> = true>
-	[[maybe_unused]] inline bool isZero(T val) noexcept {
-		const int result = std::fpclassify(val);
-		return result == FP_SUBNORMAL || result == FP_ZERO;
+	[[maybe_unused]] inline bool isAlmostZero(T val) noexcept {
+		return std::abs(val) < std::numeric_limits<T>::epsilon();
 	}
 
 	template <
@@ -83,7 +82,7 @@ namespace {
 		using T = std::common_type_t<T1, T2>;
 		T v1    = f1;
 		T v2    = f2;
-		return isZero(v1 - v2);
+		return isAlmostZero(v1 - v2);
 	}
 
 	constexpr inline KeyCodes translateKeyCode(uint32 code) noexcept {
@@ -479,15 +478,15 @@ namespace {
 }    // namespace
 
 bool AxisVector::isNonzero() const noexcept {
-	return !isZero(x) || !isZero(y);
+	return !isAlmostZero(x) || !isAlmostZero(y);
 }
 
 bool AxisTrigger::isNonzero() const noexcept {
-	return !isZero(left) || !isZero(right);
+	return !isAlmostZero(left) || !isAlmostZero(right);
 }
 
 bool FingerMotion::isNonzero() const noexcept {
-	return !isZero(x) || !isZero(y);
+	return !isAlmostZero(x) || !isAlmostZero(y);
 }
 
 MousePosition::MousePosition(get_from_sdl_tag) {
@@ -672,7 +671,7 @@ void EventManagerImpl::handle_gamepad_axis_input() noexcept {
 		// to unwanted movements, axis-values that are small will
 		// be ignored.  This is sometimes referred to as a
 		// "dead zone".
-		if (axis_dead_zone >= std::fabs(value) || isZero(value)) {
+		if (axis_dead_zone >= std::fabs(value) || isAlmostZero(value)) {
 			value = 0.0f;
 		}
 		return value;
