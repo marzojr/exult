@@ -51,8 +51,8 @@ using GamepadAxisCallback
 		= void(const AxisVector& leftAxis, const AxisVector& rightAxis,
 			   const AxisTrigger& triggers);
 
-// Controller button up/down callbacks.
-enum class ControllerEvent {
+// Gamepad button up/down callbacks.
+enum class GamepadButtonEvent {
 	Pressed,
 	Released,
 };
@@ -60,7 +60,7 @@ enum class ControllerEvent {
 // Note: recreating this enum here so that:
 // (1) we don'y have to include the SDL include in the header;
 // (2) to better isolate against SDL changes.
-enum class ControllerButton {
+enum class GamepadButton {
 	Invalid = -1,
 	A,
 	B,
@@ -87,8 +87,8 @@ enum class ControllerButton {
 	Touchpad,    // PS4/PS5 touchpad button
 };
 
-using ControllerCallback
-		= void(ControllerEvent type, const ControllerButton sym);
+using GamepadButtonCallback
+		= void(GamepadButtonEvent type, const GamepadButton sym);
 
 // Keyboard key up/down callbacks.
 enum class KeyboardEvent {
@@ -751,7 +751,7 @@ namespace { namespace detail {
 
 	// A meta-list with all callback types.
 	using Callback_list = detail::Type_list<
-			BreakLoopCallback, GamepadAxisCallback, ControllerCallback,
+			BreakLoopCallback, GamepadAxisCallback, GamepadButtonCallback,
 			KeyboardCallback, TextInputCallback, MouseButtonCallback,
 			MouseMotionCallback, MouseWheelCallback, FingerMotionCallback,
 			WindowEventCallback, AppEventCallback, DropFileCallback,

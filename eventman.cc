@@ -34,6 +34,7 @@
 #include <cmath>
 #include <iostream>
 #include <memory>
+#include <type_traits>
 
 #ifdef __GNUC__
 #	pragma GCC diagnostic push
@@ -85,394 +86,304 @@ namespace {
 		return isAlmostZero(v1 - v2);
 	}
 
+	template <typename T, detail::require<std::is_enum_v<T>> = true>
+	constexpr inline bool operator==(T lhs, std::underlying_type_t<T> rhs) {
+		return static_cast<std::underlying_type_t<T>>(lhs) == rhs;
+	}
+
 	constexpr inline KeyCodes translateKeyCode(uint32 code) noexcept {
-		using Tp = std::underlying_type_t<KeyCodes>;
 		static_assert(
-				static_cast<Tp>(KeyCodes::Key_Unknown) == SDLK_UNKNOWN
-				&& static_cast<Tp>(KeyCodes::Key_Return) == SDLK_RETURN
-				&& static_cast<Tp>(KeyCodes::Key_Escape) == SDLK_ESCAPE
-				&& static_cast<Tp>(KeyCodes::Key_Backspace) == SDLK_BACKSPACE
-				&& static_cast<Tp>(KeyCodes::Key_Tab) == SDLK_TAB
-				&& static_cast<Tp>(KeyCodes::Key_Space) == SDLK_SPACE
-				&& static_cast<Tp>(KeyCodes::Key_Exclaim) == SDLK_EXCLAIM
-				&& static_cast<Tp>(KeyCodes::Key_DblQuote) == SDLK_QUOTEDBL
-				&& static_cast<Tp>(KeyCodes::Key_Hash) == SDLK_HASH
-				&& static_cast<Tp>(KeyCodes::Key_Percent) == SDLK_PERCENT
-				&& static_cast<Tp>(KeyCodes::Key_Dollar) == SDLK_DOLLAR
-				&& static_cast<Tp>(KeyCodes::Key_Ampersand) == SDLK_AMPERSAND
-				&& static_cast<Tp>(KeyCodes::Key_Quote) == SDLK_QUOTE
-				&& static_cast<Tp>(KeyCodes::Key_LeftParen) == SDLK_LEFTPAREN
-				&& static_cast<Tp>(KeyCodes::Key_RightParen) == SDLK_RIGHTPAREN
-				&& static_cast<Tp>(KeyCodes::Key_Asterisk) == SDLK_ASTERISK
-				&& static_cast<Tp>(KeyCodes::Key_Plus) == SDLK_PLUS
-				&& static_cast<Tp>(KeyCodes::Key_Comma) == SDLK_COMMA
-				&& static_cast<Tp>(KeyCodes::Key_Minus) == SDLK_MINUS
-				&& static_cast<Tp>(KeyCodes::Key_Period) == SDLK_PERIOD
-				&& static_cast<Tp>(KeyCodes::Key_Slash) == SDLK_SLASH
-				&& static_cast<Tp>(KeyCodes::Key_0) == SDLK_0
-				&& static_cast<Tp>(KeyCodes::Key_1) == SDLK_1
-				&& static_cast<Tp>(KeyCodes::Key_2) == SDLK_2
-				&& static_cast<Tp>(KeyCodes::Key_3) == SDLK_3
-				&& static_cast<Tp>(KeyCodes::Key_4) == SDLK_4
-				&& static_cast<Tp>(KeyCodes::Key_5) == SDLK_5
-				&& static_cast<Tp>(KeyCodes::Key_6) == SDLK_6
-				&& static_cast<Tp>(KeyCodes::Key_7) == SDLK_7
-				&& static_cast<Tp>(KeyCodes::Key_8) == SDLK_8
-				&& static_cast<Tp>(KeyCodes::Key_9) == SDLK_9
-				&& static_cast<Tp>(KeyCodes::Key_Colon) == SDLK_COLON
-				&& static_cast<Tp>(KeyCodes::Key_Semicolon) == SDLK_SEMICOLON
-				&& static_cast<Tp>(KeyCodes::Key_Less) == SDLK_LESS
-				&& static_cast<Tp>(KeyCodes::Key_Equals) == SDLK_EQUALS
-				&& static_cast<Tp>(KeyCodes::Key_Greater) == SDLK_GREATER
-				&& static_cast<Tp>(KeyCodes::Key_Question) == SDLK_QUESTION
-				&& static_cast<Tp>(KeyCodes::Key_At) == SDLK_AT
-				&& static_cast<Tp>(KeyCodes::Key_LeftBracket)
-						   == SDLK_LEFTBRACKET
-				&& static_cast<Tp>(KeyCodes::Key_Backslash) == SDLK_BACKSLASH
-				&& static_cast<Tp>(KeyCodes::Key_RightBracket)
-						   == SDLK_RIGHTBRACKET
-				&& static_cast<Tp>(KeyCodes::Key_Caret) == SDLK_CARET
-				&& static_cast<Tp>(KeyCodes::Key_Underscore) == SDLK_UNDERSCORE
-				&& static_cast<Tp>(KeyCodes::Key_Backquote) == SDLK_BACKQUOTE
-				&& static_cast<Tp>(KeyCodes::Key_a) == SDLK_a
-				&& static_cast<Tp>(KeyCodes::Key_b) == SDLK_b
-				&& static_cast<Tp>(KeyCodes::Key_c) == SDLK_c
-				&& static_cast<Tp>(KeyCodes::Key_d) == SDLK_d
-				&& static_cast<Tp>(KeyCodes::Key_e) == SDLK_e
-				&& static_cast<Tp>(KeyCodes::Key_f) == SDLK_f
-				&& static_cast<Tp>(KeyCodes::Key_g) == SDLK_g
-				&& static_cast<Tp>(KeyCodes::Key_h) == SDLK_h
-				&& static_cast<Tp>(KeyCodes::Key_i) == SDLK_i
-				&& static_cast<Tp>(KeyCodes::Key_j) == SDLK_j
-				&& static_cast<Tp>(KeyCodes::Key_k) == SDLK_k
-				&& static_cast<Tp>(KeyCodes::Key_l) == SDLK_l
-				&& static_cast<Tp>(KeyCodes::Key_m) == SDLK_m
-				&& static_cast<Tp>(KeyCodes::Key_n) == SDLK_n
-				&& static_cast<Tp>(KeyCodes::Key_o) == SDLK_o
-				&& static_cast<Tp>(KeyCodes::Key_p) == SDLK_p
-				&& static_cast<Tp>(KeyCodes::Key_q) == SDLK_q
-				&& static_cast<Tp>(KeyCodes::Key_r) == SDLK_r
-				&& static_cast<Tp>(KeyCodes::Key_s) == SDLK_s
-				&& static_cast<Tp>(KeyCodes::Key_t) == SDLK_t
-				&& static_cast<Tp>(KeyCodes::Key_u) == SDLK_u
-				&& static_cast<Tp>(KeyCodes::Key_v) == SDLK_v
-				&& static_cast<Tp>(KeyCodes::Key_w) == SDLK_w
-				&& static_cast<Tp>(KeyCodes::Key_x) == SDLK_x
-				&& static_cast<Tp>(KeyCodes::Key_y) == SDLK_y
-				&& static_cast<Tp>(KeyCodes::Key_z) == SDLK_z
-				&& static_cast<Tp>(KeyCodes::Key_CapsLock) == SDLK_CAPSLOCK
-				&& static_cast<Tp>(KeyCodes::Key_F1) == SDLK_F1
-				&& static_cast<Tp>(KeyCodes::Key_F2) == SDLK_F2
-				&& static_cast<Tp>(KeyCodes::Key_F3) == SDLK_F3
-				&& static_cast<Tp>(KeyCodes::Key_F4) == SDLK_F4
-				&& static_cast<Tp>(KeyCodes::Key_F5) == SDLK_F5
-				&& static_cast<Tp>(KeyCodes::Key_F6) == SDLK_F6
-				&& static_cast<Tp>(KeyCodes::Key_F7) == SDLK_F7
-				&& static_cast<Tp>(KeyCodes::Key_F8) == SDLK_F8
-				&& static_cast<Tp>(KeyCodes::Key_F9) == SDLK_F9
-				&& static_cast<Tp>(KeyCodes::Key_F10) == SDLK_F10
-				&& static_cast<Tp>(KeyCodes::Key_F11) == SDLK_F11
-				&& static_cast<Tp>(KeyCodes::Key_F12) == SDLK_F12
-				&& static_cast<Tp>(KeyCodes::Key_PrintScreen)
-						   == SDLK_PRINTSCREEN
-				&& static_cast<Tp>(KeyCodes::Key_ScrollLock) == SDLK_SCROLLLOCK
-				&& static_cast<Tp>(KeyCodes::Key_Pause) == SDLK_PAUSE
-				&& static_cast<Tp>(KeyCodes::Key_Insert) == SDLK_INSERT
-				&& static_cast<Tp>(KeyCodes::Key_Home) == SDLK_HOME
-				&& static_cast<Tp>(KeyCodes::Key_PageUp) == SDLK_PAGEUP
-				&& static_cast<Tp>(KeyCodes::Key_Delete) == SDLK_DELETE
-				&& static_cast<Tp>(KeyCodes::Key_End) == SDLK_END
-				&& static_cast<Tp>(KeyCodes::Key_PageDown) == SDLK_PAGEDOWN
-				&& static_cast<Tp>(KeyCodes::Key_Right) == SDLK_RIGHT
-				&& static_cast<Tp>(KeyCodes::Key_Left) == SDLK_LEFT
-				&& static_cast<Tp>(KeyCodes::Key_Down) == SDLK_DOWN
-				&& static_cast<Tp>(KeyCodes::Key_Up) == SDLK_UP
-				&& static_cast<Tp>(KeyCodes::Key_NumLockClear)
-						   == SDLK_NUMLOCKCLEAR
-				&& static_cast<Tp>(KeyCodes::Key_KP_Divide) == SDLK_KP_DIVIDE
-				&& static_cast<Tp>(KeyCodes::Key_KP_Multiply)
-						   == SDLK_KP_MULTIPLY
-				&& static_cast<Tp>(KeyCodes::Key_KP_Minus) == SDLK_KP_MINUS
-				&& static_cast<Tp>(KeyCodes::Key_KP_Plus) == SDLK_KP_PLUS
-				&& static_cast<Tp>(KeyCodes::Key_KP_Enter) == SDLK_KP_ENTER
-				&& static_cast<Tp>(KeyCodes::Key_KP_1) == SDLK_KP_1
-				&& static_cast<Tp>(KeyCodes::Key_KP_2) == SDLK_KP_2
-				&& static_cast<Tp>(KeyCodes::Key_KP_3) == SDLK_KP_3
-				&& static_cast<Tp>(KeyCodes::Key_KP_4) == SDLK_KP_4
-				&& static_cast<Tp>(KeyCodes::Key_KP_5) == SDLK_KP_5
-				&& static_cast<Tp>(KeyCodes::Key_KP_6) == SDLK_KP_6
-				&& static_cast<Tp>(KeyCodes::Key_KP_7) == SDLK_KP_7
-				&& static_cast<Tp>(KeyCodes::Key_KP_8) == SDLK_KP_8
-				&& static_cast<Tp>(KeyCodes::Key_KP_9) == SDLK_KP_9
-				&& static_cast<Tp>(KeyCodes::Key_KP_0) == SDLK_KP_0
-				&& static_cast<Tp>(KeyCodes::Key_KP_Period) == SDLK_KP_PERIOD
-				&& static_cast<Tp>(KeyCodes::Key_Application)
-						   == SDLK_APPLICATION
-				&& static_cast<Tp>(KeyCodes::Key_Power) == SDLK_POWER
-				&& static_cast<Tp>(KeyCodes::Key_KP_Equals) == SDLK_KP_EQUALS
-				&& static_cast<Tp>(KeyCodes::Key_F13) == SDLK_F13
-				&& static_cast<Tp>(KeyCodes::Key_F14) == SDLK_F14
-				&& static_cast<Tp>(KeyCodes::Key_F15) == SDLK_F15
-				&& static_cast<Tp>(KeyCodes::Key_F16) == SDLK_F16
-				&& static_cast<Tp>(KeyCodes::Key_F17) == SDLK_F17
-				&& static_cast<Tp>(KeyCodes::Key_F18) == SDLK_F18
-				&& static_cast<Tp>(KeyCodes::Key_F19) == SDLK_F19
-				&& static_cast<Tp>(KeyCodes::Key_F20) == SDLK_F20
-				&& static_cast<Tp>(KeyCodes::Key_F21) == SDLK_F21
-				&& static_cast<Tp>(KeyCodes::Key_F22) == SDLK_F22
-				&& static_cast<Tp>(KeyCodes::Key_F23) == SDLK_F23
-				&& static_cast<Tp>(KeyCodes::Key_F24) == SDLK_F24
-				&& static_cast<Tp>(KeyCodes::Key_Execute) == SDLK_EXECUTE
-				&& static_cast<Tp>(KeyCodes::Key_Help) == SDLK_HELP
-				&& static_cast<Tp>(KeyCodes::Key_Menu) == SDLK_MENU
-				&& static_cast<Tp>(KeyCodes::Key_Select) == SDLK_SELECT
-				&& static_cast<Tp>(KeyCodes::Key_Stop) == SDLK_STOP
-				&& static_cast<Tp>(KeyCodes::Key_Again) == SDLK_AGAIN
-				&& static_cast<Tp>(KeyCodes::Key_Undo) == SDLK_UNDO
-				&& static_cast<Tp>(KeyCodes::Key_Cut) == SDLK_CUT
-				&& static_cast<Tp>(KeyCodes::Key_Copy) == SDLK_COPY
-				&& static_cast<Tp>(KeyCodes::Key_Paste) == SDLK_PASTE
-				&& static_cast<Tp>(KeyCodes::Key_Find) == SDLK_FIND
-				&& static_cast<Tp>(KeyCodes::Key_Mute) == SDLK_MUTE
-				&& static_cast<Tp>(KeyCodes::Key_VolumeUp) == SDLK_VOLUMEUP
-				&& static_cast<Tp>(KeyCodes::Key_VolumeDown) == SDLK_VOLUMEDOWN
-				&& static_cast<Tp>(KeyCodes::Key_KP_Comma) == SDLK_KP_COMMA
-				&& static_cast<Tp>(KeyCodes::Key_KP_EqualsAS400)
-						   == SDLK_KP_EQUALSAS400
-				&& static_cast<Tp>(KeyCodes::Key_AltErase) == SDLK_ALTERASE
-				&& static_cast<Tp>(KeyCodes::Key_SysReq) == SDLK_SYSREQ
-				&& static_cast<Tp>(KeyCodes::Key_Cancel) == SDLK_CANCEL
-				&& static_cast<Tp>(KeyCodes::Key_Clear) == SDLK_CLEAR
-				&& static_cast<Tp>(KeyCodes::Key_Prior) == SDLK_PRIOR
-				&& static_cast<Tp>(KeyCodes::Key_Return2) == SDLK_RETURN2
-				&& static_cast<Tp>(KeyCodes::Key_Separator) == SDLK_SEPARATOR
-				&& static_cast<Tp>(KeyCodes::Key_Out) == SDLK_OUT
-				&& static_cast<Tp>(KeyCodes::Key_Oper) == SDLK_OPER
-				&& static_cast<Tp>(KeyCodes::Key_ClearAgain) == SDLK_CLEARAGAIN
-				&& static_cast<Tp>(KeyCodes::Key_CrSel) == SDLK_CRSEL
-				&& static_cast<Tp>(KeyCodes::Key_ExSel) == SDLK_EXSEL
-				&& static_cast<Tp>(KeyCodes::Key_KP_00) == SDLK_KP_00
-				&& static_cast<Tp>(KeyCodes::Key_KP_000) == SDLK_KP_000
-				&& static_cast<Tp>(KeyCodes::Key_ThousandsSeparator)
-						   == SDLK_THOUSANDSSEPARATOR
-				&& static_cast<Tp>(KeyCodes::Key_DecimalSeparator)
-						   == SDLK_DECIMALSEPARATOR
-				&& static_cast<Tp>(KeyCodes::Key_CurrencyUnit)
-						   == SDLK_CURRENCYUNIT
-				&& static_cast<Tp>(KeyCodes::Key_CurrencySubunit)
-						   == SDLK_CURRENCYSUBUNIT
-				&& static_cast<Tp>(KeyCodes::Key_KP_LeftParen)
-						   == SDLK_KP_LEFTPAREN
-				&& static_cast<Tp>(KeyCodes::Key_KP_RightParen)
-						   == SDLK_KP_RIGHTPAREN
-				&& static_cast<Tp>(KeyCodes::Key_KP_LeftBrace)
-						   == SDLK_KP_LEFTBRACE
-				&& static_cast<Tp>(KeyCodes::Key_KP_RightBrace)
-						   == SDLK_KP_RIGHTBRACE
-				&& static_cast<Tp>(KeyCodes::Key_KP_Tab) == SDLK_KP_TAB
-				&& static_cast<Tp>(KeyCodes::Key_KP_Backspace)
-						   == SDLK_KP_BACKSPACE
-				&& static_cast<Tp>(KeyCodes::Key_KP_A) == SDLK_KP_A
-				&& static_cast<Tp>(KeyCodes::Key_KP_B) == SDLK_KP_B
-				&& static_cast<Tp>(KeyCodes::Key_KP_C) == SDLK_KP_C
-				&& static_cast<Tp>(KeyCodes::Key_KP_D) == SDLK_KP_D
-				&& static_cast<Tp>(KeyCodes::Key_KP_E) == SDLK_KP_E
-				&& static_cast<Tp>(KeyCodes::Key_KP_F) == SDLK_KP_F
-				&& static_cast<Tp>(KeyCodes::Key_KP_Xor) == SDLK_KP_XOR
-				&& static_cast<Tp>(KeyCodes::Key_KP_Power) == SDLK_KP_POWER
-				&& static_cast<Tp>(KeyCodes::Key_KP_Percent) == SDLK_KP_PERCENT
-				&& static_cast<Tp>(KeyCodes::Key_KP_Less) == SDLK_KP_LESS
-				&& static_cast<Tp>(KeyCodes::Key_KP_Greater) == SDLK_KP_GREATER
-				&& static_cast<Tp>(KeyCodes::Key_KP_Ampersand)
-						   == SDLK_KP_AMPERSAND
-				&& static_cast<Tp>(KeyCodes::Key_KP_DblAmpersand)
-						   == SDLK_KP_DBLAMPERSAND
-				&& static_cast<Tp>(KeyCodes::Key_KP_VerticalBar)
-						   == SDLK_KP_VERTICALBAR
-				&& static_cast<Tp>(KeyCodes::Key_KP_DblVerticalBar)
-						   == SDLK_KP_DBLVERTICALBAR
-				&& static_cast<Tp>(KeyCodes::Key_KP_Colon) == SDLK_KP_COLON
-				&& static_cast<Tp>(KeyCodes::Key_KP_Hash) == SDLK_KP_HASH
-				&& static_cast<Tp>(KeyCodes::Key_KP_Space) == SDLK_KP_SPACE
-				&& static_cast<Tp>(KeyCodes::Key_KP_At) == SDLK_KP_AT
-				&& static_cast<Tp>(KeyCodes::Key_KP_Exclamation)
-						   == SDLK_KP_EXCLAM
-				&& static_cast<Tp>(KeyCodes::Key_KP_MemStore)
-						   == SDLK_KP_MEMSTORE
-				&& static_cast<Tp>(KeyCodes::Key_KP_MemRecall)
-						   == SDLK_KP_MEMRECALL
-				&& static_cast<Tp>(KeyCodes::Key_KP_MemClear)
-						   == SDLK_KP_MEMCLEAR
-				&& static_cast<Tp>(KeyCodes::Key_KP_MemAdd) == SDLK_KP_MEMADD
-				&& static_cast<Tp>(KeyCodes::Key_KP_MemSubtract)
-						   == SDLK_KP_MEMSUBTRACT
-				&& static_cast<Tp>(KeyCodes::Key_KP_MemMultiply)
-						   == SDLK_KP_MEMMULTIPLY
-				&& static_cast<Tp>(KeyCodes::Key_KP_MemDivide)
-						   == SDLK_KP_MEMDIVIDE
-				&& static_cast<Tp>(KeyCodes::Key_KP_PlusMinus)
-						   == SDLK_KP_PLUSMINUS
-				&& static_cast<Tp>(KeyCodes::Key_KP_Clear) == SDLK_KP_CLEAR
-				&& static_cast<Tp>(KeyCodes::Key_KP_ClearEntry)
-						   == SDLK_KP_CLEARENTRY
-				&& static_cast<Tp>(KeyCodes::Key_KP_Binary) == SDLK_KP_BINARY
-				&& static_cast<Tp>(KeyCodes::Key_KP_Octal) == SDLK_KP_OCTAL
-				&& static_cast<Tp>(KeyCodes::Key_KP_Decimal) == SDLK_KP_DECIMAL
-				&& static_cast<Tp>(KeyCodes::Key_KP_Hexadecimal)
-						   == SDLK_KP_HEXADECIMAL
-				&& static_cast<Tp>(KeyCodes::Key_LeftCtrl) == SDLK_LCTRL
-				&& static_cast<Tp>(KeyCodes::Key_LeftShift) == SDLK_LSHIFT
-				&& static_cast<Tp>(KeyCodes::Key_LeftAlt) == SDLK_LALT
-				&& static_cast<Tp>(KeyCodes::Key_LeftGUI) == SDLK_LGUI
-				&& static_cast<Tp>(KeyCodes::Key_RightCtrl) == SDLK_RCTRL
-				&& static_cast<Tp>(KeyCodes::Key_RightShift) == SDLK_RSHIFT
-				&& static_cast<Tp>(KeyCodes::Key_RightAlt) == SDLK_RALT
-				&& static_cast<Tp>(KeyCodes::Key_RightGUI) == SDLK_RGUI
-				&& static_cast<Tp>(KeyCodes::Key_Mode) == SDLK_MODE
-				&& static_cast<Tp>(KeyCodes::Key_AudioNext) == SDLK_AUDIONEXT
-				&& static_cast<Tp>(KeyCodes::Key_AudioPrev) == SDLK_AUDIOPREV
-				&& static_cast<Tp>(KeyCodes::Key_AudioStop) == SDLK_AUDIOSTOP
-				&& static_cast<Tp>(KeyCodes::Key_AudioPlay) == SDLK_AUDIOPLAY
-				&& static_cast<Tp>(KeyCodes::Key_AudioMute) == SDLK_AUDIOMUTE
-				&& static_cast<Tp>(KeyCodes::Key_MediaSelect)
-						   == SDLK_MEDIASELECT
-				&& static_cast<Tp>(KeyCodes::Key_WWW) == SDLK_WWW
-				&& static_cast<Tp>(KeyCodes::Key_Mail) == SDLK_MAIL
-				&& static_cast<Tp>(KeyCodes::Key_Calculator) == SDLK_CALCULATOR
-				&& static_cast<Tp>(KeyCodes::Key_Computer) == SDLK_COMPUTER
-				&& static_cast<Tp>(KeyCodes::Key_AC_Search) == SDLK_AC_SEARCH
-				&& static_cast<Tp>(KeyCodes::Key_AC_Home) == SDLK_AC_HOME
-				&& static_cast<Tp>(KeyCodes::Key_AC_Back) == SDLK_AC_BACK
-				&& static_cast<Tp>(KeyCodes::Key_AC_Forward) == SDLK_AC_FORWARD
-				&& static_cast<Tp>(KeyCodes::Key_AC_Stop) == SDLK_AC_STOP
-				&& static_cast<Tp>(KeyCodes::Key_AC_Refresh) == SDLK_AC_REFRESH
-				&& static_cast<Tp>(KeyCodes::Key_AC_Bookmarks)
-						   == SDLK_AC_BOOKMARKS
-				&& static_cast<Tp>(KeyCodes::Key_BrightnessDown)
-						   == SDLK_BRIGHTNESSDOWN
-				&& static_cast<Tp>(KeyCodes::Key_BrightnessUp)
-						   == SDLK_BRIGHTNESSUP
-				&& static_cast<Tp>(KeyCodes::Key_DisplaySwitch)
-						   == SDLK_DISPLAYSWITCH
-				&& static_cast<Tp>(KeyCodes::Key_KbdIllumToggle)
-						   == SDLK_KBDILLUMTOGGLE
-				&& static_cast<Tp>(KeyCodes::Key_KbdIllumDown)
-						   == SDLK_KBDILLUMDOWN
-				&& static_cast<Tp>(KeyCodes::Key_KbdIllumUp) == SDLK_KBDILLUMUP
-				&& static_cast<Tp>(KeyCodes::Key_Eject) == SDLK_EJECT
-				&& static_cast<Tp>(KeyCodes::Key_Sleep) == SDLK_SLEEP
-				&& static_cast<Tp>(KeyCodes::Key_App1) == SDLK_APP1
-				&& static_cast<Tp>(KeyCodes::Key_App2) == SDLK_APP2
-				&& static_cast<Tp>(KeyCodes::Key_AudioRewind)
-						   == SDLK_AUDIOREWIND
-				&& static_cast<Tp>(KeyCodes::Key_AudioFastforward)
-						   == SDLK_AUDIOFASTFORWARD
+				KeyCodes::Key_Unknown == SDLK_UNKNOWN
+				&& KeyCodes::Key_Return == SDLK_RETURN
+				&& KeyCodes::Key_Escape == SDLK_ESCAPE
+				&& KeyCodes::Key_Backspace == SDLK_BACKSPACE
+				&& KeyCodes::Key_Tab == SDLK_TAB
+				&& KeyCodes::Key_Space == SDLK_SPACE
+				&& KeyCodes::Key_Exclaim == SDLK_EXCLAIM
+				&& KeyCodes::Key_DblQuote == SDLK_QUOTEDBL
+				&& KeyCodes::Key_Hash == SDLK_HASH
+				&& KeyCodes::Key_Percent == SDLK_PERCENT
+				&& KeyCodes::Key_Dollar == SDLK_DOLLAR
+				&& KeyCodes::Key_Ampersand == SDLK_AMPERSAND
+				&& KeyCodes::Key_Quote == SDLK_QUOTE
+				&& KeyCodes::Key_LeftParen == SDLK_LEFTPAREN
+				&& KeyCodes::Key_RightParen == SDLK_RIGHTPAREN
+				&& KeyCodes::Key_Asterisk == SDLK_ASTERISK
+				&& KeyCodes::Key_Plus == SDLK_PLUS
+				&& KeyCodes::Key_Comma == SDLK_COMMA
+				&& KeyCodes::Key_Minus == SDLK_MINUS
+				&& KeyCodes::Key_Period == SDLK_PERIOD
+				&& KeyCodes::Key_Slash == SDLK_SLASH
+				&& KeyCodes::Key_0 == SDLK_0 && KeyCodes::Key_1 == SDLK_1
+				&& KeyCodes::Key_2 == SDLK_2 && KeyCodes::Key_3 == SDLK_3
+				&& KeyCodes::Key_4 == SDLK_4 && KeyCodes::Key_5 == SDLK_5
+				&& KeyCodes::Key_6 == SDLK_6 && KeyCodes::Key_7 == SDLK_7
+				&& KeyCodes::Key_8 == SDLK_8 && KeyCodes::Key_9 == SDLK_9
+				&& KeyCodes::Key_Colon == SDLK_COLON
+				&& KeyCodes::Key_Semicolon == SDLK_SEMICOLON
+				&& KeyCodes::Key_Less == SDLK_LESS
+				&& KeyCodes::Key_Equals == SDLK_EQUALS
+				&& KeyCodes::Key_Greater == SDLK_GREATER
+				&& KeyCodes::Key_Question == SDLK_QUESTION
+				&& KeyCodes::Key_At == SDLK_AT
+				&& KeyCodes::Key_LeftBracket == SDLK_LEFTBRACKET
+				&& KeyCodes::Key_Backslash == SDLK_BACKSLASH
+				&& KeyCodes::Key_RightBracket == SDLK_RIGHTBRACKET
+				&& KeyCodes::Key_Caret == SDLK_CARET
+				&& KeyCodes::Key_Underscore == SDLK_UNDERSCORE
+				&& KeyCodes::Key_Backquote == SDLK_BACKQUOTE
+				&& KeyCodes::Key_a == SDLK_a && KeyCodes::Key_b == SDLK_b
+				&& KeyCodes::Key_c == SDLK_c && KeyCodes::Key_d == SDLK_d
+				&& KeyCodes::Key_e == SDLK_e && KeyCodes::Key_f == SDLK_f
+				&& KeyCodes::Key_g == SDLK_g && KeyCodes::Key_h == SDLK_h
+				&& KeyCodes::Key_i == SDLK_i && KeyCodes::Key_j == SDLK_j
+				&& KeyCodes::Key_k == SDLK_k && KeyCodes::Key_l == SDLK_l
+				&& KeyCodes::Key_m == SDLK_m && KeyCodes::Key_n == SDLK_n
+				&& KeyCodes::Key_o == SDLK_o && KeyCodes::Key_p == SDLK_p
+				&& KeyCodes::Key_q == SDLK_q && KeyCodes::Key_r == SDLK_r
+				&& KeyCodes::Key_s == SDLK_s && KeyCodes::Key_t == SDLK_t
+				&& KeyCodes::Key_u == SDLK_u && KeyCodes::Key_v == SDLK_v
+				&& KeyCodes::Key_w == SDLK_w && KeyCodes::Key_x == SDLK_x
+				&& KeyCodes::Key_y == SDLK_y && KeyCodes::Key_z == SDLK_z
+				&& KeyCodes::Key_CapsLock == SDLK_CAPSLOCK
+				&& KeyCodes::Key_F1 == SDLK_F1 && KeyCodes::Key_F2 == SDLK_F2
+				&& KeyCodes::Key_F3 == SDLK_F3 && KeyCodes::Key_F4 == SDLK_F4
+				&& KeyCodes::Key_F5 == SDLK_F5 && KeyCodes::Key_F6 == SDLK_F6
+				&& KeyCodes::Key_F7 == SDLK_F7 && KeyCodes::Key_F8 == SDLK_F8
+				&& KeyCodes::Key_F9 == SDLK_F9 && KeyCodes::Key_F10 == SDLK_F10
+				&& KeyCodes::Key_F11 == SDLK_F11
+				&& KeyCodes::Key_F12 == SDLK_F12
+				&& KeyCodes::Key_PrintScreen == SDLK_PRINTSCREEN
+				&& KeyCodes::Key_ScrollLock == SDLK_SCROLLLOCK
+				&& KeyCodes::Key_Pause == SDLK_PAUSE
+				&& KeyCodes::Key_Insert == SDLK_INSERT
+				&& KeyCodes::Key_Home == SDLK_HOME
+				&& KeyCodes::Key_PageUp == SDLK_PAGEUP
+				&& KeyCodes::Key_Delete == SDLK_DELETE
+				&& KeyCodes::Key_End == SDLK_END
+				&& KeyCodes::Key_PageDown == SDLK_PAGEDOWN
+				&& KeyCodes::Key_Right == SDLK_RIGHT
+				&& KeyCodes::Key_Left == SDLK_LEFT
+				&& KeyCodes::Key_Down == SDLK_DOWN
+				&& KeyCodes::Key_Up == SDLK_UP
+				&& KeyCodes::Key_NumLockClear == SDLK_NUMLOCKCLEAR
+				&& KeyCodes::Key_KP_Divide == SDLK_KP_DIVIDE
+				&& KeyCodes::Key_KP_Multiply == SDLK_KP_MULTIPLY
+				&& KeyCodes::Key_KP_Minus == SDLK_KP_MINUS
+				&& KeyCodes::Key_KP_Plus == SDLK_KP_PLUS
+				&& KeyCodes::Key_KP_Enter == SDLK_KP_ENTER
+				&& KeyCodes::Key_KP_1 == SDLK_KP_1
+				&& KeyCodes::Key_KP_2 == SDLK_KP_2
+				&& KeyCodes::Key_KP_3 == SDLK_KP_3
+				&& KeyCodes::Key_KP_4 == SDLK_KP_4
+				&& KeyCodes::Key_KP_5 == SDLK_KP_5
+				&& KeyCodes::Key_KP_6 == SDLK_KP_6
+				&& KeyCodes::Key_KP_7 == SDLK_KP_7
+				&& KeyCodes::Key_KP_8 == SDLK_KP_8
+				&& KeyCodes::Key_KP_9 == SDLK_KP_9
+				&& KeyCodes::Key_KP_0 == SDLK_KP_0
+				&& KeyCodes::Key_KP_Period == SDLK_KP_PERIOD
+				&& KeyCodes::Key_Application == SDLK_APPLICATION
+				&& KeyCodes::Key_Power == SDLK_POWER
+				&& KeyCodes::Key_KP_Equals == SDLK_KP_EQUALS
+				&& KeyCodes::Key_F13 == SDLK_F13
+				&& KeyCodes::Key_F14 == SDLK_F14
+				&& KeyCodes::Key_F15 == SDLK_F15
+				&& KeyCodes::Key_F16 == SDLK_F16
+				&& KeyCodes::Key_F17 == SDLK_F17
+				&& KeyCodes::Key_F18 == SDLK_F18
+				&& KeyCodes::Key_F19 == SDLK_F19
+				&& KeyCodes::Key_F20 == SDLK_F20
+				&& KeyCodes::Key_F21 == SDLK_F21
+				&& KeyCodes::Key_F22 == SDLK_F22
+				&& KeyCodes::Key_F23 == SDLK_F23
+				&& KeyCodes::Key_F24 == SDLK_F24
+				&& KeyCodes::Key_Execute == SDLK_EXECUTE
+				&& KeyCodes::Key_Help == SDLK_HELP
+				&& KeyCodes::Key_Menu == SDLK_MENU
+				&& KeyCodes::Key_Select == SDLK_SELECT
+				&& KeyCodes::Key_Stop == SDLK_STOP
+				&& KeyCodes::Key_Again == SDLK_AGAIN
+				&& KeyCodes::Key_Undo == SDLK_UNDO
+				&& KeyCodes::Key_Cut == SDLK_CUT
+				&& KeyCodes::Key_Copy == SDLK_COPY
+				&& KeyCodes::Key_Paste == SDLK_PASTE
+				&& KeyCodes::Key_Find == SDLK_FIND
+				&& KeyCodes::Key_Mute == SDLK_MUTE
+				&& KeyCodes::Key_VolumeUp == SDLK_VOLUMEUP
+				&& KeyCodes::Key_VolumeDown == SDLK_VOLUMEDOWN
+				&& KeyCodes::Key_KP_Comma == SDLK_KP_COMMA
+				&& KeyCodes::Key_KP_EqualsAS400 == SDLK_KP_EQUALSAS400
+				&& KeyCodes::Key_AltErase == SDLK_ALTERASE
+				&& KeyCodes::Key_SysReq == SDLK_SYSREQ
+				&& KeyCodes::Key_Cancel == SDLK_CANCEL
+				&& KeyCodes::Key_Clear == SDLK_CLEAR
+				&& KeyCodes::Key_Prior == SDLK_PRIOR
+				&& KeyCodes::Key_Return2 == SDLK_RETURN2
+				&& KeyCodes::Key_Separator == SDLK_SEPARATOR
+				&& KeyCodes::Key_Out == SDLK_OUT
+				&& KeyCodes::Key_Oper == SDLK_OPER
+				&& KeyCodes::Key_ClearAgain == SDLK_CLEARAGAIN
+				&& KeyCodes::Key_CrSel == SDLK_CRSEL
+				&& KeyCodes::Key_ExSel == SDLK_EXSEL
+				&& KeyCodes::Key_KP_00 == SDLK_KP_00
+				&& KeyCodes::Key_KP_000 == SDLK_KP_000
+				&& KeyCodes::Key_ThousandsSeparator == SDLK_THOUSANDSSEPARATOR
+				&& KeyCodes::Key_DecimalSeparator == SDLK_DECIMALSEPARATOR
+				&& KeyCodes::Key_CurrencyUnit == SDLK_CURRENCYUNIT
+				&& KeyCodes::Key_CurrencySubunit == SDLK_CURRENCYSUBUNIT
+				&& KeyCodes::Key_KP_LeftParen == SDLK_KP_LEFTPAREN
+				&& KeyCodes::Key_KP_RightParen == SDLK_KP_RIGHTPAREN
+				&& KeyCodes::Key_KP_LeftBrace == SDLK_KP_LEFTBRACE
+				&& KeyCodes::Key_KP_RightBrace == SDLK_KP_RIGHTBRACE
+				&& KeyCodes::Key_KP_Tab == SDLK_KP_TAB
+				&& KeyCodes::Key_KP_Backspace == SDLK_KP_BACKSPACE
+				&& KeyCodes::Key_KP_A == SDLK_KP_A
+				&& KeyCodes::Key_KP_B == SDLK_KP_B
+				&& KeyCodes::Key_KP_C == SDLK_KP_C
+				&& KeyCodes::Key_KP_D == SDLK_KP_D
+				&& KeyCodes::Key_KP_E == SDLK_KP_E
+				&& KeyCodes::Key_KP_F == SDLK_KP_F
+				&& KeyCodes::Key_KP_Xor == SDLK_KP_XOR
+				&& KeyCodes::Key_KP_Power == SDLK_KP_POWER
+				&& KeyCodes::Key_KP_Percent == SDLK_KP_PERCENT
+				&& KeyCodes::Key_KP_Less == SDLK_KP_LESS
+				&& KeyCodes::Key_KP_Greater == SDLK_KP_GREATER
+				&& KeyCodes::Key_KP_Ampersand == SDLK_KP_AMPERSAND
+				&& KeyCodes::Key_KP_DblAmpersand == SDLK_KP_DBLAMPERSAND
+				&& KeyCodes::Key_KP_VerticalBar == SDLK_KP_VERTICALBAR
+				&& KeyCodes::Key_KP_DblVerticalBar == SDLK_KP_DBLVERTICALBAR
+				&& KeyCodes::Key_KP_Colon == SDLK_KP_COLON
+				&& KeyCodes::Key_KP_Hash == SDLK_KP_HASH
+				&& KeyCodes::Key_KP_Space == SDLK_KP_SPACE
+				&& KeyCodes::Key_KP_At == SDLK_KP_AT
+				&& KeyCodes::Key_KP_Exclamation == SDLK_KP_EXCLAM
+				&& KeyCodes::Key_KP_MemStore == SDLK_KP_MEMSTORE
+				&& KeyCodes::Key_KP_MemRecall == SDLK_KP_MEMRECALL
+				&& KeyCodes::Key_KP_MemClear == SDLK_KP_MEMCLEAR
+				&& KeyCodes::Key_KP_MemAdd == SDLK_KP_MEMADD
+				&& KeyCodes::Key_KP_MemSubtract == SDLK_KP_MEMSUBTRACT
+				&& KeyCodes::Key_KP_MemMultiply == SDLK_KP_MEMMULTIPLY
+				&& KeyCodes::Key_KP_MemDivide == SDLK_KP_MEMDIVIDE
+				&& KeyCodes::Key_KP_PlusMinus == SDLK_KP_PLUSMINUS
+				&& KeyCodes::Key_KP_Clear == SDLK_KP_CLEAR
+				&& KeyCodes::Key_KP_ClearEntry == SDLK_KP_CLEARENTRY
+				&& KeyCodes::Key_KP_Binary == SDLK_KP_BINARY
+				&& KeyCodes::Key_KP_Octal == SDLK_KP_OCTAL
+				&& KeyCodes::Key_KP_Decimal == SDLK_KP_DECIMAL
+				&& KeyCodes::Key_KP_Hexadecimal == SDLK_KP_HEXADECIMAL
+				&& KeyCodes::Key_LeftCtrl == SDLK_LCTRL
+				&& KeyCodes::Key_LeftShift == SDLK_LSHIFT
+				&& KeyCodes::Key_LeftAlt == SDLK_LALT
+				&& KeyCodes::Key_LeftGUI == SDLK_LGUI
+				&& KeyCodes::Key_RightCtrl == SDLK_RCTRL
+				&& KeyCodes::Key_RightShift == SDLK_RSHIFT
+				&& KeyCodes::Key_RightAlt == SDLK_RALT
+				&& KeyCodes::Key_RightGUI == SDLK_RGUI
+				&& KeyCodes::Key_Mode == SDLK_MODE
+				&& KeyCodes::Key_AudioNext == SDLK_AUDIONEXT
+				&& KeyCodes::Key_AudioPrev == SDLK_AUDIOPREV
+				&& KeyCodes::Key_AudioStop == SDLK_AUDIOSTOP
+				&& KeyCodes::Key_AudioPlay == SDLK_AUDIOPLAY
+				&& KeyCodes::Key_AudioMute == SDLK_AUDIOMUTE
+				&& KeyCodes::Key_MediaSelect == SDLK_MEDIASELECT
+				&& KeyCodes::Key_WWW == SDLK_WWW
+				&& KeyCodes::Key_Mail == SDLK_MAIL
+				&& KeyCodes::Key_Calculator == SDLK_CALCULATOR
+				&& KeyCodes::Key_Computer == SDLK_COMPUTER
+				&& KeyCodes::Key_AC_Search == SDLK_AC_SEARCH
+				&& KeyCodes::Key_AC_Home == SDLK_AC_HOME
+				&& KeyCodes::Key_AC_Back == SDLK_AC_BACK
+				&& KeyCodes::Key_AC_Forward == SDLK_AC_FORWARD
+				&& KeyCodes::Key_AC_Stop == SDLK_AC_STOP
+				&& KeyCodes::Key_AC_Refresh == SDLK_AC_REFRESH
+				&& KeyCodes::Key_AC_Bookmarks == SDLK_AC_BOOKMARKS
+				&& KeyCodes::Key_BrightnessDown == SDLK_BRIGHTNESSDOWN
+				&& KeyCodes::Key_BrightnessUp == SDLK_BRIGHTNESSUP
+				&& KeyCodes::Key_DisplaySwitch == SDLK_DISPLAYSWITCH
+				&& KeyCodes::Key_KbdIllumToggle == SDLK_KBDILLUMTOGGLE
+				&& KeyCodes::Key_KbdIllumDown == SDLK_KBDILLUMDOWN
+				&& KeyCodes::Key_KbdIllumUp == SDLK_KBDILLUMUP
+				&& KeyCodes::Key_Eject == SDLK_EJECT
+				&& KeyCodes::Key_Sleep == SDLK_SLEEP
+				&& KeyCodes::Key_App1 == SDLK_APP1
+				&& KeyCodes::Key_App2 == SDLK_APP2
+				&& KeyCodes::Key_AudioRewind == SDLK_AUDIOREWIND
+				&& KeyCodes::Key_AudioFastforward == SDLK_AUDIOFASTFORWARD
 #if SDL_VERSION_ATLEAST(2, 28, 5)
-				&& static_cast<Tp>(KeyCodes::Key_SoftLeft) == SDLK_SOFTLEFT
-				&& static_cast<Tp>(KeyCodes::Key_SoftRight) == SDLK_SOFTRIGHT
-				&& static_cast<Tp>(KeyCodes::Key_Call) == SDLK_CALL
-				&& static_cast<Tp>(KeyCodes::Key_EndCall) == SDLK_ENDCALL
+				&& KeyCodes::Key_SoftLeft == SDLK_SOFTLEFT
+				&& KeyCodes::Key_SoftRight == SDLK_SOFTRIGHT
+				&& KeyCodes::Key_Call == SDLK_CALL
+				&& KeyCodes::Key_EndCall == SDLK_ENDCALL
 #endif
 		);
 		return static_cast<KeyCodes>(code);
 	}
 
 	constexpr inline KeyMod translateKeyMods(uint32 mods) noexcept {
-		using Tp = std::underlying_type_t<KeyMod>;
 		static_assert(
-				static_cast<Tp>(KeyMod::NoMods) == KMOD_NONE
-				&& static_cast<Tp>(KeyMod::LeftShift) == KMOD_LSHIFT
-				&& static_cast<Tp>(KeyMod::RightShift) == KMOD_RSHIFT
-				&& static_cast<Tp>(KeyMod::LeftCtrl) == KMOD_LCTRL
-				&& static_cast<Tp>(KeyMod::RightCtrl) == KMOD_RCTRL
-				&& static_cast<Tp>(KeyMod::LeftAlt) == KMOD_LALT
-				&& static_cast<Tp>(KeyMod::RightAlt) == KMOD_RALT
-				&& static_cast<Tp>(KeyMod::LeftGUI) == KMOD_LGUI
-				&& static_cast<Tp>(KeyMod::RightGUI) == KMOD_RGUI
-				&& static_cast<Tp>(KeyMod::Num) == KMOD_NUM
-				&& static_cast<Tp>(KeyMod::Caps) == KMOD_CAPS
-				&& static_cast<Tp>(KeyMod::Mode) == KMOD_MODE
-				&& static_cast<Tp>(KeyMod::Scroll) == KMOD_SCROLL
-				&& static_cast<Tp>(KeyMod::Ctrl) == KMOD_CTRL
-				&& static_cast<Tp>(KeyMod::Shift) == KMOD_SHIFT
-				&& static_cast<Tp>(KeyMod::Alt) == KMOD_ALT
-				&& static_cast<Tp>(KeyMod::GUI) == KMOD_GUI
-				&& static_cast<Tp>(KeyMod::Reserved) == KMOD_RESERVED);
+				KeyMod::NoMods == KMOD_NONE && KeyMod::LeftShift == KMOD_LSHIFT
+				&& KeyMod::RightShift == KMOD_RSHIFT
+				&& KeyMod::LeftCtrl == KMOD_LCTRL
+				&& KeyMod::RightCtrl == KMOD_RCTRL
+				&& KeyMod::LeftAlt == KMOD_LALT && KeyMod::RightAlt == KMOD_RALT
+				&& KeyMod::LeftGUI == KMOD_LGUI && KeyMod::RightGUI == KMOD_RGUI
+				&& KeyMod::Num == KMOD_NUM && KeyMod::Caps == KMOD_CAPS
+				&& KeyMod::Mode == KMOD_MODE && KeyMod::Scroll == KMOD_SCROLL
+				&& KeyMod::Ctrl == KMOD_CTRL && KeyMod::Shift == KMOD_SHIFT
+				&& KeyMod::Alt == KMOD_ALT && KeyMod::GUI == KMOD_GUI
+				&& KeyMod::Reserved == KMOD_RESERVED);
 		return static_cast<KeyMod>(mods);
 	}
 
-	constexpr inline ControllerButton translateControllerButton(
+	constexpr inline GamepadButton translateGamepadButton(
 			uint8 button) noexcept {
-		using Tp = std::underlying_type_t<ControllerButton>;
 		static_assert(
-				(static_cast<Tp>(ControllerButton::Invalid)
-				 == SDL_CONTROLLER_BUTTON_INVALID)
-				&& (static_cast<Tp>(ControllerButton::A)
-					== SDL_CONTROLLER_BUTTON_A)
-				&& (static_cast<Tp>(ControllerButton::B)
-					== SDL_CONTROLLER_BUTTON_B)
-				&& (static_cast<Tp>(ControllerButton::X)
-					== SDL_CONTROLLER_BUTTON_X)
-				&& (static_cast<Tp>(ControllerButton::Y)
-					== SDL_CONTROLLER_BUTTON_Y)
-				&& (static_cast<Tp>(ControllerButton::Back)
-					== SDL_CONTROLLER_BUTTON_BACK)
-				&& (static_cast<Tp>(ControllerButton::Guide)
-					== SDL_CONTROLLER_BUTTON_GUIDE)
-				&& (static_cast<Tp>(ControllerButton::Start)
-					== SDL_CONTROLLER_BUTTON_START)
-				&& (static_cast<Tp>(ControllerButton::LeftStick)
-					== SDL_CONTROLLER_BUTTON_LEFTSTICK)
-				&& (static_cast<Tp>(ControllerButton::RightStick)
-					== SDL_CONTROLLER_BUTTON_RIGHTSTICK)
-				&& (static_cast<Tp>(ControllerButton::LeftShoulder)
-					== SDL_CONTROLLER_BUTTON_LEFTSHOULDER)
-				&& (static_cast<Tp>(ControllerButton::RightShoulder)
-					== SDL_CONTROLLER_BUTTON_RIGHTSHOULDER)
-				&& (static_cast<Tp>(ControllerButton::DPad_Up)
-					== SDL_CONTROLLER_BUTTON_DPAD_UP)
-				&& (static_cast<Tp>(ControllerButton::DPad_Down)
-					== SDL_CONTROLLER_BUTTON_DPAD_DOWN)
-				&& (static_cast<Tp>(ControllerButton::DPad_Left)
-					== SDL_CONTROLLER_BUTTON_DPAD_LEFT)
-				&& (static_cast<Tp>(ControllerButton::DPad_Right)
-					== SDL_CONTROLLER_BUTTON_DPAD_RIGHT)
-				&& (static_cast<Tp>(ControllerButton::Misc1)
-					== SDL_CONTROLLER_BUTTON_MISC1)
-				&& (static_cast<Tp>(ControllerButton::Paddle1)
-					== SDL_CONTROLLER_BUTTON_PADDLE1)
-				&& (static_cast<Tp>(ControllerButton::Paddle2)
-					== SDL_CONTROLLER_BUTTON_PADDLE2)
-				&& (static_cast<Tp>(ControllerButton::Paddle3)
-					== SDL_CONTROLLER_BUTTON_PADDLE3)
-				&& (static_cast<Tp>(ControllerButton::Paddle4)
-					== SDL_CONTROLLER_BUTTON_PADDLE4)
-				&& (static_cast<Tp>(ControllerButton::Touchpad)
-					== SDL_CONTROLLER_BUTTON_TOUCHPAD));
-		return static_cast<ControllerButton>(button);
+				GamepadButton::Invalid == SDL_CONTROLLER_BUTTON_INVALID
+				&& GamepadButton::A == SDL_CONTROLLER_BUTTON_A
+				&& GamepadButton::B == SDL_CONTROLLER_BUTTON_B
+				&& GamepadButton::X == SDL_CONTROLLER_BUTTON_X
+				&& GamepadButton::Y == SDL_CONTROLLER_BUTTON_Y
+				&& GamepadButton::Back == SDL_CONTROLLER_BUTTON_BACK
+				&& GamepadButton::Guide == SDL_CONTROLLER_BUTTON_GUIDE
+				&& GamepadButton::Start == SDL_CONTROLLER_BUTTON_START
+				&& GamepadButton::LeftStick == SDL_CONTROLLER_BUTTON_LEFTSTICK
+				&& GamepadButton::RightStick == SDL_CONTROLLER_BUTTON_RIGHTSTICK
+				&& GamepadButton::LeftShoulder
+						   == SDL_CONTROLLER_BUTTON_LEFTSHOULDER
+				&& GamepadButton::RightShoulder
+						   == SDL_CONTROLLER_BUTTON_RIGHTSHOULDER
+				&& GamepadButton::DPad_Up == SDL_CONTROLLER_BUTTON_DPAD_UP
+				&& GamepadButton::DPad_Down == SDL_CONTROLLER_BUTTON_DPAD_DOWN
+				&& GamepadButton::DPad_Left == SDL_CONTROLLER_BUTTON_DPAD_LEFT
+				&& GamepadButton::DPad_Right == SDL_CONTROLLER_BUTTON_DPAD_RIGHT
+				&& GamepadButton::Misc1 == SDL_CONTROLLER_BUTTON_MISC1
+				&& GamepadButton::Paddle1 == SDL_CONTROLLER_BUTTON_PADDLE1
+				&& GamepadButton::Paddle2 == SDL_CONTROLLER_BUTTON_PADDLE2
+				&& GamepadButton::Paddle3 == SDL_CONTROLLER_BUTTON_PADDLE3
+				&& GamepadButton::Paddle4 == SDL_CONTROLLER_BUTTON_PADDLE4
+				&& GamepadButton::Touchpad == SDL_CONTROLLER_BUTTON_TOUCHPAD);
+		return static_cast<GamepadButton>(button);
 	}
 
 	constexpr inline MouseButton translateMouseButton(uint8 button) noexcept {
-		using Tp = std::underlying_type_t<MouseButton>;
 		static_assert(
-				(static_cast<Tp>(MouseButton::Left) == SDL_BUTTON_LEFT)
-				&& (static_cast<Tp>(MouseButton::Middle) == SDL_BUTTON_MIDDLE)
-				&& (static_cast<Tp>(MouseButton::Right) == SDL_BUTTON_RIGHT)
-				&& (static_cast<Tp>(MouseButton::X1) == SDL_BUTTON_X1)
-				&& (static_cast<Tp>(MouseButton::X2) == SDL_BUTTON_X2));
+				MouseButton::Left == SDL_BUTTON_LEFT
+				&& MouseButton::Middle == SDL_BUTTON_MIDDLE
+				&& MouseButton::Right == SDL_BUTTON_RIGHT
+				&& MouseButton::X1 == SDL_BUTTON_X1
+				&& MouseButton::X2 == SDL_BUTTON_X2);
 		return static_cast<MouseButton>(button);
 	}
 
 	constexpr inline MouseButtonMask translateMouseMasks(
 			uint32 button) noexcept {
-		using Tp = std::underlying_type_t<MouseButtonMask>;
 		static_assert(
-				(static_cast<Tp>(MouseButtonMask::Left) == SDL_BUTTON_LMASK)
-				&& (static_cast<Tp>(MouseButtonMask::Middle)
-					== SDL_BUTTON_MMASK)
-				&& (static_cast<Tp>(MouseButtonMask::Right) == SDL_BUTTON_RMASK)
-				&& (static_cast<Tp>(MouseButtonMask::X1) == SDL_BUTTON_X1MASK)
-				&& (static_cast<Tp>(MouseButtonMask::X2) == SDL_BUTTON_X2MASK));
+				MouseButtonMask::Left == SDL_BUTTON_LMASK
+				&& MouseButtonMask::Middle == SDL_BUTTON_MMASK
+				&& MouseButtonMask::Right == SDL_BUTTON_RMASK
+				&& MouseButtonMask::X1 == SDL_BUTTON_X1MASK
+				&& MouseButtonMask::X2 == SDL_BUTTON_X2MASK);
 		return static_cast<MouseButtonMask>(button);
 	}
 }    // namespace
@@ -553,9 +464,8 @@ private:
 
 	inline void handle_gamepad_axis_input() noexcept;
 
-	inline SDL_GameController* find_controller() const noexcept;
-	inline SDL_GameController* open_game_controller(
-			int joystick_index) const noexcept;
+	inline SDL_GameController* find_gamepad() const noexcept;
+	inline SDL_GameController* open_gamepad(int joystick_index) const noexcept;
 
 	SDL_GameController* active_gamepad{nullptr};
 	uint32      double_click_event_type{std::numeric_limits<uint32>::max()};
@@ -615,25 +525,24 @@ void EventManagerImpl::do_mouse_up(MouseButton buttonID) {
 	SDL_PushEvent(&event);
 }
 
-SDL_GameController* EventManagerImpl::open_game_controller(
+SDL_GameController* EventManagerImpl::open_gamepad(
 		int joystick_index) const noexcept {
 	SDL_GameController* input_device = SDL_GameControllerOpen(joystick_index);
 	if (input_device != nullptr) {
 		SDL_GameControllerGetJoystick(input_device);
-		std::cout << "Game controller attached and open: \""
+		std::cout << "Gamepad attached and open: \""
 				  << SDL_GameControllerName(input_device) << "\"\n";
 	} else {
-		std::cout
-				<< "Game controller attached, but it failed to open. Error: \""
-				<< SDL_GetError() << "\"\n";
+		std::cout << "Gamepad attached, but it failed to open. Error: \""
+				  << SDL_GetError() << "\"\n";
 	}
 	return input_device;
 }
 
-SDL_GameController* EventManagerImpl::find_controller() const noexcept {
+SDL_GameController* EventManagerImpl::find_gamepad() const noexcept {
 	for (int i = 0; i < SDL_NumJoysticks(); i++) {
 		if (SDL_IsGameController(i) != 0u) {
-			return open_game_controller(i);
+			return open_gamepad(i);
 		}
 	}
 	// No gamepads found.
@@ -641,7 +550,7 @@ SDL_GameController* EventManagerImpl::find_controller() const noexcept {
 }
 
 EventManagerImpl::EventManagerImpl() {
-	active_gamepad          = find_controller();
+	active_gamepad          = find_gamepad();
 	double_click_event_type = SDL_RegisterEvents(1);
 }
 
@@ -662,15 +571,13 @@ void EventManagerImpl::handle_gamepad_axis_input() noexcept {
 		// plane. All axis readings below this are ignored
 		float value = SDL_GameControllerGetAxis(active_gamepad, axis);
 		value /= static_cast<float>(SDL_JOYSTICK_AXIS_MAX);
-		// Many analog game-controllers report non-zero axis values,
-		// even when the controller isn't moving.  These non-zero
-		// values can change over time, as the thumb-stick is moved
-		// by the player.
+		// Many analog gamepads report non-zero axis values, even when the
+		// gamepads isn't moving.  These non-zero values can change over time,
+		// as the thumb-stick is moved by the player.
 		//
-		// In order to prevent idle controller sticks from leading
-		// to unwanted movements, axis-values that are small will
-		// be ignored.  This is sometimes referred to as a
-		// "dead zone".
+		// In order to prevent idle gamepads sticks from leading to unwanted
+		// movements, axis-values that are small will be ignored.  This is
+		// sometimes referred to as a "dead zone".
 		if (axis_dead_zone >= std::fabs(value) || isAlmostZero(value)) {
 			value = 0.0f;
 		}
@@ -717,7 +624,7 @@ void EventManagerImpl::handle_event(SDL_ControllerDeviceEvent& event) noexcept {
 			const SDL_JoystickID joystick_id
 					= SDL_JoystickGetDeviceInstanceID(event.which);
 			if (SDL_GameControllerFromInstanceID(joystick_id) == nullptr) {
-				active_gamepad = open_game_controller(event.which);
+				active_gamepad = open_gamepad(event.which);
 			}
 		}
 		break;
@@ -728,11 +635,10 @@ void EventManagerImpl::handle_event(SDL_ControllerDeviceEvent& event) noexcept {
 			&& event.which
 					   == SDL_JoystickInstanceID(
 							   SDL_GameControllerGetJoystick(active_gamepad))) {
-			std::cout << "Game controller \""
-					  << SDL_GameControllerName(active_gamepad)
+			std::cout << "Gamepad \"" << SDL_GameControllerName(active_gamepad)
 					  << "\" detached and closed.\n";
 			SDL_GameControllerClose(active_gamepad);
-			active_gamepad = find_controller();
+			active_gamepad = find_gamepad();
 		}
 		break;
 	}
@@ -743,12 +649,12 @@ void EventManagerImpl::handle_event(SDL_ControllerDeviceEvent& event) noexcept {
 
 void EventManagerImpl::handle_event(SDL_ControllerButtonEvent& event) noexcept {
 	// TODO: Maybe convert to mouse buttons here?
-	const ControllerEvent  kind     = event.type == SDL_CONTROLLERBUTTONDOWN
-											  ? ControllerEvent::Pressed
-											  : ControllerEvent::Released;
-	const ControllerButton buttonID = translateControllerButton(event.button);
-	if (buttonID != ControllerButton::Invalid) {
-		invoke_callback<ControllerCallback>(kind, buttonID);
+	const GamepadButtonEvent kind     = event.type == SDL_CONTROLLERBUTTONDOWN
+												? GamepadButtonEvent::Pressed
+												: GamepadButtonEvent::Released;
+	const GamepadButton      buttonID = translateGamepadButton(event.button);
+	if (buttonID != GamepadButton::Invalid) {
+		invoke_callback<GamepadButtonCallback>(kind, buttonID);
 	}
 }
 
