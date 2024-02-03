@@ -98,7 +98,6 @@ void ShapeBrowser::browse_shapes() {
 		if (type == KeyboardEvent::Pressed) {
 			redraw           = true;
 			const bool shift = (mod & KeyMod::Shift) != KeyMod::NoMods;
-			// int ctrl = event.key.keysym.mod & KMOD_CTRL;
 			switch (sym) {
 			case KeyCodes::Key_Escape:
 				looping = false;
