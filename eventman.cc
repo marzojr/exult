@@ -1028,12 +1028,12 @@ namespace {
 		{
 			auto guard = events->register_one_callback(
 					+[](const AxisVector&, const AxisVector&,
-						const AxisTrigger&) {});
+						const AxisTrigger&) noexcept {});
 		}
 		{
 			auto vcb6 = [events](
 								const AxisVector&, const AxisVector&,
-								const AxisTrigger&) {
+								const AxisTrigger&) noexcept {
 				events->enable_dropfile();
 			};
 			using T6 = std::remove_reference_t<
@@ -1050,7 +1050,7 @@ namespace {
 			auto guard = events->register_one_callback(
 					[events](
 							const AxisVector&, const AxisVector&,
-							const AxisTrigger&) {
+							const AxisTrigger&) noexcept {
 						events->enable_dropfile();
 					});
 		}

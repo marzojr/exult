@@ -805,6 +805,29 @@ namespace { namespace detail {
 	using get_compatible_callback2 =
 			typename decltype(apply_compatible_with_filter2<F, T>(
 					Callback_list{}))::head;
+
+	template <typename T>
+	struct remove_noexcept {
+		using type = T;
+	};
+
+	template <typename Ret, typename... Args>
+	struct remove_noexcept<Ret(Args...) noexcept> {
+		using type = Ret(Args...);
+	};
+
+	template <typename Ret, typename... Args>
+	struct remove_noexcept<Ret (*)(Args...) noexcept> {
+		using type = Ret(Args...);
+	};
+
+	template <typename Ret, typename... Args>
+	struct remove_noexcept<Ret (&)(Args...) noexcept> {
+		using type = Ret(Args...);
+	};
+
+	template <typename T>
+	using remove_noexcept_t = typename remove_noexcept<T>::type;
 }}    // namespace ::detail
 
 class EventManager {
@@ -816,12 +839,14 @@ protected:
 
 	template <typename Callback>
 	CallbackStack<Callback>& get_callback_stack() {
-		return std::get<CallbackStack<Callback>>(callbackStacks);
+		return std::get<CallbackStack<detail::remove_noexcept_t<Callback>>>(
+				callbackStacks);
 	}
 
 	template <typename Callback>
 	const CallbackStack<Callback>& get_callback_stack() const {
-		return std::get<CallbackStack<Callback>>(callbackStacks);
+		return std::get<CallbackStack<detail::remove_noexcept_t<Callback>>>(
+				callbackStacks);
 	}
 
 	EventManager() = default;
@@ -845,10 +870,11 @@ public:
 							std::remove_pointer_t<Callback>>>>>
 			= true>
 	[[nodiscard]] auto register_one_callback(Callback&& callback) {
+		using Functor_t = detail::remove_noexcept_t<
+				std::remove_reference_t<std::remove_pointer_t<Callback>>>;
 		return detail::Callback_guard(
 				std::forward<Callback>(callback),
-				get_callback_stack<std::remove_reference_t<
-						std::remove_pointer_t<Callback>>>());
+				get_callback_stack<Functor_t>());
 	}
 
 	// Registers one callback (based on type). For functors and lambdas.
@@ -904,9 +930,15 @@ public:
 	// Registers many callbacks (based on type). Splits off the first argument,
 	// then forwards it along with each of the remaining parameter to their own
 	// calls to register_one_callback, then aggregates the results.
-
 	template <
 			typename T, typename... Fs,
+			detail::require<std::conjunction_v<
+					std::is_object<
+							std::remove_reference_t<std::remove_pointer_t<T>>>,
+					std::negation<detail::has_compatible_callback1<
+							std::remove_reference_t<
+									std::remove_pointer_t<T>>>>>>
+			= true,
 			detail::require<std::conjunction_v<std::is_invocable<
 					decltype(&EventManager::register_one_callback<T, Fs>),
 					std::add_pointer_t<EventManager>, T, Fs>...>>
