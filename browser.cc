@@ -98,7 +98,6 @@ void ShapeBrowser::browse_shapes() {
 	}
 	bool      looping = true;
 	bool      redraw  = true;
-	SDL_Event event;
 	// int active;
 
 	do {
@@ -201,77 +200,78 @@ void ShapeBrowser::browse_shapes() {
 			pal.apply();
 			redraw = false;
 		}
-		SDL_WaitEvent(&event);
-		if (event.type == SDL_KEYDOWN) {
-			redraw           = true;
-			const bool shift = event.key.keysym.mod & KMOD_SHIFT;
-			// int ctrl = event.key.keysym.mod & KMOD_CTRL;
-			switch (event.key.keysym.sym) {
-			case SDLK_ESCAPE:
-				looping = false;
-				break;
-			case SDLK_v:
-				handle_key(shift, current_file, num_files);
-				current_shape = 0;
-				current_frame = 0;
-				delete shapes;
-				snprintf(buf, sizeof(buf), "files/shapes/%d", current_file);
-				fname  = game->get_resource(buf).str;
-				shapes = new Vga_file(fname);
-				break;
-			case SDLK_p:
-				handle_key(shift, current_palette, num_palettes);
-				current_xform = -1;
-				break;
-			case SDLK_x:
-				handle_key(shift, current_xform, num_xforms);
-				break;
-				// Shapes
-			case SDLK_s:
-				if ((event.key.keysym.mod & KMOD_ALT)
-					&& (event.key.keysym.mod & KMOD_CTRL)) {
-					make_screenshot(true);
-				} else {
-					handle_key(shift, current_shape, num_shapes);
+		SDL_Event event;
+		while (SDL_PollEvent(&event) != 0) {
+			if (event.type == SDL_KEYDOWN) {
+				redraw           = true;
+				const bool shift = event.key.keysym.mod & KMOD_SHIFT;
+				// int ctrl = event.key.keysym.mod & KMOD_CTRL;
+				switch (event.key.keysym.sym) {
+				case SDLK_ESCAPE:
+					looping = false;
+					break;
+				case SDLK_v:
+					handle_key(shift, current_file, num_files);
+					current_shape = 0;
 					current_frame = 0;
+					delete shapes;
+					snprintf(buf, sizeof(buf), "files/shapes/%d", current_file);
+					fname  = game->get_resource(buf).str;
+					shapes = new Vga_file(fname);
+					break;
+				case SDLK_p:
+					handle_key(shift, current_palette, num_palettes);
+					current_xform = -1;
+					break;
+				case SDLK_x:
+					handle_key(shift, current_xform, num_xforms);
+					break;
+					// Shapes
+				case SDLK_s:
+					if ((event.key.keysym.mod & KMOD_ALT)
+						&& (event.key.keysym.mod & KMOD_CTRL)) {
+						make_screenshot(true);
+					} else {
+						handle_key(shift, current_shape, num_shapes);
+						current_frame = 0;
+					}
+					break;
+				case SDLK_UP:
+					handle_key(true, current_shape, num_shapes);
+					current_frame = 0;
+					break;
+				case SDLK_DOWN:
+					handle_key(false, current_shape, num_shapes);
+					current_frame = 0;
+					break;
+				case SDLK_j:    // Jump by 20.
+					handle_key(shift, current_shape, num_shapes, 20);
+					current_frame = 0;
+					break;
+				case SDLK_PAGEUP:
+					handle_key(true, current_shape, num_shapes, 20);
+					current_frame = 0;
+					break;
+				case SDLK_PAGEDOWN:
+					handle_key(false, current_shape, num_shapes, 20);
+					current_frame = 0;
+					break;
+					// Frames
+				case SDLK_f:
+					handle_key(shift, current_frame, num_frames);
+					break;
+				case SDLK_LEFT:
+					handle_key(true, current_frame, num_frames);
+					break;
+				case SDLK_RIGHT:
+					handle_key(false, current_frame, num_frames);
+					break;
+				case SDLK_k:
+					keybinder->ShowBrowserKeys();
+					break;
+				default:
+					break;
 				}
-				break;
-			case SDLK_UP:
-				handle_key(true, current_shape, num_shapes);
-				current_frame = 0;
-				break;
-			case SDLK_DOWN:
-				handle_key(false, current_shape, num_shapes);
-				current_frame = 0;
-				break;
-			case SDLK_j:    // Jump by 20.
-				handle_key(shift, current_shape, num_shapes, 20);
-				current_frame = 0;
-				break;
-			case SDLK_PAGEUP:
-				handle_key(true, current_shape, num_shapes, 20);
-				current_frame = 0;
-				break;
-			case SDLK_PAGEDOWN:
-				handle_key(false, current_shape, num_shapes, 20);
-				current_frame = 0;
-				break;
-				// Frames
-			case SDLK_f:
-				handle_key(shift, current_frame, num_frames);
-				break;
-			case SDLK_LEFT:
-				handle_key(true, current_frame, num_frames);
-				break;
-			case SDLK_RIGHT:
-				handle_key(false, current_frame, num_frames);
-				break;
-			case SDLK_k:
-				keybinder->ShowBrowserKeys();
-				break;
-			default:
-
-				break;
 			}
 		}
 	} while (looping);
