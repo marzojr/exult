@@ -922,9 +922,11 @@ public:
 		}
 	}
 
-	virtual void handle_events()    = 0;
-	virtual void enable_dropfile()  = 0;
-	virtual void disable_dropfile() = 0;
+	virtual void handle_events() noexcept    = 0;
+	virtual void enable_dropfile() noexcept  = 0;
+	virtual void disable_dropfile() noexcept = 0;
+
+	bool any_events_pending() noexcept;
 };
 
 #endif    // INPUT_MANAGER_H

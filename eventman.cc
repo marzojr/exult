@@ -16,13 +16,13 @@
  *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#include <new>
 #ifdef HAVE_CONFIG_H
 #	include <config.h>
 #endif
 
-#include "eventman.h"
-
 #include "actors.h"
+#include "eventman.h"
 #include "exult.h"
 #include "game.h"
 #include "gamewin.h"
@@ -434,12 +434,12 @@ struct OleDeleter {
 using WindndPtr = std::unique_ptr<Windnd, OleDeleter>;
 #endif
 
-class EventManagerImpl : public EventManager {
+class EventManagerImpl final : public EventManager {
 public:
 	EventManagerImpl();
-	void handle_events() override;
-	void enable_dropfile() override;
-	void disable_dropfile() override;
+	void handle_events() noexcept override;
+	void enable_dropfile() noexcept override;
+	void disable_dropfile() noexcept override;
 
 	void do_mouse_up(MouseButton buttonID);
 
@@ -889,7 +889,18 @@ EventManager* EventManager::getInstance() {
 	return instance.get();
 }
 
-void EventManagerImpl::handle_events() {
+bool EventManager::any_events_pending() noexcept {
+	SDL_PumpEvents();
+	int num_events = SDL_PeepEvents(
+			nullptr, 0, SDL_PEEKEVENT, SDL_FIRSTEVENT, SDL_LASTEVENT);
+	if (num_events < 0) {
+		std::cerr << "SDL_PeepEvents failed with error " << SDL_GetError()
+				  << '\n';
+	}
+	return num_events > 0;
+}
+
+void EventManagerImpl::handle_events() noexcept {
 	SDL_Event event;
 	while (!break_event_loop() && SDL_PollEvent(&event) != 0) {
 		handle_event(event);
@@ -898,7 +909,7 @@ void EventManagerImpl::handle_events() {
 	handle_gamepad_axis_input();
 }
 
-void EventManagerImpl::enable_dropfile() {
+void EventManagerImpl::enable_dropfile() noexcept {
 #ifdef USE_EXULTSTUDIO
 	Game_window*  gwin = Game_window::get_instance();
 	SDL_SysWMinfo info;    // Get system info.
@@ -908,18 +919,54 @@ void EventManagerImpl::enable_dropfile() {
 #	else
 	hgwin = info.info.win.window;
 	OleInitialize(nullptr);
-	windnd.reset(new Windnd(
+	windnd.reset(new (std::nothrow) Windnd(
 			hgwin, Move_dragged_shape, Move_dragged_combo, Drop_dragged_shape,
 			Drop_dragged_chunk, Drop_dragged_npc, Drop_dragged_combo));
-	if (FAILED(RegisterDragDrop(hgwin, windnd.get()))) {
+	if (windnd == nullptr) {
+		std::cerr << "Allocation failed for Windows Drag & Drop...\n";
+		return;
+	}
+	HRESULT res = RegisterDragDrop(hgwin, windnd.get());
+	if (FAILED(res)) {
+		DWORD code = [](HRESULT hr) {
+			if (HRESULT(hr & 0xFFFF0000l)
+				== MAKE_HRESULT(SEVERITY_ERROR, FACILITY_WIN32, 0)) {
+				return HRESULT_CODE(hr);
+			}
+
+			if (hr == S_OK) {
+				return ERROR_SUCCESS;
+			}
+
+			// Not a Win32 HRESULT so return a generic error code.
+			return ERROR_CAN_NOT_COMPLETE;
+		}(res);
+		LPTSTR lpMsgBuf;
+		FormatMessage(
+				FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM
+						| FORMAT_MESSAGE_IGNORE_INSERTS,
+				nullptr, code,
+				MAKELANGID(
+						LANG_NEUTRAL, SUBLANG_DEFAULT),    // Default language
+				reinterpret_cast<LPTSTR>(&lpMsgBuf), 0, nullptr);
+#		ifdef UNICODE
+		nLen2     = _tcslen(lpMsgBuf) + 1;
+		char* str = static_cast<char*>(_alloca(nLen));
+		WideCharToMultiByte(
+				CP_ACP, 0, lpMsgBuf, -1, str, nLen2, nullptr, nullptr);
+#		else
+		char* str = lpMsgBuf;
+#		endif
+		std::cout << "RegisterDragDrop failed with error code " << code << ": "
+				  << str << '\n';
+		LocalFree(lpMsgBuf);
 		windnd.reset();
-		std::cout << "Something's wrong with OLE2 ...\n";
 	}
 #	endif
 #endif
 }
 
-void EventManagerImpl::disable_dropfile() {
+void EventManagerImpl::disable_dropfile() noexcept {
 #ifdef USE_EXULTSTUDIO
 #	ifndef _WIN32
 	SDL_EventState(SDL_DROPFILE, SDL_DISABLE);
