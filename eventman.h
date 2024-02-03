@@ -20,6 +20,7 @@
 #define INPUT_MANAGER_H
 
 #include "common_types.h"
+#include "ignore_unused_variable_warning.h"
 
 #include <functional>
 #include <stack>
@@ -351,6 +352,33 @@ enum class KeyCodes {
 	Key_EndCall            = ScancodeToKeycode(290)
 };
 
+constexpr inline int operator-(KeyCodes& lhs, KeyCodes rhs) {
+	using Tp = std::underlying_type_t<KeyCodes>;
+	return static_cast<Tp>(lhs) - static_cast<Tp>(rhs);
+}
+
+constexpr inline KeyCodes operator-=(KeyCodes& lhs, int rhs) {
+	using Tp = std::underlying_type_t<KeyCodes>;
+	lhs      = static_cast<KeyCodes>(static_cast<Tp>(lhs) - rhs);
+	return lhs;
+}
+
+constexpr inline KeyCodes operator-(KeyCodes lhs, int rhs) {
+	lhs -= rhs;
+	return lhs;
+}
+
+constexpr inline KeyCodes operator+=(KeyCodes& lhs, int rhs) {
+	using Tp = std::underlying_type_t<KeyCodes>;
+	lhs      = static_cast<KeyCodes>(static_cast<Tp>(lhs) + rhs);
+	return lhs;
+}
+
+constexpr inline KeyCodes operator+(KeyCodes lhs, int rhs) {
+	lhs += rhs;
+	return lhs;
+}
+
 /**
  * \brief Enumeration of valid key mods (possibly OR'd together).
  */
@@ -397,6 +425,205 @@ constexpr inline KeyMod operator&=(KeyMod& lhs, KeyMod rhs) {
 constexpr inline KeyMod operator&(KeyMod lhs, KeyMod rhs) {
 	lhs &= rhs;
 	return lhs;
+}
+
+inline bool is_digit(KeyCodes key, KeyMod mod) {
+	switch (key) {
+	case KeyCodes::Key_0:
+	case KeyCodes::Key_1:
+	case KeyCodes::Key_2:
+	case KeyCodes::Key_3:
+	case KeyCodes::Key_4:
+	case KeyCodes::Key_5:
+	case KeyCodes::Key_6:
+	case KeyCodes::Key_7:
+	case KeyCodes::Key_8:
+	case KeyCodes::Key_9:
+		return (mod
+				& (KeyMod::Shift | KeyMod::Alt | KeyMod::Ctrl | KeyMod::GUI))
+			   == KeyMod::NoMods;
+	case KeyCodes::Key_KP_0:
+	case KeyCodes::Key_KP_1:
+	case KeyCodes::Key_KP_2:
+	case KeyCodes::Key_KP_3:
+	case KeyCodes::Key_KP_4:
+	case KeyCodes::Key_KP_5:
+	case KeyCodes::Key_KP_6:
+	case KeyCodes::Key_KP_7:
+	case KeyCodes::Key_KP_8:
+	case KeyCodes::Key_KP_9:
+		return (mod & KeyMod::Num) == KeyMod::Num;
+	default:
+		return false;
+	}
+}
+
+inline bool is_xdigit(KeyCodes key, KeyMod mod) {
+	switch (key) {
+	case KeyCodes::Key_a:
+	case KeyCodes::Key_b:
+	case KeyCodes::Key_c:
+	case KeyCodes::Key_d:
+	case KeyCodes::Key_e:
+	case KeyCodes::Key_f:
+		return (mod & (KeyMod::Alt | KeyMod::Ctrl | KeyMod::GUI))
+			   == KeyMod::NoMods;
+	case KeyCodes::Key_KP_A:
+	case KeyCodes::Key_KP_B:
+	case KeyCodes::Key_KP_C:
+	case KeyCodes::Key_KP_D:
+	case KeyCodes::Key_KP_E:
+	case KeyCodes::Key_KP_F:
+		return (mod & KeyMod::Num) == KeyMod::Num;
+	default:
+		return is_digit(key, mod);
+	}
+}
+
+inline bool is_alpha(KeyCodes key, KeyMod mod) {
+	switch (key) {
+	case KeyCodes::Key_a:
+	case KeyCodes::Key_b:
+	case KeyCodes::Key_c:
+	case KeyCodes::Key_d:
+	case KeyCodes::Key_e:
+	case KeyCodes::Key_f:
+	case KeyCodes::Key_g:
+	case KeyCodes::Key_h:
+	case KeyCodes::Key_i:
+	case KeyCodes::Key_j:
+	case KeyCodes::Key_k:
+	case KeyCodes::Key_l:
+	case KeyCodes::Key_m:
+	case KeyCodes::Key_n:
+	case KeyCodes::Key_o:
+	case KeyCodes::Key_p:
+	case KeyCodes::Key_q:
+	case KeyCodes::Key_r:
+	case KeyCodes::Key_s:
+	case KeyCodes::Key_t:
+	case KeyCodes::Key_u:
+	case KeyCodes::Key_v:
+	case KeyCodes::Key_w:
+	case KeyCodes::Key_x:
+	case KeyCodes::Key_y:
+	case KeyCodes::Key_z:
+		return (mod & (KeyMod::Alt | KeyMod::Ctrl | KeyMod::GUI))
+			   == KeyMod::NoMods;
+	case KeyCodes::Key_KP_A:
+	case KeyCodes::Key_KP_B:
+	case KeyCodes::Key_KP_C:
+	case KeyCodes::Key_KP_D:
+	case KeyCodes::Key_KP_E:
+	case KeyCodes::Key_KP_F:
+		return (mod & KeyMod::Num) == KeyMod::Num;
+	default:
+		return false;
+	}
+}
+
+inline bool is_alnum(KeyCodes key, KeyMod mod) {
+	return is_alpha(key, mod) || is_digit(key, mod);
+}
+
+inline bool is_minus(KeyCodes key, KeyMod mod) {
+	ignore_unused_variable_warning(mod);
+	if (key == KeyCodes::Key_Minus) {
+		return (mod & (KeyMod::Shift | KeyMod::Caps)) != KeyMod::NoMods;
+	}
+	return key == KeyCodes::Key_KP_Minus;
+}
+
+inline bool is_return(KeyCodes key, KeyMod mod) {
+	ignore_unused_variable_warning(mod);
+	return key == KeyCodes::Key_Return || key == KeyCodes::Key_KP_Enter;
+}
+
+inline int get_digit(KeyCodes key, KeyMod mod) {
+	if (!is_digit(key, mod)) {
+		return -1;
+	}
+	switch (key) {
+	case KeyCodes::Key_0:
+	case KeyCodes::Key_KP_0:
+		return '0';
+	case KeyCodes::Key_1:
+	case KeyCodes::Key_KP_1:
+		return '1';
+	case KeyCodes::Key_2:
+	case KeyCodes::Key_KP_2:
+		return '2';
+	case KeyCodes::Key_3:
+	case KeyCodes::Key_KP_3:
+		return '3';
+	case KeyCodes::Key_4:
+	case KeyCodes::Key_KP_4:
+		return '4';
+	case KeyCodes::Key_5:
+	case KeyCodes::Key_KP_5:
+		return '5';
+	case KeyCodes::Key_6:
+	case KeyCodes::Key_KP_6:
+		return '6';
+	case KeyCodes::Key_7:
+	case KeyCodes::Key_KP_7:
+		return '7';
+	case KeyCodes::Key_8:
+	case KeyCodes::Key_KP_8:
+		return '8';
+	case KeyCodes::Key_9:
+	case KeyCodes::Key_KP_9:
+		return '9';
+	default:
+		return -1;
+	}
+}
+
+inline int get_xdigit(KeyCodes key, KeyMod mod) {
+	if (!is_xdigit(key, mod)) {
+		return -1;
+	}
+	switch (key) {
+	case KeyCodes::Key_a:
+	case KeyCodes::Key_b:
+	case KeyCodes::Key_c:
+	case KeyCodes::Key_d:
+	case KeyCodes::Key_e:
+	case KeyCodes::Key_f:
+		return static_cast<int>(key);
+	case KeyCodes::Key_KP_A:
+		return 'a';
+	case KeyCodes::Key_KP_B:
+		return 'b';
+	case KeyCodes::Key_KP_C:
+		return 'c';
+	case KeyCodes::Key_KP_D:
+		return 'd';
+	case KeyCodes::Key_KP_E:
+		return 'e';
+	case KeyCodes::Key_KP_F:
+		return 'f';
+	default:
+		return get_digit(key, mod);
+	}
+}
+
+inline int get_alpha(KeyCodes key, KeyMod mod) {
+	if (is_alpha(key, mod)) {
+		int code = static_cast<int>(key);
+		if ((mod & (KeyMod::Shift | KeyMod::Caps)) != KeyMod::NoMods) {
+			code = std::toupper(code);
+		}
+		return code;
+	}
+	return -1;
+}
+
+inline int get_alnum(KeyCodes key, KeyMod mod) {
+	if (is_digit(key, mod)) {
+		return get_digit(key, mod);
+	}
+	return get_alpha(key, mod);
 }
 
 using KeyboardCallback
@@ -959,6 +1186,9 @@ public:
 	virtual void disable_dropfile() noexcept = 0;
 
 	bool any_events_pending() noexcept;
+	void start_text_input() noexcept;
+	void stop_text_input() noexcept;
+	void toggle_text_input() noexcept;
 };
 
 #endif    // INPUT_MANAGER_H

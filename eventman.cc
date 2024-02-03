@@ -900,6 +900,26 @@ bool EventManager::any_events_pending() noexcept {
 	return num_events > 0;
 }
 
+void EventManager::start_text_input() noexcept {
+	if (SDL_IsTextInputActive() != SDL_TRUE) {
+		SDL_StartTextInput();
+	}
+}
+
+void EventManager::stop_text_input() noexcept {
+	if (SDL_IsTextInputActive() != SDL_FALSE) {
+		SDL_StopTextInput();
+	}
+}
+
+void EventManager::toggle_text_input() noexcept {
+	if (SDL_IsTextInputActive() != SDL_FALSE) {
+		SDL_StopTextInput();
+	} else {
+		SDL_StartTextInput();
+	}
+}
+
 void EventManagerImpl::handle_events() noexcept {
 	SDL_Event event;
 	while (!break_event_loop() && SDL_PollEvent(&event) != 0) {
