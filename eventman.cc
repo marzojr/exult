@@ -889,7 +889,7 @@ EventManager* EventManager::getInstance() {
 	return instance.get();
 }
 
-bool EventManager::any_events_pending() noexcept {
+[[nodiscard]] bool EventManager::any_events_pending() noexcept {
 	SDL_PumpEvents();
 	int num_events = SDL_PeepEvents(
 			nullptr, 0, SDL_PEEKEVENT, SDL_FIRSTEVENT, SDL_LASTEVENT);

@@ -1185,7 +1185,8 @@ public:
 	virtual void enable_dropfile() noexcept  = 0;
 	virtual void disable_dropfile() noexcept = 0;
 
-	bool any_events_pending() noexcept;
+	[[nodiscard]] bool any_events_pending() noexcept;
+
 	void start_text_input() noexcept;
 	void stop_text_input() noexcept;
 	void toggle_text_input() noexcept;
