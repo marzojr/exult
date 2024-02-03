@@ -1426,7 +1426,6 @@ bool SI_Game::new_game(Vga_file& shapes) {
 
 	const bool si_installed = true;
 	// List of files to load.
-	const str_int_pair& resource = get_resource("files/mrfacesvga");
 	std::vector<std::pair<std::string, int>> source{
 			{  FACES_VGA, -1},
 			{PATCH_FACES, -1},
