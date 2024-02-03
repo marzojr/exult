@@ -2241,11 +2241,10 @@ bool BG_Game::new_game(Vga_file& shapes) {
 
 			Shape_frame* sex_shape = shapes.get_shape(sexshape, selected == 1);
 			sman->paint_shape(topx + 10, menuy + 25, sex_shape, false, transto);
-			const int    sex_width = get_sex_shape_size(sex_shape);
+			const int sex_width = get_sex_shape_size(sex_shape);
 			sman->paint_shape(
-					topx +sex_width, menuy + 25,
-					shapes.get_shape(0xB, skindata->is_female), false,
-					transto);
+					topx + sex_width, menuy + 25,
+					shapes.get_shape(0xB, skindata->is_female), false, transto);
 
 			Shape_frame* portrait = faces_vga.get_shape(
 					skindata->face_shape, skindata->face_frame);
