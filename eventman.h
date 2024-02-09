@@ -22,6 +22,7 @@
 #include "common_types.h"
 #include "ignore_unused_variable_warning.h"
 
+#include <cctype>
 #include <functional>
 #include <stack>
 #include <type_traits>
