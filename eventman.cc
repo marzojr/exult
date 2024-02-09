@@ -570,8 +570,8 @@ void EventManagerImpl::handle_gamepad_axis_input() noexcept {
 		// Exit if no active gamepad
 		return;
 	}
-	constexpr const float axis_dead_zone = 0.25f;
-	constexpr const float mouse_scale    = 2.f / axis_dead_zone;
+	constexpr const float axis_dead_zone = 0.1f;
+	constexpr const float mouse_scale    = 1.f;
 
 	auto get_normalized_axis = [&](SDL_GameControllerAxis axis) {
 		// Dead-zone is applied to each axis, X and Y, on the game's 2d
@@ -606,15 +606,36 @@ void EventManagerImpl::handle_gamepad_axis_input() noexcept {
 		Game_window* gwin  = Game_window::get_instance();
 		const int    scale = gwin->get_win()->get_scale_factor();
 
+		const bool aspect = [&]() {
+			Image_window::FillMode fillmode = gwin->get_win()->get_fill_mode();
+			if (fillmode >= Image_window::Centre && fillmode < (1 << 16)) {
+				return (fillmode & 1) != 0;
+			}
+			if (fillmode == Image_window::AspectCorrectFit) {
+				return true;
+			}
+			return false;
+		}();
+
 		int x;
 		int y;
 		SDL_GetMouseState(&x, &y);
 		int delta_x = static_cast<int>(
 				round(mouse_scale * joy_mouse.x * static_cast<float>(scale)));
 		int delta_y = static_cast<int>(
-				round(mouse_scale * joy_mouse.y * static_cast<float>(scale)));
+				round(mouse_scale * joy_mouse.y * static_cast<float>(scale)
+					  * (aspect ? 1.2f : 1.0f)));
 		x += delta_x;
 		y += delta_y;
+		TileRect rc = gwin->get_full_rect();
+		rc.w *= scale;
+		rc.h *= scale;
+		if (aspect) {
+			rc.h *= 6;
+			rc.h /= 5;
+		}
+		x = std::clamp(x, 0, rc.w - 1);
+		y = std::clamp(y, 0, rc.h - 1);
 		SDL_SetWindowGrab(gwin->get_win()->get_screen_window(), SDL_TRUE);
 		SDL_WarpMouseInWindow(nullptr, x, y);
 		SDL_SetWindowGrab(gwin->get_win()->get_screen_window(), SDL_FALSE);
