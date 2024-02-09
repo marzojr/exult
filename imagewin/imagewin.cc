@@ -460,7 +460,7 @@ void Image_window::static_init() {
 		}
 	}
 
-#if !defined(__IOS__) && !defined(ANDROID)
+#if !defined(SDL_PLATFORM_IOS) && !defined(ANDROID)
 	if (windowed == 0) {
 		cerr << "SDL Reports 640x400 windowed surfaces are not OK. Windowed "
 				"scalers may not work properly."
@@ -653,7 +653,7 @@ bool Image_window::create_scale_surfaces(int w, int h, int bpp) {
 
 	SDL_DisplayID original_displayID = SDL_GetDisplayForWindow(screen_window);
 
-#ifdef __IOS__
+#ifdef SDL_PLATFORM_IOS
 	int dw;
 	int dh;
 	SDL_GetWindowSizeInPixels(screen_window, &dw, &dh);

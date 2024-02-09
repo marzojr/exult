@@ -105,7 +105,7 @@ static const Uint32 EXSDL_TOUCH_MOUSEID = SDL_TOUCH_MOUSEID;
 
 using namespace Pentagram;
 
-#ifdef __IOS__
+#ifdef SDL_PLATFORM_IOS
 #	include "ios_utils.h"
 #elif defined(ANDROID)
 #	include "TouchUI_Android.h"
@@ -510,7 +510,7 @@ int exult_main(const char* runpath) {
 	add_system_path("<MODS>", "mods");
 
 	std::cout << "Exult path settings:" << std::endl;
-#if defined(MACOSX) || defined(__IOS__)
+#if defined(MACOSX) || defined(SDL_PLATFORM_IOS)
 	if (is_system_path_defined("<APP_BUNDLE_RES>")) {
 		std::cout << "Bundled Data  : " << get_system_path("<BUNDLE>")
 				  << std::endl;
@@ -600,7 +600,7 @@ int exult_main(const char* runpath) {
 
 	cheat.init();
 
-#ifdef __IOS__
+#ifdef SDL_PLATFORM_IOS
 	touchui = new TouchUI_iOS();
 #elif defined(ANDROID)
 	touchui = new TouchUI_Android();
@@ -733,11 +733,11 @@ static void Init() {
 	// ( SDL3 ) SDL_SetHint(SDL_HINT_AUDIO_DRIVER, "DirectSound");
 	// ( SDL3 ) SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "wayland,x11");
 	const Uint32 joyinit = 0;
-#if defined(__IOS__) || defined(ANDROID)
+#if defined(SDL_PLATFORM_IOS) || defined(ANDROID)
 	SDL_SetHint(SDL_HINT_ORIENTATIONS, "Landscape");
 	Mouse::use_touch_input = true;
 #endif
-#ifdef __IOS__
+#ifdef SDL_PLATFORM_IOS
 	SDL_SetHint(SDL_HINT_IOS_HIDE_HOME_INDICATOR, "2");
 #endif
 	if (SDL_Init(init_flags | joyinit) < 0) {
@@ -2720,7 +2720,7 @@ void setup_video(
 #ifdef DEBUG
 		cout << "Reading video menu adjustable configuration options" << endl;
 #endif
-#if defined(__IOS__) || defined(ANDROID)
+#if defined(SDL_PLATFORM_IOS) || defined(ANDROID)
 		// Default resolution is 320x240 with 1x scaling
 		int                    w = 320;
 		int                    h = 240;

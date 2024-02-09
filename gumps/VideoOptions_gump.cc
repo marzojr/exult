@@ -309,7 +309,7 @@ void VideoOptions_gump::load_settings(bool Fullscreen) {
 		game_resolutions.reserve(5);
 		game_resolutions.push_back(0);    // Auto
 		game_resolutions.push_back(make_resolution(320, 200));
-#if defined(__IOS__) || defined(ANDROID)
+#if defined(SDL_PLATFORM_IOS) || defined(ANDROID)
 		game_resolutions.push_back(make_resolution(400, 250));
 		game_resolutions.push_back(make_resolution(480, 300));
 #endif
@@ -340,7 +340,7 @@ VideoOptions_gump::VideoOptions_gump()
 	const std::vector<std::string> enabledtext = {"Disabled", "Enabled"};
 
 	fullscreen = gwin->get_win()->is_fullscreen();
-#if !defined(__IOS__) && !defined(ANDROID)
+#if !defined(SDL_PLATFORM_IOS) && !defined(ANDROID)
 	buttons[id_fullscreen] = std::make_unique<VideoTextToggle>(
 			this, &VideoOptions_gump::toggle_fullscreen, enabledtext,
 			fullscreen, colx[2], rowy[0], 74);
@@ -348,7 +348,7 @@ VideoOptions_gump::VideoOptions_gump()
 	config->value("config/video/share_video_settings", share_settings, false);
 
 	std::vector<std::string> yesNO = {"No", "Yes"};
-#if !defined(__IOS__) && !defined(ANDROID)
+#if !defined(SDL_PLATFORM_IOS) && !defined(ANDROID)
 	buttons[id_share_settings] = std::make_unique<VideoTextToggle>(
 			this, &VideoOptions_gump::toggle_share_settings, std::move(yesNO),
 			share_settings, colx[5], rowy[11], 40);
@@ -451,7 +451,7 @@ void VideoOptions_gump::paint() {
 
 	Font*          font = fontManager.get_font("SMALL_BLACK_FONT");
 	Image_window8* iwin = gwin->get_win();
-#if !defined(__IOS__) && !defined(ANDROID)
+#if !defined(SDL_PLATFORM_IOS) && !defined(ANDROID)
 	font->paint_text(
 			iwin->get_ib8(), "Full Screen:", x + colx[0], y + rowy[0] + 1);
 	if (fullscreen) {
@@ -481,7 +481,7 @@ void VideoOptions_gump::paint() {
 				iwin->get_ib8(), "AR Correction:", x + colx[0],
 				y + rowy[9] + 1);
 	}
-#if !defined(__IOS__) && !defined(ANDROID)
+#if !defined(SDL_PLATFORM_IOS) && !defined(ANDROID)
 	font->paint_text(
 			iwin->get_ib8(), "Same settings for window", x + colx[0],
 			y + rowy[10] + 1);

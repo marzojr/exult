@@ -457,7 +457,7 @@ bool Game::show_menu(bool skip) {
 		const int choice  = menu->handle_events(gwin, menu_mouse);
 		switch (choice) {
 		case -1:    // Exit
-#ifdef __IOS__
+#ifdef SDL_PLATFORM_IOS
 			break;
 #else
 			pal->fade_out(c_fade_out_time);

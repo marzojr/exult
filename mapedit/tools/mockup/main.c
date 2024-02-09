@@ -18,7 +18,7 @@
 #include "defs.h"
 
 #include <SDL3/SDL.h>
-#include <SDL3/SDL_image.h>
+#include <SDL3_image/SDL_image.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

@@ -9,7 +9,7 @@
 
 #include "globals.h"
 
-#include <SDL3/SDL_image.h>
+#include <SDL3_image/SDL_image.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,8 +23,9 @@ int img_read(char* filein) {
 	SDL_RWops* rw;
 	if (!strcmp(filein,
 				"-")) {    // stdin as input. Shouldn't work but we try anyways
-		rw = SDL_RWFromFP(stdin, SDL_FALSE);
-	} else {    // a regular file name
+		// rw = SDL_RWFromFP(stdin, SDL_FALSE);
+		return -1;    // Not supported in SDL3
+	} else {          // a regular file name
 		rw = SDL_RWFromFile(filein, "rb");
 	}
 
@@ -75,7 +76,7 @@ int img_read(char* filein) {
 	//       launch SDL_ConvertSurface
 
 	g_variables.image_out = SDL_ConvertSurface(
-			g_variables.image_out, g_statics.image_in->format, SDL_SWSURFACE);
+			g_variables.image_out, g_statics.image_in->format);
 
 	// a bit of clean up
 	SDL_DestroyRW(rw);

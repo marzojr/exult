@@ -80,7 +80,7 @@ int CoreAudioMidiDriver::open() {
 
 		// The default output device
 		desc.componentType = kAudioUnitType_Output;
-#	ifdef __IOS__
+#	ifdef SDL_PLATFORM_IOS
 		desc.componentSubType = kAudioUnitSubType_RemoteIO;
 #	else
 		desc.componentSubType = kAudioUnitSubType_DefaultOutput;
@@ -93,7 +93,7 @@ int CoreAudioMidiDriver::open() {
 
 		// The built-in default (softsynth) music device
 		desc.componentType = kAudioUnitType_MusicDevice;
-#	ifdef __IOS__
+#	ifdef SDL_PLATFORM_IOS
 		desc.componentSubType = kAudioUnitSubType_MIDISynth;
 #	else
 		desc.componentSubType = kAudioUnitSubType_DLSSynth;
@@ -113,7 +113,7 @@ int CoreAudioMidiDriver::open() {
 		// Get the music device from the graph.
 		RequireNoErr(AUGraphNodeInfo(_auGraph, synthNode, nullptr, &_synth));
 
-#	ifdef __IOS__
+#	ifdef SDL_PLATFORM_IOS
 		// on iOS we make sure there is a soundfont loaded for CoreAudio to work
 		if (!config->key_exists("config/audio/midi/coreaudio_soundfont")) {
 			config->set(

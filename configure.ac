@@ -1030,6 +1030,10 @@ else
 	fi
 fi
 
+# link-time optimization
+GB_ENABLE_LTO
+DEBUG_LEVEL="$DEBUG_LEVEL $LTO_CFLAGS"
+-
 # ---------------------------------------------------------------------
 # Debugging options
 # ---------------------------------------------------------------------
