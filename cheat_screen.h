@@ -21,6 +21,8 @@
 
 #include "palette.h"
 
+#include <string>
+
 class Game_window;
 class Image_buffer8;
 class Font;
