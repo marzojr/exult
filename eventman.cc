@@ -86,12 +86,15 @@ namespace {
 		return isAlmostZero(v1 - v2);
 	}
 
-	template <typename T, detail::require<std::is_enum_v<T>> = true>
-	constexpr inline bool operator==(T lhs, std::underlying_type_t<T> rhs) {
-		return static_cast<std::underlying_type_t<T>>(lhs) == rhs;
-	}
+	namespace detail {
+		template <typename T, detail::require<std::is_enum_v<T>> = true>
+		constexpr inline bool operator==(T lhs, std::underlying_type_t<T> rhs) {
+			return static_cast<std::underlying_type_t<T>>(lhs) == rhs;
+		}
+	}    // namespace detail
 
 	constexpr inline KeyCodes translateKeyCode(uint32 code) noexcept {
+		using detail::operator==;
 		static_assert(
 				KeyCodes::Key_Unknown == SDLK_UNKNOWN
 				&& KeyCodes::Key_Return == SDLK_RETURN
@@ -321,6 +324,7 @@ namespace {
 	}
 
 	constexpr inline KeyMod translateKeyMods(uint32 mods) noexcept {
+		using detail::operator==;
 		static_assert(
 				KeyMod::NoMods == KMOD_NONE && KeyMod::LeftShift == KMOD_LSHIFT
 				&& KeyMod::RightShift == KMOD_RSHIFT
@@ -338,6 +342,7 @@ namespace {
 
 	constexpr inline GamepadButton translateGamepadButton(
 			uint8 button) noexcept {
+		using detail::operator==;
 		static_assert(
 				GamepadButton::Invalid == SDL_CONTROLLER_BUTTON_INVALID
 				&& GamepadButton::A == SDL_CONTROLLER_BUTTON_A
@@ -367,6 +372,7 @@ namespace {
 	}
 
 	constexpr inline MouseButton translateMouseButton(uint8 button) noexcept {
+		using detail::operator==;
 		static_assert(
 				MouseButton::Left == SDL_BUTTON_LEFT
 				&& MouseButton::Middle == SDL_BUTTON_MIDDLE
@@ -378,6 +384,7 @@ namespace {
 
 	constexpr inline MouseButtonMask translateMouseMasks(
 			uint32 button) noexcept {
+		using detail::operator==;
 		static_assert(
 				MouseButtonMask::Left == SDL_BUTTON_LMASK
 				&& MouseButtonMask::Middle == SDL_BUTTON_MMASK
