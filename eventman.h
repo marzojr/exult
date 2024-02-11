@@ -25,6 +25,7 @@
 #include <cctype>
 #include <functional>
 #include <stack>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 
@@ -1056,6 +1057,28 @@ namespace { namespace detail {
 
 	template <typename T>
 	using remove_noexcept_t = typename remove_noexcept<T>::type;
+
+	// Meta function convert a non-member function signature to a pointer to
+	// member function type.
+	template <
+			typename T, typename R, typename... Args,
+			typename U = std::remove_reference_t<std::remove_pointer_t<T>>>
+	[[maybe_unused]] auto member_cast_impl(T, R(Args...)) -> R (U::*)(Args...);
+
+	template <typename T, typename Fs>
+	using get_member_type_t
+			= decltype(member_cast_impl(std::declval<T>(), std::declval<Fs>()));
+
+	template <typename T, typename Fs>
+	struct get_member_type {
+		using type = get_member_type_t<T, Fs>;
+	};
+
+	template <typename T, typename Fs>
+	[[maybe_unused]] auto get_call_operator() {
+		using UnqualifiedT = std::remove_reference_t<std::remove_pointer_t<T>>;
+		return static_cast<get_member_type_t<T, Fs>>(&UnqualifiedT::operator());
+	}
 }}    // namespace ::detail
 
 class EventManager {
@@ -1075,6 +1098,13 @@ protected:
 	const CallbackStack<Callback>& get_callback_stack() const {
 		return std::get<CallbackStack<detail::remove_noexcept_t<Callback>>>(
 				callbackStacks);
+	}
+
+	template <typename T, typename... Fs>
+	[[maybe_unused]] constexpr auto register_callback_object(
+			T&& data, detail::Type_list<Fs...>) {
+		return std::make_tuple(register_one_callback(
+				data, detail::get_call_operator<T, Fs>())...);
 	}
 
 	EventManager() = default;
@@ -1172,8 +1202,14 @@ public:
 					std::add_pointer_t<EventManager>, T, Fs>...>>
 			= true>
 	[[nodiscard]] auto register_callbacks(T&& data, Fs&&... callback) {
-		static_assert(sizeof...(Fs) != 0);
-		if constexpr (sizeof...(Fs) == 1) {
+		if constexpr (sizeof...(Fs) == 0) {
+			using Callbacks = decltype(detail::apply_compatible_with_filter1<T>(
+					detail::Callback_list{}));
+			static_assert(
+					Callbacks::size != 0,
+					"Input object type has no usable callbacks");
+			return register_callback_object(data, Callbacks{});
+		} else if constexpr (sizeof...(Fs) == 1) {
 			return register_one_callback(
 					data, std::forward<Fs...>(callback...));
 		} else {

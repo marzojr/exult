@@ -1044,6 +1044,18 @@ namespace {
 				const AxisVector&, const AxisVector&, const AxisTrigger&) {}
 	};
 
+	struct cb5 {
+		[[maybe_unused]] void operator()(
+				const AxisVector&, const AxisVector&,
+				const AxisTrigger&) noexcept {}
+
+		[[maybe_unused]] void operator()(
+				GamepadButtonEvent, const GamepadButton) noexcept {}
+
+		[[maybe_unused]] void operator()(
+				KeyboardEvent, const KeyCodes, const KeyMod) noexcept {}
+	};
+
 	[[maybe_unused]] void test_callbacks() {
 		auto* events = EventManager::getInstance();
 		{ auto guard = events->register_one_callback(cb1); }
@@ -1068,6 +1080,10 @@ namespace {
 				auto guard
 						= events->register_one_callback(vcb4, &cb4::operator());
 			}
+		}
+		{
+			cb5 vcb5;
+			{ auto guard = events->register_callbacks(vcb5); }
 		}
 		{
 			auto guard = events->register_one_callback(
