@@ -16,13 +16,13 @@
  *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-#include <new>
 #ifdef HAVE_CONFIG_H
 #	include <config.h>
 #endif
 
-#include "actors.h"
 #include "eventman.h"
+
+#include "actors.h"
 #include "exult.h"
 #include "game.h"
 #include "gamewin.h"
