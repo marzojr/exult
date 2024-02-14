@@ -354,29 +354,29 @@ enum class KeyCodes {
 	Key_EndCall            = ScancodeToKeycode(290)
 };
 
-constexpr inline int operator-(KeyCodes& lhs, KeyCodes rhs) {
+constexpr int operator-(KeyCodes lhs, KeyCodes rhs) {
 	using Tp = std::underlying_type_t<KeyCodes>;
 	return static_cast<Tp>(lhs) - static_cast<Tp>(rhs);
 }
 
-constexpr inline KeyCodes operator-=(KeyCodes& lhs, int rhs) {
+constexpr KeyCodes operator-=(KeyCodes& lhs, int rhs) {
 	using Tp = std::underlying_type_t<KeyCodes>;
 	lhs      = static_cast<KeyCodes>(static_cast<Tp>(lhs) - rhs);
 	return lhs;
 }
 
-constexpr inline KeyCodes operator-(KeyCodes lhs, int rhs) {
+constexpr KeyCodes operator-(KeyCodes lhs, int rhs) {
 	lhs -= rhs;
 	return lhs;
 }
 
-constexpr inline KeyCodes operator+=(KeyCodes& lhs, int rhs) {
+constexpr KeyCodes operator+=(KeyCodes& lhs, int rhs) {
 	using Tp = std::underlying_type_t<KeyCodes>;
 	lhs      = static_cast<KeyCodes>(static_cast<Tp>(lhs) + rhs);
 	return lhs;
 }
 
-constexpr inline KeyCodes operator+(KeyCodes lhs, int rhs) {
+constexpr KeyCodes operator+(KeyCodes lhs, int rhs) {
 	lhs += rhs;
 	return lhs;
 }
@@ -407,24 +407,24 @@ enum class KeyMod {
 	Reserved = Scroll
 };
 
-constexpr inline KeyMod operator|=(KeyMod& lhs, KeyMod rhs) {
+constexpr KeyMod operator|=(KeyMod& lhs, KeyMod rhs) {
 	using Tp = std::underlying_type_t<KeyMod>;
 	lhs      = static_cast<KeyMod>(static_cast<Tp>(lhs) | static_cast<Tp>(rhs));
 	return lhs;
 }
 
-constexpr inline KeyMod operator|(KeyMod lhs, KeyMod rhs) {
+constexpr KeyMod operator|(KeyMod lhs, KeyMod rhs) {
 	lhs |= rhs;
 	return lhs;
 }
 
-constexpr inline KeyMod operator&=(KeyMod& lhs, KeyMod rhs) {
+constexpr KeyMod operator&=(KeyMod& lhs, KeyMod rhs) {
 	using Tp = std::underlying_type_t<KeyMod>;
 	lhs      = static_cast<KeyMod>(static_cast<Tp>(lhs) & static_cast<Tp>(rhs));
 	return lhs;
 }
 
-constexpr inline KeyMod operator&(KeyMod lhs, KeyMod rhs) {
+constexpr KeyMod operator&(KeyMod lhs, KeyMod rhs) {
 	lhs &= rhs;
 	return lhs;
 }
@@ -592,7 +592,7 @@ inline int get_xdigit(KeyCodes key, KeyMod mod) {
 	case KeyCodes::Key_d:
 	case KeyCodes::Key_e:
 	case KeyCodes::Key_f:
-		return static_cast<int>(key);
+		return static_cast<std::underlying_type_t<KeyCodes>>(key);
 	case KeyCodes::Key_KP_A:
 		return 'a';
 	case KeyCodes::Key_KP_B:
@@ -612,7 +612,7 @@ inline int get_xdigit(KeyCodes key, KeyMod mod) {
 
 inline int get_alpha(KeyCodes key, KeyMod mod) {
 	if (is_alpha(key, mod)) {
-		int code = static_cast<int>(key);
+		auto code = static_cast<std::underlying_type_t<KeyCodes>>(key);
 		if ((mod & (KeyMod::Shift | KeyMod::Caps)) != KeyMod::NoMods) {
 			code = std::toupper(code);
 		}
@@ -641,7 +641,7 @@ struct MousePosition {
 	int x;
 	int y;
 	MousePosition() = default;
-	MousePosition(get_from_sdl_tag);
+	explicit MousePosition(get_from_sdl_tag);
 	MousePosition(int x_, int y_);
 	void set(int x_, int y_);
 };
@@ -670,7 +670,7 @@ enum class MouseButtonMask {
 	X2     = 16,
 };
 
-constexpr inline MouseButtonMask operator|=(
+constexpr MouseButtonMask operator|=(
 		MouseButtonMask& lhs, MouseButtonMask rhs) {
 	using Tp = std::underlying_type_t<MouseButtonMask>;
 	lhs      = static_cast<MouseButtonMask>(
@@ -678,13 +678,12 @@ constexpr inline MouseButtonMask operator|=(
 	return lhs;
 }
 
-constexpr inline MouseButtonMask operator|(
-		MouseButtonMask lhs, MouseButtonMask rhs) {
+constexpr MouseButtonMask operator|(MouseButtonMask lhs, MouseButtonMask rhs) {
 	lhs |= rhs;
 	return lhs;
 }
 
-constexpr inline MouseButtonMask operator&=(
+constexpr MouseButtonMask operator&=(
 		MouseButtonMask& lhs, MouseButtonMask rhs) {
 	using Tp = std::underlying_type_t<MouseButtonMask>;
 	lhs      = static_cast<MouseButtonMask>(
@@ -692,8 +691,7 @@ constexpr inline MouseButtonMask operator&=(
 	return lhs;
 }
 
-constexpr inline MouseButtonMask operator&(
-		MouseButtonMask lhs, MouseButtonMask rhs) {
+constexpr MouseButtonMask operator&(MouseButtonMask lhs, MouseButtonMask rhs) {
 	lhs &= rhs;
 	return lhs;
 }
@@ -830,14 +828,14 @@ namespace { namespace detail {
 	// A type list.
 	template <typename... Ts>
 	struct Type_list {
-		constexpr static inline const size_t size = sizeof...(Ts);
+		constexpr static const size_t size = sizeof...(Ts);
 
 		using tail = Type_list<Ts...>;
 	};
 
 	template <typename T, typename... Ts>
 	struct Type_list<T, Ts...> {
-		constexpr static inline const size_t size = sizeof...(Ts) + 1;
+		constexpr static const size_t size = sizeof...(Ts) + 1;
 
 		using head = T;
 		using tail = Type_list<Ts...>;
@@ -867,9 +865,6 @@ namespace { namespace detail {
 	struct concat<Type_list<Ts...>, Type_list<Us...>, Rest...> {
 		using type = typename concat<Type_list<Ts..., Us...>, Rest...>::type;
 	};
-
-	template <typename... Lists>
-	struct concat;
 
 	template <template <typename...> typename Pred, typename T>
 	using filter_helper
@@ -904,10 +899,6 @@ namespace { namespace detail {
 	using filter2 =
 			typename concat<filter_helper2<Pred, Arg1, Arg2, Ts>...>::type;
 
-	// Underlying data structure for event manager.
-	template <typename Callback_t>
-	using CallbackStack = std::stack<std::function<Callback_t>>;
-
 	// RAII type for restoring old callback state after registering new
 	// callbacks.
 	template <typename Callback_t>
@@ -915,10 +906,16 @@ namespace { namespace detail {
 		CallbackStack<Callback_t>* m_target = nullptr;
 
 	public:
+		template <
+				typename Callable,
+				require<std::is_same_v<
+						Callback_t, std::remove_reference_t<
+											std::remove_pointer_t<Callable>>>>
+				= true>
 		[[nodiscard]] Callback_guard(
-				Callback_t&& callback, CallbackStack<Callback_t>& target)
+				Callable&& callback, CallbackStack<Callback_t>& target)
 				: m_target(&target) {
-			m_target->emplace(std::forward<Callback_t>(callback));
+			m_target->emplace(std::forward<Callable>(callback));
 		}
 
 		template <typename Callable, compatible_with_t<Callback_t, Callable>>
@@ -1082,12 +1079,12 @@ namespace { namespace detail {
 }}    // namespace ::detail
 
 class EventManager {
-protected:
 	template <typename Callback>
 	using CallbackStack    = detail::CallbackStack<Callback>;
 	using Callback_tuple_t = detail::Callback_tuple_t;
 	Callback_tuple_t callbackStacks;
 
+protected:
 	template <typename Callback>
 	CallbackStack<Callback>& get_callback_stack() {
 		return std::get<CallbackStack<detail::remove_noexcept_t<Callback>>>(
@@ -1102,7 +1099,7 @@ protected:
 
 	template <typename T, typename... Fs>
 	[[maybe_unused]] constexpr auto register_callback_object(
-			T&& data, detail::Type_list<Fs...>) {
+			T& data, detail::Type_list<Fs...>) {
 		return std::make_tuple(register_one_callback(
 				data, detail::get_call_operator<T, Fs>())...);
 	}
@@ -1117,39 +1114,30 @@ public:
 	EventManager& operator=(const EventManager&) = delete;
 	EventManager& operator=(EventManager&&)      = delete;
 
-	// Registers one callback (based on type). For function pointers or
-	// references.
+	// Registers one callback (based on type). For function pointers,
+	// references, or functors.
 	template <
 			typename Callback,
-			detail::require<std::conjunction_v<
-					std::is_function<std::remove_reference_t<
-							std::remove_pointer_t<Callback>>>,
-					detail::has_compatible_callback1<std::remove_reference_t<
-							std::remove_pointer_t<Callback>>>>>
+			detail::require<detail::has_compatible_callback1_v<
+					std::remove_reference_t<std::remove_pointer_t<Callback>>>>
 			= true>
 	[[nodiscard]] auto register_one_callback(Callback&& callback) {
-		using Functor_t = detail::remove_noexcept_t<
-				std::remove_reference_t<std::remove_pointer_t<Callback>>>;
-		return detail::Callback_guard(
-				std::forward<Callback>(callback),
-				get_callback_stack<Functor_t>());
-	}
-
-	// Registers one callback (based on type). For functors and lambdas.
-	template <
-			typename Callback,
-			detail::require<std::conjunction_v<
-					std::is_object<std::remove_reference_t<
-							std::remove_pointer_t<Callback>>>,
-					detail::has_compatible_callback1<std::remove_reference_t<
-							std::remove_pointer_t<Callback>>>>>
-			= true>
-	[[nodiscard]] auto register_one_callback(Callback&& callback) {
-		using Cb = std::remove_reference_t<std::remove_pointer_t<Callback>>;
-		using Functor = detail::get_compatible_callback1<Cb>;
-		std::function<Functor> fun(std::forward<Callback>(callback));
-		return detail::Callback_guard(
-				std::move(fun), get_callback_stack<Functor>());
+		if constexpr (std::is_function_v<std::remove_reference_t<
+							  std::remove_pointer_t<Callback>>>) {
+			using Functor_t = detail::remove_noexcept_t<
+					std::remove_reference_t<std::remove_pointer_t<Callback>>>;
+			return detail::Callback_guard(
+					std::forward<Callback>(callback),
+					get_callback_stack<Functor_t>());
+		}
+		if constexpr (std::is_object_v<std::remove_reference_t<
+							  std::remove_pointer_t<Callback>>>) {
+			using Cb = std::remove_reference_t<std::remove_pointer_t<Callback>>;
+			using Functor = detail::get_compatible_callback1<Cb>;
+			std::function<Functor> fun(std::forward<Callback>(callback));
+			return detail::Callback_guard(
+					std::move(fun), get_callback_stack<Functor>());
+		}
 	}
 
 	// Registers one callback (based on type). Accepts various callables, but
@@ -1222,11 +1210,11 @@ public:
 	virtual void enable_dropfile() noexcept  = 0;
 	virtual void disable_dropfile() noexcept = 0;
 
-	[[nodiscard]] bool any_events_pending() noexcept;
+	[[nodiscard]] bool any_events_pending() const noexcept;
 
-	void start_text_input() noexcept;
-	void stop_text_input() noexcept;
-	void toggle_text_input() noexcept;
+	void start_text_input() const noexcept;
+	void stop_text_input() const noexcept;
+	void toggle_text_input() const noexcept;
 };
 
 #endif    // INPUT_MANAGER_H

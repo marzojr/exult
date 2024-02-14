@@ -88,7 +88,7 @@ namespace {
 
 	namespace sanity_checks {
 		template <typename T, detail::require<std::is_enum_v<T>> = true>
-		constexpr inline bool operator==(T lhs, std::underlying_type_t<T> rhs) {
+		constexpr bool operator==(T lhs, std::underlying_type_t<T> rhs) {
 			return static_cast<std::underlying_type_t<T>>(lhs) == rhs;
 		}
 
@@ -368,25 +368,23 @@ namespace {
 				&& MouseButtonMask::X2 == SDL_BUTTON_X2MASK);
 	}    // namespace sanity_checks
 
-	constexpr inline KeyCodes translateKeyCode(uint32 code) noexcept {
+	constexpr KeyCodes translateKeyCode(uint32 code) noexcept {
 		return static_cast<KeyCodes>(code);
 	}
 
-	constexpr inline KeyMod translateKeyMods(uint32 mods) noexcept {
+	constexpr KeyMod translateKeyMods(uint32 mods) noexcept {
 		return static_cast<KeyMod>(mods);
 	}
 
-	constexpr inline GamepadButton translateGamepadButton(
-			uint8 button) noexcept {
+	constexpr GamepadButton translateGamepadButton(uint8 button) noexcept {
 		return static_cast<GamepadButton>(button);
 	}
 
-	constexpr inline MouseButton translateMouseButton(uint8 button) noexcept {
+	constexpr MouseButton translateMouseButton(uint8 button) noexcept {
 		return static_cast<MouseButton>(button);
 	}
 
-	constexpr inline MouseButtonMask translateMouseMasks(
-			uint32 button) noexcept {
+	constexpr MouseButtonMask translateMouseMasks(uint32 button) noexcept {
 		return static_cast<MouseButtonMask>(button);
 	}
 }    // namespace
@@ -415,19 +413,19 @@ MousePosition::MousePosition(int x_, int y_) {
 }
 
 void MousePosition::set(int x_, int y_) {
-	Game_window* gwin = Game_window::get_instance();
+	const Game_window* gwin = Game_window::get_instance();
 	gwin->get_win()->screen_to_game(x_, y_, gwin->get_fastmouse(), x, y);
 }
 
 MouseMotion::MouseMotion(int x_, int y_) {
 	// Note: maybe not needed?
-	Game_window* gwin = Game_window::get_instance();
+	const Game_window* gwin = Game_window::get_instance();
 	gwin->get_win()->screen_to_game(x_, y_, gwin->get_fastmouse(), x, y);
 }
 
 #if defined(USE_EXULTSTUDIO) && defined(_WIN32)
 struct OleDeleter {
-	void operator()(Windnd* drag) {
+	void operator()(Windnd* drag) const {
 		if (drag != nullptr) {
 			drag->Release();
 		}
@@ -444,26 +442,29 @@ public:
 	void enable_dropfile() noexcept override;
 	void disable_dropfile() noexcept override;
 
-	void do_mouse_up(MouseButton buttonID);
+	void do_mouse_up(MouseButton buttonID) const;
 
 private:
 	inline bool break_event_loop() const;
-	inline void handle_event(SDL_Event& event);
-	inline void handle_event(SDL_ControllerDeviceEvent& event) noexcept;
-	inline void handle_event(SDL_ControllerButtonEvent& event) noexcept;
-	inline void handle_event(SDL_KeyboardEvent& event) noexcept;
-	inline void handle_event(SDL_TextInputEvent& event) noexcept;
-	inline void handle_event(SDL_MouseMotionEvent& event) noexcept;
-	inline void handle_event(SDL_MouseButtonEvent& event) noexcept;
-	inline void handle_event(SDL_MouseWheelEvent& event) noexcept;
-	inline void handle_event(SDL_TouchFingerEvent& event) noexcept;
-	inline void handle_event(SDL_DropEvent& event) noexcept;
-	inline void handle_event(SDL_WindowEvent& event) noexcept;
+	inline void handle_event(const SDL_Event& event);
+	inline void handle_event(const SDL_ControllerDeviceEvent& event) noexcept;
+	inline void handle_event(
+			const SDL_ControllerButtonEvent& event) const noexcept;
+	inline void handle_event(const SDL_KeyboardEvent& event) const noexcept;
+	inline void handle_event(const SDL_TextInputEvent& event) const noexcept;
+	inline void handle_event(const SDL_MouseMotionEvent& event) const noexcept;
+	inline void handle_event(const SDL_MouseButtonEvent& event) noexcept;
+	inline void handle_event(const SDL_MouseWheelEvent& event) const noexcept;
+	inline void handle_event(const SDL_TouchFingerEvent& event) const noexcept;
+	inline void handle_event(const SDL_DropEvent& event) const noexcept;
+	inline void handle_event(const SDL_WindowEvent& event) const noexcept;
 
-	inline void handle_background_event() noexcept;
-	inline void handle_quit_event();
-	inline void handle_custom_touch_input_event(SDL_UserEvent& event) noexcept;
-	inline void handle_custom_mouse_up_event(SDL_UserEvent& event) noexcept;
+	inline void handle_background_event() const noexcept;
+	inline void handle_quit_event() const;
+	inline void handle_custom_touch_input_event(
+			const SDL_UserEvent& event) const noexcept;
+	inline void handle_custom_mouse_up_event(
+			const SDL_UserEvent& event) noexcept;
 
 	inline void handle_gamepad_axis_input() noexcept;
 
@@ -487,8 +488,7 @@ private:
 	template <typename Callback_t, typename... Ts>
 	std::invoke_result_t<Callback_t, Ts...> invoke_callback(
 			Ts&&... args) const noexcept {
-		auto& stack = get_callback_stack<Callback_t>();
-		if (!stack.empty()) {
+		if (auto& stack = get_callback_stack<Callback_t>(); !stack.empty()) {
 			const auto& callback = stack.top();
 			return callback(std::forward<Ts>(args)...);
 		}
@@ -509,22 +509,18 @@ struct MouseUpData {
 
 extern "C" uint32 DoMouseUp(uint32 interval, void* param) {
 	ignore_unused_variable_warning(interval);
-	auto* data = static_cast<MouseUpData*>(param);
+	std::unique_ptr<MouseUpData> data(static_cast<MouseUpData*>(param));
 	data->eventMan->do_mouse_up(data->buttonID);
-	delete data;
 	return 0;
 }
 
-void EventManagerImpl::do_mouse_up(MouseButton buttonID) {
-	SDL_Event event;
-	SDL_zero(event);
-	event.type      = double_click_event_type;
-	event.user.code = DELAYED_MOUSE_UP;
-	auto  button    = static_cast<uintptr>(buttonID);
+void EventManagerImpl::do_mouse_up(MouseButton buttonID) const {
+	auto  button = static_cast<uintptr>(buttonID);
 	void* data;
 	std::memcpy(&data, &button, sizeof(uintptr));
-	event.user.data1 = data;
-	event.user.data2 = nullptr;
+	SDL_Event event;
+	event.user
+			= {double_click_event_type, 0, 0, DELAYED_MOUSE_UP, data, nullptr};
 	SDL_PushEvent(&event);
 }
 
@@ -599,8 +595,8 @@ void EventManagerImpl::handle_gamepad_axis_input() noexcept {
 
 	if (joy_mouse.isNonzero()) {
 		// This joypad axis is the equivalent of the mouse.
-		Game_window* gwin  = Game_window::get_instance();
-		const int    scale = gwin->get_win()->get_scale_factor();
+		const Game_window* gwin  = Game_window::get_instance();
+		const int          scale = gwin->get_win()->get_scale_factor();
 
 		const bool aspect = [&]() {
 			Image_window::FillMode fillmode = gwin->get_win()->get_fill_mode();
@@ -616,9 +612,9 @@ void EventManagerImpl::handle_gamepad_axis_input() noexcept {
 		int x;
 		int y;
 		SDL_GetMouseState(&x, &y);
-		int delta_x = static_cast<int>(
+		auto delta_x = static_cast<int>(
 				round(mouse_scale * joy_mouse.x * static_cast<float>(scale)));
-		int delta_y = static_cast<int>(
+		auto delta_y = static_cast<int>(
 				round(mouse_scale * joy_mouse.y * static_cast<float>(scale)
 					  * (aspect ? 1.2f : 1.0f)));
 		x += delta_x;
@@ -640,7 +636,8 @@ void EventManagerImpl::handle_gamepad_axis_input() noexcept {
 	invoke_callback<GamepadAxisCallback>(joy_aim, joy_mouse, joy_rise);
 }
 
-void EventManagerImpl::handle_event(SDL_ControllerDeviceEvent& event) noexcept {
+void EventManagerImpl::handle_event(
+		const SDL_ControllerDeviceEvent& event) noexcept {
 	switch (event.type) {
 	case SDL_CONTROLLERDEVICEADDED: {
 		// If we are already using a gamepad, skip.
@@ -671,7 +668,8 @@ void EventManagerImpl::handle_event(SDL_ControllerDeviceEvent& event) noexcept {
 	}
 }
 
-void EventManagerImpl::handle_event(SDL_ControllerButtonEvent& event) noexcept {
+void EventManagerImpl::handle_event(
+		const SDL_ControllerButtonEvent& event) const noexcept {
 	// TODO: Maybe convert to mouse buttons here?
 	const GamepadButtonEvent kind     = event.type == SDL_CONTROLLERBUTTONDOWN
 												? GamepadButtonEvent::Pressed
@@ -682,7 +680,8 @@ void EventManagerImpl::handle_event(SDL_ControllerButtonEvent& event) noexcept {
 	}
 }
 
-void EventManagerImpl::handle_event(SDL_KeyboardEvent& event) noexcept {
+void EventManagerImpl::handle_event(
+		const SDL_KeyboardEvent& event) const noexcept {
 	const KeyboardEvent kind = event.type == SDL_KEYDOWN
 									   ? KeyboardEvent::Pressed
 									   : KeyboardEvent::Released;
@@ -691,7 +690,8 @@ void EventManagerImpl::handle_event(SDL_KeyboardEvent& event) noexcept {
 	invoke_callback<KeyboardCallback>(kind, sym, mod);
 }
 
-void EventManagerImpl::handle_event(SDL_TextInputEvent& event) noexcept {
+void EventManagerImpl::handle_event(
+		const SDL_TextInputEvent& event) const noexcept {
 	ignore_unused_variable_warning(event);
 	// TODO: This would be a good place to convert input text into the game's
 	// codepage. Currently, let's just silently convert non-ASCII characters
@@ -703,7 +703,8 @@ void EventManagerImpl::handle_event(SDL_TextInputEvent& event) noexcept {
 	invoke_callback<TextInputCallback>(chr);
 }
 
-void EventManagerImpl::handle_event(SDL_MouseButtonEvent& event) noexcept {
+void EventManagerImpl::handle_event(
+		const SDL_MouseButtonEvent& event) noexcept {
 	const MouseButton buttonID = translateMouseButton(event.button);
 	if (buttonID != MouseButton::Invalid) {
 		const MouseEvent kind   = event.type == SDL_MOUSEBUTTONDOWN
@@ -720,7 +721,7 @@ void EventManagerImpl::handle_event(SDL_MouseButtonEvent& event) noexcept {
 		}
 		const SDL_bool state
 				= kind == MouseEvent::Pressed ? SDL_TRUE : SDL_FALSE;
-		Game_window* gwin = Game_window::get_instance();
+		const Game_window* gwin = Game_window::get_instance();
 		SDL_SetWindowGrab(gwin->get_win()->get_screen_window(), state);
 		if (double_click_timer_id == 0) {
 			SDL_RemoveTimer(double_click_timer_id);
@@ -731,7 +732,8 @@ void EventManagerImpl::handle_event(SDL_MouseButtonEvent& event) noexcept {
 	}
 }
 
-void EventManagerImpl::handle_event(SDL_MouseMotionEvent& event) noexcept {
+void EventManagerImpl::handle_event(
+		const SDL_MouseMotionEvent& event) const noexcept {
 	if (Mouse::use_touch_input && event.which != EXSDL_TOUCH_MOUSEID) {
 		Mouse::use_touch_input = false;
 	}
@@ -742,13 +744,15 @@ void EventManagerImpl::handle_event(SDL_MouseMotionEvent& event) noexcept {
 	invoke_callback<MouseMotionCallback>(buttonID, mouse);
 }
 
-void EventManagerImpl::handle_event(SDL_MouseWheelEvent& event) noexcept {
+void EventManagerImpl::handle_event(
+		const SDL_MouseWheelEvent& event) const noexcept {
 	ignore_unused_variable_warning(event);
 	MouseMotion delta(event.x, event.y);
 	invoke_callback<MouseWheelCallback>(delta);
 }
 
-void EventManagerImpl::handle_event(SDL_TouchFingerEvent& event) noexcept {
+void EventManagerImpl::handle_event(
+		const SDL_TouchFingerEvent& event) const noexcept {
 	Game_window* gwin = Game_window::get_instance();
 	switch (event.type) {
 	case SDL_FINGERDOWN:
@@ -764,12 +768,12 @@ void EventManagerImpl::handle_event(SDL_TouchFingerEvent& event) noexcept {
 		break;
 
 	case SDL_FINGERMOTION: {
-		SDL_Finger* finger0 = SDL_GetTouchFinger(event.touchId, 0);
-		if (finger0 == nullptr) {
+		if (const SDL_Finger* finger0 = SDL_GetTouchFinger(event.touchId, 0);
+			finger0 == nullptr) {
 			break;
 		}
-		int numFingers = SDL_GetNumTouchFingers(event.touchId);
-		if (numFingers >= 1) {
+		if (int numFingers = SDL_GetNumTouchFingers(event.touchId);
+			numFingers >= 1) {
 			invoke_callback<FingerMotionCallback>(
 					numFingers, FingerMotion{event.dx, event.dy});
 		}
@@ -780,18 +784,19 @@ void EventManagerImpl::handle_event(SDL_TouchFingerEvent& event) noexcept {
 	}
 }
 
-void EventManagerImpl::handle_event(SDL_DropEvent& event) noexcept {
+void EventManagerImpl::handle_event(const SDL_DropEvent& event) const noexcept {
 	invoke_callback<DropFileCallback>(
 			event.type, reinterpret_cast<uint8*>(event.file),
 			MousePosition(get_from_sdl_tag{}));
 	SDL_free(event.file);
 }
 
-void EventManagerImpl::handle_background_event() noexcept {
+void EventManagerImpl::handle_background_event() const noexcept {
 	invoke_callback<AppEventCallback>(AppEvents::OnEnterBackground);
 }
 
-void EventManagerImpl::handle_event(SDL_WindowEvent& event) noexcept {
+void EventManagerImpl::handle_event(
+		const SDL_WindowEvent& event) const noexcept {
 	auto eventID = [&]() {
 		switch (event.event) {
 		case SDL_WINDOWEVENT_ENTER:
@@ -810,28 +815,36 @@ void EventManagerImpl::handle_event(SDL_WindowEvent& event) noexcept {
 			eventID, MousePosition(get_from_sdl_tag{}));
 }
 
-void EventManagerImpl::handle_quit_event() {
+void EventManagerImpl::handle_quit_event() const {
 	invoke_callback<QuitEventCallback>();
 }
 
+struct MallocDeleter {
+	void operator()(void* ptr) const {
+		free(ptr);
+	}
+};
+
+using MallocedPtr = std::unique_ptr<void, MallocDeleter>;
+
 void EventManagerImpl::handle_custom_touch_input_event(
-		SDL_UserEvent& event) noexcept {
+		const SDL_UserEvent& event) const noexcept {
 	if (event.code == TouchUI::EVENT_CODE_TEXT_INPUT) {
-		const auto* text = static_cast<const char*>(event.data1);
+		MallocedPtr data(event.data1, MallocDeleter{});
+		const auto* text = static_cast<const char*>(data.get());
 		invoke_callback<TouchInputCallback>(text);
-		free(event.data1);
 	}
 }
 
 void EventManagerImpl::handle_custom_mouse_up_event(
-		SDL_UserEvent& event) noexcept {
+		const SDL_UserEvent& event) noexcept {
 	if (event.code == DELAYED_MOUSE_UP) {
 		uintptr data;
 		std::memcpy(&data, &event.data1, sizeof(uintptr));
-		const MouseEvent kind     = MouseEvent::Released;
-		const uint32     clicks   = 1;
-		const auto       buttonID = static_cast<MouseButton>(data);
-		Game_window*     gwin     = Game_window::get_instance();
+		const MouseEvent   kind     = MouseEvent::Released;
+		const uint32       clicks   = 1;
+		const auto         buttonID = static_cast<MouseButton>(data);
+		const Game_window* gwin     = Game_window::get_instance();
 		SDL_SetWindowGrab(gwin->get_win()->get_screen_window(), SDL_FALSE);
 		if (double_click_timer_id == 0) {
 			SDL_RemoveTimer(double_click_timer_id);
@@ -842,7 +855,7 @@ void EventManagerImpl::handle_custom_mouse_up_event(
 	}
 }
 
-void EventManagerImpl::handle_event(SDL_Event& event) {
+void EventManagerImpl::handle_event(const SDL_Event& event) {
 	switch (event.type) {
 	case SDL_CONTROLLERDEVICEADDED:
 	case SDL_CONTROLLERDEVICEREMOVED:
@@ -913,7 +926,7 @@ EventManager* EventManager::getInstance() {
 	return instance.get();
 }
 
-[[nodiscard]] bool EventManager::any_events_pending() noexcept {
+[[nodiscard]] bool EventManager::any_events_pending() const noexcept {
 	SDL_PumpEvents();
 	int num_events = SDL_PeepEvents(
 			nullptr, 0, SDL_PEEKEVENT, SDL_FIRSTEVENT, SDL_LASTEVENT);
@@ -924,19 +937,19 @@ EventManager* EventManager::getInstance() {
 	return num_events > 0;
 }
 
-void EventManager::start_text_input() noexcept {
+void EventManager::start_text_input() const noexcept {
 	if (SDL_IsTextInputActive() != SDL_TRUE) {
 		SDL_StartTextInput();
 	}
 }
 
-void EventManager::stop_text_input() noexcept {
+void EventManager::stop_text_input() const noexcept {
 	if (SDL_IsTextInputActive() != SDL_FALSE) {
 		SDL_StopTextInput();
 	}
 }
 
-void EventManager::toggle_text_input() noexcept {
+void EventManager::toggle_text_input() const noexcept {
 	if (SDL_IsTextInputActive() != SDL_FALSE) {
 		SDL_StopTextInput();
 	} else {
@@ -955,8 +968,8 @@ void EventManagerImpl::handle_events() noexcept {
 
 void EventManagerImpl::enable_dropfile() noexcept {
 #ifdef USE_EXULTSTUDIO
-	Game_window*  gwin = Game_window::get_instance();
-	SDL_SysWMinfo info;    // Get system info.
+	const Game_window* gwin = Game_window::get_instance();
+	SDL_SysWMinfo      info;    // Get system info.
 	SDL_GetWindowWMInfo(gwin->get_win()->get_screen_window(), &info);
 #	ifndef _WIN32
 	SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
@@ -973,7 +986,7 @@ void EventManagerImpl::enable_dropfile() noexcept {
 	HRESULT res = RegisterDragDrop(hgwin, windnd.get());
 	if (FAILED(res)) {
 		DWORD code = [](HRESULT hr) {
-			if (HRESULT(hr & 0xFFFF0000l)
+			if (HRESULT(hr & 0xFFFF0000L)
 				== MAKE_HRESULT(SEVERITY_ERROR, FACILITY_WIN32, 0)) {
 				return HRESULT_CODE(hr);
 			}
@@ -999,7 +1012,7 @@ void EventManagerImpl::enable_dropfile() noexcept {
 		WideCharToMultiByte(
 				CP_ACP, 0, lpMsgBuf, -1, str, nLen2, nullptr, nullptr);
 #		else
-		char* str = lpMsgBuf;
+		const char* str = lpMsgBuf;
 #		endif
 		std::cout << "RegisterDragDrop failed with error code " << code << ": "
 				  << str << '\n';
