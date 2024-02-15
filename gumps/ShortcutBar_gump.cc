@@ -409,11 +409,13 @@ void ShortcutBar_gump::mouse_down(SDL_Event* event, int mx, int my) {
 static Uint32 didMouseUp(Uint32 interval, void* param) {
 	ignore_unused_variable_warning(interval);
 	SDL_Event event;
-	SDL_zero(event);
-	event.type       = ShortcutBar_gump::eventType;
-	event.user.code  = ShortcutBar_gump::SHORTCUT_BAR_MOUSE_UP;
-	event.user.data1 = param;
-	event.user.data2 = nullptr;
+	event.user
+			= {ShortcutBar_gump::eventType,
+			   0,
+			   0,
+			   ShortcutBar_gump::SHORTCUT_BAR_MOUSE_UP,
+			   param,
+			   nullptr};
 	SDL_PushEvent(&event);
 	return 0;
 }

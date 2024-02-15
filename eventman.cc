@@ -819,19 +819,12 @@ void EventManagerImpl::handle_quit_event() const {
 	invoke_callback<QuitEventCallback>();
 }
 
-struct MallocDeleter {
-	void operator()(void* ptr) const {
-		free(ptr);
-	}
-};
-
-using MallocedPtr = std::unique_ptr<void, MallocDeleter>;
-
 void EventManagerImpl::handle_custom_touch_input_event(
 		const SDL_UserEvent& event) const noexcept {
 	if (event.code == TouchUI::EVENT_CODE_TEXT_INPUT) {
-		MallocedPtr data(event.data1, MallocDeleter{});
-		const auto* text = static_cast<const char*>(data.get());
+		std::unique_ptr<const char[]> data(
+				static_cast<const char*>(event.data1));
+		const auto* text = data.get();
 		invoke_callback<TouchInputCallback>(text);
 	}
 }
@@ -1036,103 +1029,125 @@ void EventManagerImpl::disable_dropfile() noexcept {
 
 #ifdef DEBUG
 namespace {
-	[[maybe_unused]] void cb1(
-			const AxisVector&, const AxisVector&, const AxisTrigger&) {}
+#	define DECLARE_TEST_HELPER(x, y) x##y
+#	define DECLARE_TEST(x, y) \
+		[[maybe_unused]] void DECLARE_TEST_HELPER(x, y)(EventManager * events)
 
-	[[maybe_unused]] void cb2(
-			EventManager*, const AxisVector&, const AxisVector&,
-			const AxisTrigger&) {}
-
-	struct cb3 {
-		[[maybe_unused]] void cb(
-				const AxisVector&, const AxisVector&, const AxisTrigger&) {}
-
-		[[maybe_unused]] bool cb2() {
-			return false;
+	namespace compile_tests {
+		[[maybe_unused]] void cb1(
+				const AxisVector&, const AxisVector&, const AxisTrigger&) {
+			// Not implemented
 		}
-	};
 
-	struct cb4 {
-		[[maybe_unused]] void operator()(
-				const AxisVector&, const AxisVector&, const AxisTrigger&) {}
-	};
+		[[maybe_unused]] void cb2(
+				EventManager* self, const AxisVector&, const AxisVector&,
+				const AxisTrigger&) {
+			ignore_unused_variable_warning(self);
+		}
 
-	struct cb5 {
-		[[maybe_unused]] void operator()(
-				const AxisVector&, const AxisVector&,
-				const AxisTrigger&) noexcept {}
-
-		[[maybe_unused]] void operator()(
-				GamepadButtonEvent, const GamepadButton) noexcept {}
-
-		[[maybe_unused]] void operator()(
-				KeyboardEvent, const KeyCodes, const KeyMod) noexcept {}
-	};
-
-	[[maybe_unused]] void test_callbacks() {
-		auto* events = EventManager::getInstance();
-		{ auto guard = events->register_one_callback(cb1); }
-		{ auto guard = events->register_one_callback(events, cb2); }
-		{
-			cb3 vcb3;
-			static_assert(detail::has_compatible_callback2_v<
-						  decltype(&cb3::cb), cb3*>);
-			{ auto guard = events->register_one_callback(&vcb3, &cb3::cb); }
-			{
-				auto guard
-						= events->register_callbacks(vcb3, &cb3::cb, &cb3::cb2);
+		struct cb3 {
+			[[maybe_unused]] void cb(
+					const AxisVector&, const AxisVector&, const AxisTrigger&) {
+				ignore_unused_variable_warning(this);
 			}
-		}
-		{
-			cb4 vcb4;
-			{
-				auto guard = events->register_one_callback(
-						&vcb4, &cb4::operator());
+
+			[[maybe_unused]] bool cb2() {
+				ignore_unused_variable_warning(this);
+				return false;
 			}
-			{
-				auto guard
-						= events->register_one_callback(vcb4, &cb4::operator());
+		};
+
+		struct cb4 {
+			[[maybe_unused]] void operator()(
+					const AxisVector&, const AxisVector&, const AxisTrigger&) {
+				ignore_unused_variable_warning(this);
 			}
+		};
+
+		struct cb5 {
+			[[maybe_unused]] void operator()(
+					const AxisVector&, const AxisVector&,
+					const AxisTrigger&) noexcept {
+				ignore_unused_variable_warning(this);
+			}
+
+			[[maybe_unused]] void operator()(
+					GamepadButtonEvent, const GamepadButton) noexcept {
+				ignore_unused_variable_warning(this);
+			}
+
+			[[maybe_unused]] void operator()(
+					KeyboardEvent, const KeyCodes, const KeyMod) noexcept {
+				ignore_unused_variable_warning(this);
+			}
+		};
+
+		DECLARE_TEST(test_free_function, __LINE__) {
+			auto guard = events->register_one_callback(cb1);
 		}
-		{
-			cb5 vcb5;
-			{ auto guard = events->register_callbacks(vcb5); }
+
+		DECLARE_TEST(test_free_function_with_arg, __LINE__) {
+			auto guard = events->register_one_callback(events, cb2);
 		}
-		{
+
+		DECLARE_TEST(test_one_member_function, __LINE__) {
+			cb3  vcb3;
+			auto guard = events->register_one_callback(&vcb3, &cb3::cb);
+		}
+
+		DECLARE_TEST(test_two_member_functions, __LINE__) {
+			cb3  vcb3;
+			auto guard = events->register_callbacks(vcb3, &cb3::cb, &cb3::cb2);
+		}
+
+		DECLARE_TEST(test_call_operator_ptr, __LINE__) {
+			cb4  vcb4;
+			auto guard = events->register_one_callback(&vcb4, &cb4::operator());
+		}
+
+		DECLARE_TEST(test_call_operator_ref, __LINE__) {
+			cb4  vcb4;
+			auto guard = events->register_one_callback(vcb4, &cb4::operator());
+		}
+
+		DECLARE_TEST(test_all_call_operator, __LINE__) {
+			cb5  vcb5;
+			auto guard = events->register_callbacks(vcb5);
+		}
+
+		DECLARE_TEST(test_stateless_lambda, __LINE__) {
 			auto guard = events->register_one_callback(
 					+[](const AxisVector&, const AxisVector&,
-						const AxisTrigger&) noexcept {});
+						const AxisTrigger&) noexcept { /* Not needed*/ });
 		}
-		{
+
+		DECLARE_TEST(test_stateful_lambda, __LINE__) {
 			auto vcb6 = [events](
 								const AxisVector&, const AxisVector&,
 								const AxisTrigger&) noexcept {
-				events->enable_dropfile();
+				ignore_unused_variable_warning(events);
 			};
-			using T6 = std::remove_reference_t<
-					std::remove_pointer_t<decltype(vcb6)>>;
-			static_assert(!std::is_function_v<T6>);
-			static_assert(std::is_object_v<T6>);
-			static_assert(detail::has_compatible_callback1_v<T6>);
-			static_assert(std::is_invocable_v<
-						  T6, const AxisVector&, const AxisVector&,
-						  const AxisTrigger&>);
 			auto guard = events->register_one_callback(vcb6);
 		}
-		{
+
+		DECLARE_TEST(test_callbacks, __LINE__) {
 			auto guard = events->register_one_callback(
 					[events](
 							const AxisVector&, const AxisVector&,
 							const AxisTrigger&) noexcept {
-						events->enable_dropfile();
+						ignore_unused_variable_warning(events);
 					});
 		}
-		{
+
+		DECLARE_TEST(test_callbacks, __LINE__) {
 			auto guard = events->register_callbacks(
 					cb1, +[]() {
 						return true;
 					});
 		}
-	}
+	}    // namespace compile_tests
+
+#	undef DECLARE_TEST_HELPER
+#	undef DECLARE_TEST
 }    // namespace
 #endif

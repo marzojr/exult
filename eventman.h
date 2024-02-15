@@ -29,6 +29,15 @@
 #include <type_traits>
 #include <utility>
 
+#ifdef __clang__
+// Working around this clang bug with pragma push/pop:
+// https://github.com/clangd/clangd/issues/1167
+static_assert(true);
+#	pragma GCC diagnostic push
+#	pragma GCC diagnostic ignored "-Wunused-template"
+#	pragma GCC diagnostic ignored "-Wswitch-enum"
+#endif    // __clang__
+
 // Callback related stuff.
 
 // This is called before every call to SDL_PollEvent. If the callback returns
@@ -951,11 +960,6 @@ namespace { namespace detail {
 		}
 	};
 
-#ifdef __clang__
-#	pragma GCC diagnostic push
-#	pragma GCC diagnostic ignored "-Wunused-template"
-#endif    // __clang__
-
 	// Deduction guides for making use of the guard easier.
 	template <typename Callback_t>
 	Callback_guard(Callback_t*, CallbackStack<Callback_t>&)
@@ -970,10 +974,6 @@ namespace { namespace detail {
 			require<std::is_object_v<Callable>> = true>
 	Callback_guard(Callable&&, CallbackStack<Callback_t>&)
 			-> Callback_guard<Callback_t>;
-
-#ifdef __clang__
-#	pragma GCC diagnostic pop
-#endif    // __clang__
 
 	// A meta-list with all callback types.
 	using Callback_list = detail::Type_list<
@@ -1100,8 +1100,15 @@ protected:
 	template <typename T, typename... Fs>
 	[[maybe_unused]] constexpr auto register_callback_object(
 			T& data, detail::Type_list<Fs...>) {
-		return std::make_tuple(register_one_callback(
-				data, detail::get_call_operator<T, Fs>())...);
+		using tuple_t = decltype(std::make_tuple(register_one_callback(
+				data, detail::get_call_operator<T, Fs>())...));
+
+		struct opaque {
+			tuple_t out;
+		};
+
+		return opaque{std::make_tuple(register_one_callback(
+				data, detail::get_call_operator<T, Fs>())...)};
 	}
 
 	EventManager() = default;
@@ -1168,8 +1175,15 @@ public:
 		if constexpr (sizeof...(Fs) == 1) {
 			return register_one_callback(std::forward<Fs...>(callback...));
 		} else {
-			return std::make_tuple(
-					register_one_callback(std::forward<Fs>(callback))...);
+			using tuple_t = decltype(std::make_tuple(
+					register_one_callback(std::forward<Fs>(callback))...));
+
+			struct opaque {
+				tuple_t out;
+			};
+
+			return opaque{std::make_tuple(
+					register_one_callback(std::forward<Fs>(callback))...)};
 		}
 	}
 
@@ -1201,8 +1215,15 @@ public:
 			return register_one_callback(
 					data, std::forward<Fs...>(callback...));
 		} else {
-			return std::make_tuple(
-					register_one_callback(data, std::forward<Fs>(callback))...);
+			using tuple_t = decltype(std::make_tuple(register_one_callback(
+					data, std::forward<Fs>(callback))...));
+
+			struct opaque {
+				tuple_t out;
+			};
+
+			return opaque{std::make_tuple(register_one_callback(
+					data, std::forward<Fs>(callback))...)};
 		}
 	}
 
@@ -1216,5 +1237,9 @@ public:
 	void stop_text_input() const noexcept;
 	void toggle_text_input() const noexcept;
 };
+
+#ifdef __clang__
+#	pragma GCC diagnostic pop
+#endif    // __clang__
 
 #endif    // INPUT_MANAGER_H

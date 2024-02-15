@@ -77,6 +77,11 @@
 #include <cstdlib>
 
 #ifdef __GNUC__
+#	ifdef __clang__
+// Working around this clang bug with pragma push/pop:
+// https://github.com/clangd/clangd/issues/1167
+static_assert(true);
+#	endif
 #	pragma GCC diagnostic push
 #	pragma GCC diagnostic ignored "-Wold-style-cast"
 #	pragma GCC diagnostic ignored "-Wzero-as-null-pointer-constant"
