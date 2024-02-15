@@ -435,6 +435,42 @@ struct OleDeleter {
 using WindndPtr = std::unique_ptr<Windnd, OleDeleter>;
 #endif
 
+struct MouseUpData;
+
+class SDLTimer {
+	SDL_TimerID timer_id{0};
+
+public:
+	SDLTimer()                           = default;
+	SDLTimer(const SDLTimer&)            = delete;
+	SDLTimer& operator=(const SDLTimer&) = delete;
+
+	SDLTimer(SDLTimer&& other) noexcept
+			: timer_id(std::exchange(other.timer_id, 0)) {}
+
+	SDLTimer& operator=(SDLTimer&& rhs) noexcept {
+		timer_id = std::exchange(rhs.timer_id, 0);
+		return *this;
+	}
+
+	~SDLTimer() noexcept {
+		stop();
+	}
+
+	void start(std::unique_ptr<MouseUpData> data) noexcept;
+
+	inline void stop() noexcept {
+		if (timer_id != 0) {
+			SDL_RemoveTimer(timer_id);
+			abandon();
+		}
+	}
+
+	inline void abandon() noexcept {
+		timer_id = 0;
+	}
+};
+
 class EventManagerImpl final : public EventManager {
 public:
 	EventManagerImpl();
@@ -442,7 +478,7 @@ public:
 	void enable_dropfile() noexcept override;
 	void disable_dropfile() noexcept override;
 
-	void do_mouse_up(MouseButton buttonID) const;
+	void do_mouse_up(MouseButton buttonID);
 
 private:
 	inline bool break_event_loop() const;
@@ -472,8 +508,8 @@ private:
 	inline SDL_GameController* open_gamepad(int joystick_index) const noexcept;
 
 	SDL_GameController* active_gamepad{nullptr};
-	uint32      double_click_event_type{std::numeric_limits<uint32>::max()};
-	SDL_TimerID double_click_timer_id{0};
+	uint32   double_click_event_type{std::numeric_limits<uint32>::max()};
+	SDLTimer double_click_timer;
 
 	enum {
 		INVALID_EVENT    = 0,
@@ -481,7 +517,7 @@ private:
 	};
 
 #if defined(USE_EXULTSTUDIO) && defined(_WIN32)
-	WindndPtr windnd{nullptr, OleDeleter{}};
+	WindndPtr windnd;
 	HWND      hgwin{};
 #endif
 
@@ -514,7 +550,13 @@ extern "C" uint32 DoMouseUp(uint32 interval, void* param) {
 	return 0;
 }
 
-void EventManagerImpl::do_mouse_up(MouseButton buttonID) const {
+inline void SDLTimer::start(std::unique_ptr<MouseUpData> data) noexcept {
+	stop();
+	constexpr static const uint32 delay_ms = 500;
+	timer_id = SDL_AddTimer(delay_ms, DoMouseUp, data.release());
+}
+
+void EventManagerImpl::do_mouse_up(MouseButton buttonID) {
 	auto  button = static_cast<uintptr>(buttonID);
 	void* data;
 	std::memcpy(&data, &button, sizeof(uintptr));
@@ -522,6 +564,7 @@ void EventManagerImpl::do_mouse_up(MouseButton buttonID) const {
 	event.user
 			= {double_click_event_type, 0, 0, DELAYED_MOUSE_UP, data, nullptr};
 	SDL_PushEvent(&event);
+	double_click_timer.abandon();
 }
 
 SDL_GameController* EventManagerImpl::open_gamepad(
@@ -692,7 +735,6 @@ void EventManagerImpl::handle_event(
 
 void EventManagerImpl::handle_event(
 		const SDL_TextInputEvent& event) const noexcept {
-	ignore_unused_variable_warning(event);
 	// TODO: This would be a good place to convert input text into the game's
 	// codepage. Currently, let's just silently convert non-ASCII characters
 	// into '?'.
@@ -713,20 +755,15 @@ void EventManagerImpl::handle_event(
 		const uint32     clicks = event.clicks;
 		if (kind == MouseEvent::Released && clicks == 1
 			&& buttonID != MouseButton::Middle) {
-			constexpr static const uint32 delay_ms = 500;
-			auto data{std::make_unique<MouseUpData>(this, buttonID)};
-			double_click_timer_id
-					= SDL_AddTimer(delay_ms, DoMouseUp, data.release());
+			double_click_timer.start(
+					std::make_unique<MouseUpData>(this, buttonID));
 			return;
 		}
 		const SDL_bool state
 				= kind == MouseEvent::Pressed ? SDL_TRUE : SDL_FALSE;
 		const Game_window* gwin = Game_window::get_instance();
 		SDL_SetWindowGrab(gwin->get_win()->get_screen_window(), state);
-		if (double_click_timer_id == 0) {
-			SDL_RemoveTimer(double_click_timer_id);
-			double_click_timer_id = 0;
-		}
+		double_click_timer.stop();
 		invoke_callback<MouseButtonCallback>(
 				kind, buttonID, clicks, MousePosition(event.x, event.y));
 	}
@@ -746,7 +783,6 @@ void EventManagerImpl::handle_event(
 
 void EventManagerImpl::handle_event(
 		const SDL_MouseWheelEvent& event) const noexcept {
-	ignore_unused_variable_warning(event);
 	MouseMotion delta(event.x, event.y);
 	invoke_callback<MouseWheelCallback>(delta);
 }
@@ -784,11 +820,18 @@ void EventManagerImpl::handle_event(
 	}
 }
 
+struct SDLDeleter {
+	void operator()(uint8* data) const {
+		SDL_free(data);
+	}
+};
+
+using SDLPtr = std::unique_ptr<uint8[], SDLDeleter>;
+
 void EventManagerImpl::handle_event(const SDL_DropEvent& event) const noexcept {
+	SDLPtr data(reinterpret_cast<uint8*>(event.file));
 	invoke_callback<DropFileCallback>(
-			event.type, reinterpret_cast<uint8*>(event.file),
-			MousePosition(get_from_sdl_tag{}));
-	SDL_free(event.file);
+			event.type, data.get(), MousePosition(get_from_sdl_tag{}));
 }
 
 void EventManagerImpl::handle_background_event() const noexcept {
@@ -839,10 +882,7 @@ void EventManagerImpl::handle_custom_mouse_up_event(
 		const auto         buttonID = static_cast<MouseButton>(data);
 		const Game_window* gwin     = Game_window::get_instance();
 		SDL_SetWindowGrab(gwin->get_win()->get_screen_window(), SDL_FALSE);
-		if (double_click_timer_id == 0) {
-			SDL_RemoveTimer(double_click_timer_id);
-			double_click_timer_id = 0;
-		}
+		double_click_timer.stop();
 		invoke_callback<MouseButtonCallback>(
 				kind, buttonID, clicks, MousePosition(get_from_sdl_tag{}));
 	}
