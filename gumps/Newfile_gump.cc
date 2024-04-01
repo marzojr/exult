@@ -1053,13 +1053,13 @@ void Newfile_gump::LoadSaveGameDetails() {
 	char mask[256];
 
 	snprintf(
-			mask, sizeof(mask), SAVENAME2,
+			mask, sizeof(mask), SAVENAME_GLOB,
 			GAME_BG   ? "bg"
 			: GAME_SI ? "si"
 					  : "dev");
 
 	FileList filenames;
-	U7ListFiles(mask, filenames);
+	U7ListFiles(SAVEDIR, mask, filenames);
 	num_games = filenames.size();
 
 	games = new SaveInfo[num_games];

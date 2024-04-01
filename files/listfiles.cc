@@ -28,122 +28,103 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <iostream>
 #include <string>
 
+// Need iOS >= 13 and NDK >= 22 for std::filesystem
+#if __has_include(<filesystem>) && !defined(__IPHONEOS__) && !defined(ANDROID)
+#	include <filesystem>
+#	include <regex>
+#	define USE_STD_FILESYSTEM 1
+#elif __has_include(<glob.h>)
+#	include <glob.h>
+#else
+#	error "No way to list files: neither std::filesystem nor glob are available."
+#endif
+
+#ifdef ANDROID
+#	include <SDL_system.h>
+#endif
+
 using std::string;
 
 // TODO: If SDL ever adds directory traversal to rwops, update U7ListFiles() to
-//       use it.
+// use it.
 
-// System Specific Code for Windows
-#if defined(_WIN32)
+#ifdef USE_STD_FILESYSTEM
+// We have std::filesystem.
 
-// Need this for _findfirst, _findnext, _findclose
-#	include <tchar.h>
-#	include <windows.h>
-
-int U7ListFiles(const std::string& mask, FileList& files) {
-	const string    path(get_system_path(mask));
-	const TCHAR*    lpszT;
-	WIN32_FIND_DATA fileinfo;
-	HANDLE          handle;
-	char*           stripped_path;
-	int             i;
-	int             nLen;
-	int             nLen2;
-
-#	ifdef UNICODE
-	const char* name = path.c_str();
-	nLen             = strlen(name) + 1;
-	LPTSTR lpszT2    = static_cast<LPTSTR>(_alloca(nLen * 2));
-	lpszT            = lpszT2;
-	MultiByteToWideChar(CP_ACP, 0, name, -1, lpszT2, nLen);
-#	else
-	lpszT = path.c_str();
-#	endif
-
-	handle = FindFirstFile(lpszT, &fileinfo);
-
-	stripped_path = new char[path.length() + 1];
-	strcpy(stripped_path, path.c_str());
-
-	for (i = strlen(stripped_path) - 1; i; i--) {
-		if (stripped_path[i] == '\\' || stripped_path[i] == '/') {
-			break;
+static int U7ListFilesImp(
+		const std::string& directory, const std::string& mask,
+		FileList& files) {
+	namespace fs = std::filesystem;
+	fs::path source(directory);
+	if (!fs::exists(source)) {
+		std::cerr << "Directory does not exist: " << directory << std::endl;
+		return ENOENT;
+	}
+	std::regex re = [&mask]() {
+		std::string regex_mask;
+		regex_mask.reserve(mask.size() + 10);
+		for (char c : mask) {
+			switch (c) {
+			case '*':
+				regex_mask += ".*";
+				break;
+			case '?':
+				regex_mask += '.';
+				break;
+			case '.':
+				regex_mask += "\\.";
+				break;
+			default:
+				regex_mask += c;
+				break;
+			}
+		}
+		return std::regex(
+				regex_mask, std::regex::ECMAScript | std::regex::icase);
+	}();
+	std::error_code ec{};
+	// In here, we convert the [path] directly to a std::string_view if it was a
+	// std::string, or we reinterpret the data as a char* if it was a
+	// std::u8string. This way, we have a unified way of dealing with the result
+	// independently of what the result is.
+	auto get_string_view_from_path = [](const auto& fname) -> std::string_view {
+		if constexpr (std::is_same_v<std::string, decltype(fname)>) {
+			return {fname};
+		} else {
+			const auto* data = reinterpret_cast<const char*>(fname.data());
+			return {data, fname.size()};
+		}
+	};
+	for (const auto& entry : fs::directory_iterator(source, ec)) {
+		if (!entry.is_regular_file() && !entry.is_symlink()) {
+			continue;
+		}
+		const fs::path& path = entry.path();
+		// Annoyingly, this could be either std::string or std::u8string,
+		// depending on the version of the standard, and on parameters of the
+		// standard library being used.
+		const auto       file     = path.filename().generic_u8string();
+		std::string_view filename = get_string_view_from_path(file);
+		// But of course, std::regex_match doesn't accept std::string_view...
+		if (std::regex_match(filename.cbegin(), filename.cend(), re)) {
+			files.emplace_back(
+					get_string_view_from_path(path.generic_u8string()));
 		}
 	}
-
-	if (stripped_path[i] == '\\' || stripped_path[i] == '/') {
-		stripped_path[i + 1] = 0;
+	if (ec != std::error_code{}) {
+		std::cerr << "Error while listing files: " << ec.message() << std::endl;
 	}
-
-#	ifdef DEBUG
-	std::cerr << "U7ListFiles: " << mask << " = " << path << std::endl;
-#	endif
-
-	// Now search the files
-	if (handle != INVALID_HANDLE_VALUE) {
-		do {
-			nLen           = std::strlen(stripped_path);
-			nLen2          = _tcslen(fileinfo.cFileName) + 1;
-			char* filename = new char[nLen + nLen2];
-			strcpy(filename, stripped_path);
-#	ifdef UNICODE
-			WideCharToMultiByte(
-					CP_ACP, 0, fileinfo.cFileName, -1, filename + nLen, nLen2,
-					nullptr, nullptr);
-#	else
-			std::strcat(filename, fileinfo.cFileName);
-#	endif
-
-			files.push_back(filename);
-#	ifdef DEBUG
-			std::cerr << filename << std::endl;
-#	endif
-			delete[] filename;
-		} while (FindNextFile(handle, &fileinfo));
-	}
-
-	if (GetLastError() != ERROR_NO_MORE_FILES) {
-		LPTSTR lpMsgBuf;
-		char*  str;
-		FormatMessage(
-				FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM
-						| FORMAT_MESSAGE_IGNORE_INSERTS,
-				nullptr, GetLastError(),
-				MAKELANGID(
-						LANG_NEUTRAL, SUBLANG_DEFAULT),    // Default language
-				reinterpret_cast<LPTSTR>(&lpMsgBuf), 0, nullptr);
-#	ifdef UNICODE
-		nLen2 = _tcslen(lpMsgBuf) + 1;
-		str   = static_cast<char*>(_alloca(nLen));
-		WideCharToMultiByte(
-				CP_ACP, 0, lpMsgBuf, -1, str, nLen2, nullptr, nullptr);
-#	else
-		str = lpMsgBuf;
-#	endif
-		std::cerr << "Error while listing files: " << str << std::endl;
-		LocalFree(lpMsgBuf);
-	}
-
-#	ifdef DEBUG
-	std::cerr << files.size() << " filenames" << std::endl;
-#	endif
-
-	delete[] stripped_path;
-	FindClose(handle);
-	return 0;
+	return ec.value();
 }
 
-#else    // This system has glob.h
-
-#	include <glob.h>
-
-#	ifdef ANDROID
-#		include <SDL_system.h>
-#	endif
-
-static int U7ListFilesImp(const std::string& path, FileList& files) {
-	glob_t globres;
-	int    err = glob(path.c_str(), GLOB_NOSORT, nullptr, &globres);
+#else
+// This system has glob.h
+static int U7ListFilesImp(
+		const std::string& directory, const std::string& mask,
+		FileList& files) {
+	glob_t      globres;
+	std::string path(directory + '/' + mask);
+	int         err = glob(path.c_str(), GLOB_NOSORT, nullptr, &globres);
 
 	switch (err) {
 	case 0:    // OK
@@ -160,19 +141,21 @@ static int U7ListFilesImp(const std::string& path, FileList& files) {
 	}
 }
 
-int U7ListFiles(const std::string& mask, FileList& files) {
-	string path(get_system_path(mask));
-	int    result = U7ListFilesImp(path, files);
-#	ifdef ANDROID
-	// TODO: If SDL ever adds directory traversal to rwops use it instead of
-	// glob() so that we pick up platform-specific paths and behaviors like
-	// this.
+#endif
+
+int U7ListFiles(
+		const std::string& directory, const std::string& mask,
+		FileList& files) {
+	string path(get_system_path(directory));
+	int    result = U7ListFilesImp(path, mask, files);
+#ifdef ANDROID
+	// TODO: If SDL ever adds directory traversal to rwops use it instead so
+	// that we pick up platform-specific paths and behaviors like this.
 	if (result != 0) {
 		result = U7ListFilesImp(
-				SDL_AndroidGetInternalStoragePath() + ("/" + path), files);
+				SDL_AndroidGetInternalStoragePath() + ("/" + path), mask,
+				files);
 	}
-#	endif
+#endif
 	return result;
 }
-
-#endif

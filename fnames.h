@@ -119,8 +119,9 @@
 #define PATCH_ENDSCORE  "<PATCH>/endscore.xmi"
 #define MIDITMPFILE     "u7midi"
 #define MIDISFXFILE     "u7sfx"
+#define SAVEDIR         "<SAVEGAME>"
 #define SAVENAME        "<SAVEGAME>/exult%02d%s.sav"
-#define SAVENAME2       "<SAVEGAME>/exult*%s.sav"
+#define SAVENAME_GLOB   "exult*%s.sav"
 #define INTROSND        "<STATIC>/introsnd.dat"
 #define PATCH_INTROSND  "<PATCH>/introsnd.dat"
 #define PATCH_ARMOR     "<PATCH>/armor.dat"
@@ -136,6 +137,7 @@
 #define CONTAINER       "<STATIC>/container.dat"
 #define PATCH_CONTAINER "<PATCH>/container.dat"
 #define PATCH_ENDFONT   "<PATCH>/endfont.shp"
+#define MODCFG_GLOB     "*.cfg"
 
 #define GSCRNSHOT   "<GAMEDAT>/scrnshot.shp"
 #define GSAVEINFO   "<GAMEDAT>/saveinfo.dat"
