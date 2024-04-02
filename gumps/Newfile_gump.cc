@@ -1050,13 +1050,15 @@ void Newfile_gump::LoadSaveGameDetails() {
 	details    = cur_details;
 
 	// Now read save game details
-	char mask[256];
-
-	snprintf(
-			mask, sizeof(mask), SAVENAME_GLOB,
-			GAME_BG   ? "bg"
-			: GAME_SI ? "si"
-					  : "dev");
+	const std::string mask([&]() {
+		if (GAME_BG) {
+			return SAVENAME_RE_BG;
+		}
+		if (GAME_SI) {
+			return SAVENAME_RE_SI;
+		}
+		return SAVENAME_RE_DEV;
+	}());
 
 	FileList filenames;
 	U7ListFiles(SAVEDIR, mask, filenames);
