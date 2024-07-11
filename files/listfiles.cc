@@ -29,27 +29,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <string>
 
 // Need iOS >= 13 and NDK >= 22 for std::filesystem
-#if __has_include(<filesystem>) && !defined(__IPHONEOS__) && !defined(ANDROID)
 #	include <filesystem>
 #	include <regex>
-#	define USE_STD_FILESYSTEM 1
-#elif __has_include(<glob.h>)
-#	include <glob.h>
-#else
-#	error "No way to list files: neither std::filesystem nor glob are available."
-#endif
-
-#ifdef ANDROID
-#	include <SDL_system.h>
-#endif
 
 using std::string;
 
 // TODO: If SDL ever adds directory traversal to rwops, update U7ListFiles() to
 // use it.
-
-#ifdef USE_STD_FILESYSTEM
-// We have std::filesystem.
 
 static int U7ListFilesImp(
 		const std::string& directory, const std::string& mask,
@@ -116,32 +102,6 @@ static int U7ListFilesImp(
 	}
 	return ec.value();
 }
-
-#else
-// This system has glob.h
-static int U7ListFilesImp(
-		const std::string& directory, const std::string& mask,
-		FileList& files) {
-	glob_t      globres;
-	std::string path(directory + '/' + mask);
-	int         err = glob(path.c_str(), GLOB_NOSORT, nullptr, &globres);
-
-	switch (err) {
-	case 0:    // OK
-		for (size_t i = 0; i < globres.gl_pathc; i++) {
-			files.push_back(globres.gl_pathv[i]);
-		}
-		globfree(&globres);
-		return 0;
-	case 3:    // no matches
-		return 0;
-	default:    // error
-		std::cerr << "Glob error " << err << std::endl;
-		return err;
-	}
-}
-
-#endif
 
 int U7ListFiles(
 		const std::string& directory, const std::string& mask,
