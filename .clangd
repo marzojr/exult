@@ -46,14 +46,22 @@ CompileFlags:
   Add: [-xc-header, -std=c11, -Wno-declaration-after-statement]
 ---
 If:
-  PathMatch: [.*\.m]
+  PathMatch: [.*\.mm]
 CompileFlags:
-  Add: [-Wno-declaration-after-statement]
+  Add: [-xobjective-c++, -Wno-declaration-after-statement]
+  Remove: [-xc++-header, -xc++, -xc-header, -xc, -std=c11]
 ---
 If:
-  PathMatch: [ios/.\.h]
+  PathMatch: [.*\.m]
+CompileFlags:
+  Add: [-xobjective-c, -Wno-declaration-after-statement]
+  Remove: [-xc++-header, -xc++, -xc-header, -xc, -std=c++17]
+---
+If:
+  PathMatch: [ios/.*\.h]
 CompileFlags:
   Add: [-xobjective-c-header, -Wno-declaration-after-statement]
+  Remove: [-xc++-header, -xc++, -xc-header, -xc, -std=c++17]
 ---
 If:
   PathMatch: [audio/midi_drivers/Core(Audio)?MidiDriver\.h]
