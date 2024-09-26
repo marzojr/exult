@@ -172,7 +172,7 @@ void SoundTester::test_sound() {
 
 				std::unique_ptr<IDataSource> mid_data
 						= open_music_flex(flex, song);
-				int convert = XMIDIFILE_CONVERT_NOCONVERSION;
+				MidiConversionType convert = MidiConversionType::NO_CONVERSION;
 				if (player) {
 					convert = player->setup_timbre_for_track(flex);
 				}

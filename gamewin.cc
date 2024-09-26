@@ -284,7 +284,7 @@ void Background_noise::handle_event(unsigned long curtime, uintptr udata) {
 
 Game_window::Game_window(
 		int width, int height, bool fullscreen, int gwidth, int gheight,
-		int scale, int scaler, Image_window::FillMode fillmode,
+		int scale, int scaler, FillMode fillmode,
 		unsigned int fillsclr    // Window dimensions.
 		)
 		: dragging(nullptr), effects(new Effects_manager(this)),
@@ -392,34 +392,30 @@ Game_window::Game_window(
 			"config/gameplay/allow_autonotes", allow_autonotes ? "yes" : "no",
 			false);
 #if defined(__IPHONEOS__) || defined(ANDROID)
-	const string default_scroll_with_mouse = "no";
-	const string default_item_menu         = "yes";
+	const bool   default_scroll_with_mouse = false;
+	const bool   default_item_menu         = true;
 	const string default_dpad_location     = "right";
-	const string default_touch_pathfind    = "yes";
+	const bool   default_touch_pathfind    = true;
 	const string default_shortcutbar       = "translucent";
 	const string default_outline           = "black";
 #else
-	const string default_scroll_with_mouse = "yes";
-	const string default_item_menu         = "no";
+	const bool   default_scroll_with_mouse = true;
+	const bool   default_item_menu         = false;
 	const string default_dpad_location     = "no";
-	const string default_touch_pathfind    = "no";
+	const bool   default_touch_pathfind    = false;
 	const string default_shortcutbar       = "no";
 	const string default_outline           = "no";
 #endif
 
 	// scroll with mouse
 	config->value(
-			"config/gameplay/scroll_with_mouse", str,
+			"config/gameplay/scroll_with_mouse", scroll_with_mouse,
 			default_scroll_with_mouse);
-	scroll_with_mouse = str == "yes";
-	config->set(
-			"config/gameplay/scroll_with_mouse",
-			scroll_with_mouse ? "yes" : "no", false);
+	config->set("config/gameplay/scroll_with_mouse", scroll_with_mouse, false);
 
 	// Item menu
-	config->value("config/touch/item_menu", str, default_item_menu);
-	item_menu = str == "yes";
-	config->set("config/touch/item_menu", item_menu ? "yes" : "no", false);
+	config->value("config/touch/item_menu", item_menu, default_item_menu);
+	config->set("config/touch/item_menu", item_menu, false);
 
 	// DPad location
 	config->value("config/touch/dpad_location", str, default_dpad_location);
@@ -434,11 +430,10 @@ Game_window::Game_window(
 	config->set("config/touch/dpad_location", str, false);
 
 	// Touch pathfind
-	config->value("config/touch/touch_pathfind", str, default_touch_pathfind);
-	touch_pathfind = str == "yes";
-	config->set(
-			"config/touch/touch_pathfind", touch_pathfind ? "yes" : "no",
-			false);
+	config->value(
+			"config/touch/touch_pathfind", touch_pathfind,
+			default_touch_pathfind);
+	config->set("config/touch/touch_pathfind", touch_pathfind, false);
 
 	// Shortcut bar
 	config->value(
@@ -474,19 +469,16 @@ Game_window::Game_window(
 	}
 	config->set("config/shortcutbar/use_outline_color", str, false);
 
-	config->value("config/shortcutbar/hide_missing_items", str, "yes");
-	sb_hide_missing = str != "no";
+	config->value(
+			"config/shortcutbar/hide_missing_items", sb_hide_missing, true);
 	config->set(
-			"config/shortcutbar/hide_missing_items",
-			sb_hide_missing ? "yes" : "no", false);
-	config->write_back();
+			"config/shortcutbar/hide_missing_items", sb_hide_missing, false);
 
 	// default to SI extended intro
-	config->value("config/gameplay/extended_intro", str, "yes");
-	extended_intro = str == "yes";
-	config->set(
-			"config/gameplay/extended_intro", extended_intro ? "yes" : "no",
-			false);
+	config->value("config/gameplay/extended_intro", extended_intro, true);
+	config->set("config/gameplay/extended_intro", extended_intro, false);
+
+	config->write_back();
 }
 
 /*
@@ -893,7 +885,7 @@ int Game_window::get_unused_npc() {
 void Game_window::resized(
 		unsigned int neww, unsigned int newh, bool newfs, unsigned int newgw,
 		unsigned int newgh, unsigned int newsc, unsigned int newsclr,
-		Image_window::FillMode newfill, unsigned int newfillsclr) {
+		FillMode newfill, unsigned int newfillsclr) {
 	win->resized(
 			neww, newh, newfs, newgw, newgh, newsc, newsclr, newfill,
 			newfillsclr);
@@ -2826,9 +2818,9 @@ void Game_window::lose_focus() {
 	}
 	cout << "Game paused" << endl;
 
-	string str;
-	config->value("config/audio/disablepause", str, "no");
-	if (str == "no") {
+	bool disablepause;
+	config->value("config/audio/disablepause", disablepause, false);
+	if (!disablepause) {
 		Audio::get_ptr()->pause_audio();
 	}
 
@@ -2886,10 +2878,10 @@ void Game_window::setup_game(bool map_editing) {
 	cycle_load_palette();
 
 	if (Game::get_game_type() == BLACK_GATE && !map_editing) {
-		string yn;    // Override from config. file.
+		bool skip_intro;    // Override from config. file.
 		// Skip intro. scene?
-		config->value("config/gameplay/skip_intro", yn, "no");
-		if (yn == "yes") {
+		config->value("config/gameplay/skip_intro", skip_intro, false);
+		if (skip_intro) {
 			usecode->set_global_flag(Usecode_machine::did_first_scene, 1);
 		}
 

@@ -93,11 +93,11 @@ void AudioOptions_gump::toggle_sfx_pack(int state) {
 	if (have_digital_sfx() && sfx_enabled == 1) {
 		sfx_package = state;
 #ifdef ENABLE_MIDISFX
-	} else if (sfx_enabled && have_midi_pack) {
+	} else if (sfx_enabled != 0 && have_midi_pack) {
 		if (state == 1) {
-			sfx_conversion = XMIDIFILE_CONVERT_GS127_TO_GS;
+			sfx_conversion = SFXConversionType::GS127_TO_GS;
 		} else {
-			sfx_conversion = XMIDIFILE_CONVERT_NOCONVERSION;
+			sfx_conversion = SFXConversionType::NO_CONVERSION;
 		}
 #endif
 	}
@@ -255,7 +255,8 @@ void AudioOptions_gump::rebuild_sfx_buttons() {
 		// sfx conversion
 		buttons[id_sfx_pack] = std::make_unique<AudioTextToggle>(
 				this, &AudioOptions_gump::toggle_sfx_pack,
-				std::move(sfx_conversiontext), sfx_conversion == 5 ? 1 : 0,
+				std::move(sfx_conversiontext),
+				sfx_conversion == SFXConversionType::GS127_TO_GS ? 1 : 0,
 				colx[2], rowy[11], 59);
 	}
 #endif
@@ -309,7 +310,6 @@ void AudioOptions_gump::rebuild_mididriveroption_buttons() {
 }
 
 void AudioOptions_gump::load_settings() {
-	std::string s;
 	audio_enabled     = (Audio::get_ptr()->is_audio_enabled() ? 1 : 0);
 	midi_enabled      = (Audio::get_ptr()->is_music_enabled() ? 1 : 0);
 	const bool sfx_on = (Audio::get_ptr()->are_effects_enabled());
@@ -345,6 +345,7 @@ void AudioOptions_gump::load_settings() {
 	}
 
 	MyMidiPlayer* midi = Audio::get_ptr()->get_midi();
+	std::string s;
 	if (midi) {
 		midi_conversion  = midi->get_music_conversion();
 		midi_ogg_enabled = midi->get_ogg_enabled();
@@ -365,27 +366,17 @@ void AudioOptions_gump::load_settings() {
 		// String for default value for driver type
 		std::string driver_default = "default";
 
-		config->value("config/audio/midi/convert", s, "gm");
-		if (s == "gs") {
-			midi_conversion = XMIDIFILE_CONVERT_MT32_TO_GS;
-		} else if (s == "none" || s == "mt32") {
-			midi_conversion = XMIDIFILE_CONVERT_NOCONVERSION;
-		} else if (s == "gs127") {
-			midi_conversion = XMIDIFILE_CONVERT_MT32_TO_GS127;
-		} else if (s == "gs127drum") {
-			midi_conversion = XMIDIFILE_CONVERT_MT32_TO_GS;
-		} else if (s == "fakemt32") {
-			midi_conversion = XMIDIFILE_CONVERT_GM_TO_MT32;
-		} else {
-			midi_conversion = XMIDIFILE_CONVERT_MT32_TO_GM;
-			config->set("config/audio/midi/convert", "gm", true);
-
-			driver_default = "s";
+		config->value("config/audio/midi/convert", midi_conversion, MidiConversionType::MT32_TO_GM);
+		if (midi_conversion == MidiConversionType::MT32_TO_GM) {
+			midi_conversion = MidiConversionType::MT32_TO_GM;
+			config->set(
+					"config/audio/midi/convert", MidiConversionType::MT32_TO_GM,
+					true);
+			driver_default = "<invalid driver>";
 		}
 
 		// OGG Vorbis support
-		config->value("config/audio/midi/use_oggs", s, "no");
-		midi_ogg_enabled = (s == "yes" ? 1 : 0);
+		config->value("config/audio/midi/use_oggs", midi_ogg_enabled, false);
 
 		config->value("config/audio/midi/driver", s, driver_default);
 
@@ -405,22 +396,17 @@ void AudioOptions_gump::load_settings() {
 		}
 
 #ifdef ENABLE_MIDISFX
-		config->value("config/audio/effects/convert", s, "gs");
-		if (s == "none" || s == "mt32") {
-			sfx_conversion = XMIDIFILE_CONVERT_NOCONVERSION;
-		} else if (s == "gs127") {
-			sfx_conversion = XMIDIFILE_CONVERT_NOCONVERSION;
-		} else {
-			sfx_conversion = XMIDIFILE_CONVERT_GS127_TO_GS;
-		}
+		config->value("config/audio/effects/convert", sfx_conversion, SFXConversionType::GS127_TO_GS);
 #endif
 	}
 
-	config->value("config/audio/midi/reverb/enabled", s, "no");
-	midi_reverb_chorus = (s == "yes" ? 1 : 0);
+	bool midi_reverb;
+	config->value("config/audio/midi/reverb/enabled", midi_reverb, false);
+	midi_reverb_chorus = (midi_reverb ? 1 : 0);
 
-	config->value("config/audio/midi/chorus/enabled", s, "no");
-	midi_reverb_chorus |= (s == "yes" ? 2 : 0);
+	bool midi_chorus;
+	config->value("config/audio/midi/chorus/enabled", midi_chorus, false);
+	midi_reverb_chorus |= (midi_chorus ? 2 : 0);
 
 	const std::string d
 			= "config/disk/game/" + Game::get_gametitle() + "/waves";
@@ -437,12 +423,13 @@ void AudioOptions_gump::load_settings() {
 	if (!sfx_on) {
 		sfx_enabled = 0;
 	} else {
+		bool midi_sfx;
 #ifdef ENABLE_MIDISFX
-		config->value("config/audio/effects/midi", s, "no");
+		config->value("config/audio/effects/midi", midi_sfx, false);
 #else
-		s = "no";
+		midi_sfx = false;
 #endif
-		if (s == "yes" && have_midi_pack) {
+		if (midi_sfx && have_midi_pack) {
 			sfx_enabled = 1 + have_digital_sfx();
 		} else if (have_digital_sfx()) {
 			sfx_enabled = 1;
@@ -597,24 +584,7 @@ void AudioOptions_gump::save_settings() {
 		midi->set_effects_conversion(sfx_conversion);
 #endif
 	} else {
-		switch (midi_conversion) {
-		case XMIDIFILE_CONVERT_MT32_TO_GS:
-			config->set("config/audio/midi/convert", "gs", false);
-			break;
-		case XMIDIFILE_CONVERT_NOCONVERSION:
-			config->set("config/audio/midi/convert", "mt32", false);
-			break;
-		case XMIDIFILE_CONVERT_MT32_TO_GS127:
-			config->set("config/audio/midi/convert", "gs127", false);
-			break;
-		case XMIDIFILE_CONVERT_GM_TO_MT32:
-			config->set("config/audio/midi/convert", "fakemt32", false);
-			break;
-		default:
-			config->set("config/audio/midi/convert", "gm", false);
-			break;
-		}
-
+		config->set("config/audio/midi/convert", midi_conversion, false);
 		if (midi_driver == MidiDriver::getDriverCount()) {
 			config->set("config/audio/midi/driver", "default", false);
 		} else {
@@ -624,14 +594,7 @@ void AudioOptions_gump::save_settings() {
 		}
 
 #ifdef ENABLE_MIDISFX
-		switch (sfx_conversion) {
-		case XMIDIFILE_CONVERT_NOCONVERSION:
-			config->set("config/audio/effects/convert", "mt32", false);
-			break;
-		default:
-			config->set("config/audio/effects/convert", "gs", false);
-			break;
-		}
+		config->set("config/audio/effects/convert", sfx_conversion, false);
 #endif
 	}
 	config->write_back();

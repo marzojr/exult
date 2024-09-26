@@ -28,6 +28,7 @@ Boston, MA  02111-1307, USA.
 #define INCL_IMAGEWIN 1
 
 #include "common_types.h"
+#include "enums.h"
 #include "ignore_unused_variable_warning.h"
 #include "imagebuf.h"
 
@@ -79,34 +80,6 @@ public:
 	// Firstly just some public scaler stuff
 	using scalefun   = void (Image_window::*)(int, int, int, int);
 	using ScalerType = int;
-
-	enum FillMode {
-		Fill = 1,    ///< Game area fills all of the display surface
-		Fit = 2,    ///< Game area is stretched to the closest edge, maintaining
-					///< 1:1 pixel aspect
-		AspectCorrectFit = 3,    ///< Game area is stretched to the closest
-								 ///< edge, with 1:1.2 pixel aspect
-		FitAspectCorrect    = 3,
-		Centre              = 4,    ///< Game area is centred
-		AspectCorrectCentre = 5,    ///< Game area is centred and scaled to have
-									///< 1:1.2 pixel aspect
-		CentreAspectCorrect = 5,
-
-		// Numbers higher than this incrementally scale by .5 more
-		Centre_x1_5              = 6,
-		AspectCorrectCentre_x1_5 = 7,
-		Centre_x2                = 8,
-		AspectCorrectCentre_x2   = 9,
-		Centre_x2_5              = 10,
-		AspectCorrectCentre_x2_5 = 11,
-		Centre_x3                = 12,
-		AspectCorrectCentre_x3   = 13,
-		// And so on....
-
-		// Arbitrarty scaling support => (x<<16)|y
-		Centre_640x480 = (640 << 16)
-						 | 480    ///< Scale to specific dimensions and centre
-	};
 
 	struct ScalerInfo {
 		const char*            name;
@@ -320,7 +293,8 @@ public:
 	Image_window(
 			Image_buffer* ib, int w, int h, int gamew, int gameh, int scl = 1,
 			bool fs = false, int sclr = point,
-			FillMode fmode = AspectCorrectCentre, int fillsclr = point)
+			FillMode fmode    = FillMode::AspectCorrectCentre,
+			int      fillsclr = point)
 			: ibuf(ib), scale(scl), scaler(sclr), uses_palette(true),
 			  fullscreen(fs), game_width(gamew), game_height(gameh),
 			  fill_mode(fmode), fill_scaler(fillsclr), screen_window(nullptr),
@@ -427,8 +401,9 @@ public:
 	void resized(
 			unsigned int neww, unsigned int newh, bool newfs,
 			unsigned int newgw, unsigned int newgh, int newsc,
-			int newscaler = point, FillMode fmode = AspectCorrectCentre,
-			int fillsclr = point);
+			int      newscaler = point,
+			FillMode fmode     = FillMode::AspectCorrectCentre,
+			int      fillsclr  = point);
 
 	void show() {    // Repaint entire window.
 		show(get_start_x(), get_start_y(), get_full_width(), get_full_height());
@@ -576,6 +551,6 @@ namespace scalers {
 		}
 		return Image_window::get_scaler_for_name(Name.value());
 	}
-}    // namespace detail
+}    // namespace scalers
 
 #endif /* INCL_IMAGEWIN    */

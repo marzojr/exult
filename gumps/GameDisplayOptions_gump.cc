@@ -215,8 +215,7 @@ void GameDisplayOptions_gump::save_settings() {
 			"config/shortcutbar/use_outline_color", sc_outline_txt[sc_outline],
 			false);
 	config->set(
-			"config/shortcutbar/hide_missing_items",
-			sb_hide_missing ? "yes" : "no", false);
+			"config/shortcutbar/hide_missing_items", sb_hide_missing, false);
 	gwin->set_outline_color(static_cast<Pixel_colors>(sc_outline));
 	gwin->set_sb_hide_missing_items(sb_hide_missing);
 	gwin->set_shortcutbar(static_cast<uint8>(sc_enabled));
@@ -258,9 +257,9 @@ void GameDisplayOptions_gump::paint() {
 		}
 	}
 
-	std::shared_ptr<Font>          font    = fontManager.get_font("SMALL_BLACK_FONT");
-	Image_window8* iwin    = gwin->get_win();
-	int            y_index = 0;
+	std::shared_ptr<Font> font    = fontManager.get_font("SMALL_BLACK_FONT");
+	Image_window8*        iwin    = gwin->get_win();
+	int                   y_index = 0;
 	font->paint_text(
 			iwin->get_ib8(), "Status Bars:", x + colx[0],
 			y + rowy[y_index] + 1);

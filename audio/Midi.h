@@ -24,6 +24,7 @@
 #include "exceptions.h"
 #include "exult_constants.h"
 #include "fnames.h"
+#include "midi_drivers/XMidiFile.h"
 
 #include <memory>
 #include <string>
@@ -92,9 +93,9 @@ public:
 		return ogg_enabled;
 	}
 
-	void set_music_conversion(int conv);
+	void set_music_conversion(MidiConversionType conv);
 
-	int get_music_conversion() const {
+	MidiConversionType get_music_conversion() const {
 		return music_conversion;
 	}
 
@@ -113,9 +114,9 @@ public:
 	void start_sound_effect(int num);
 	void stop_sound_effects();
 
-	void set_effects_conversion(int conv);
+	void set_effects_conversion(SFXConversionType conv);
 
-	int get_effects_conversion() const {
+	SFXConversionType get_effects_conversion() const {
 		return effects_conversion;
 	}
 #endif
@@ -146,13 +147,13 @@ private:
 	bool                        initialized      = false;
 	bool                        init_device(bool timbre_load = false);
 
-	TimbreLibrary timbre_lib = TIMBRE_LIB_GM;
-	std::string   timbre_lib_filename;
-	int           timbre_lib_index   = 0;
-	int           timbre_lib_game    = NONE;
-	int           music_conversion   = XMIDIFILE_CONVERT_MT32_TO_GM;
-	int           effects_conversion = XMIDIFILE_CONVERT_GS127_TO_GS;
-	int           setup_timbre_for_track(std::string& str);
+	TimbreLibrary      timbre_lib = TIMBRE_LIB_GM;
+	std::string        timbre_lib_filename;
+	int                timbre_lib_index   = 0;
+	int                timbre_lib_game    = NONE;
+	MidiConversionType music_conversion   = MidiConversionType::MT32_TO_GM;
+	SFXConversionType  effects_conversion = SFXConversionType::GS127_TO_GS;
+	MidiConversionType setup_timbre_for_track(std::string& str);
 
 	// Ogg Stuff
 	bool        ogg_enabled     = false;

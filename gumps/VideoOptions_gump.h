@@ -32,30 +32,30 @@ class VideoOptions_gump : public Modal_gump {
 	static VideoOptions_gump* video_options_gump;
 
 private:
-	uint32                 resolution;
-	int                    scaling;
-	int                    scaler;
-	int                    fullscreen;
-	uint32                 game_resolution;
-	std::vector<uint32>    resolutions;
-	std::vector<uint32>    win_resolutions;
-	std::vector<uint32>    game_resolutions;
-	int                    fill_scaler;
-	Image_window::FillMode fill_mode;
-	bool                   has_ac;
-	bool                   share_settings;
+	uint32              resolution;
+	int                 scaling;
+	int                 scaler;
+	int                 fullscreen;
+	uint32              game_resolution;
+	std::vector<uint32> resolutions;
+	std::vector<uint32> win_resolutions;
+	std::vector<uint32> game_resolutions;
+	int                 fill_scaler;
+	FillMode            fill_mode;
+	bool                has_ac;
+	bool                share_settings;
 
-	bool                   o_share_settings;
-	uint32                 o_resolution;
-	int                    o_scaling;
-	int                    o_scaler;
-	uint32                 o_game_resolution;
-	int                    o_fill_scaler;
-	Image_window::FillMode o_fill_mode;
-	bool                   highdpi;
-	bool                   o_highdpi;
+	bool     o_share_settings;
+	uint32   o_resolution;
+	int      o_scaling;
+	int      o_scaler;
+	uint32   o_game_resolution;
+	int      o_fill_scaler;
+	FillMode o_fill_mode;
+	bool     highdpi;
+	bool     o_highdpi;
 
-	Image_window::FillMode startup_fill_mode;
+	FillMode startup_fill_mode;
 
 	enum button_ids {
 		id_first = 0,
@@ -121,7 +121,7 @@ public:
 		fill_scaler = f_scaler;
 	}
 
-	void set_fill_mode(Image_window::FillMode f_mode) {
+	void set_fill_mode(FillMode f_mode) {
 		fill_mode = f_mode;
 	}
 
@@ -161,20 +161,18 @@ public:
 
 	void toggle_fill_mode(int state) {
 		if (state == 0) {
-			fill_mode = Image_window::Fill;
+			fill_mode = FillMode::Fill;
 		} else if (state == 3) {
 			fill_mode = startup_fill_mode;
 		} else {
-			fill_mode = static_cast<Image_window::FillMode>(
-					(state << 1) | (has_ac ? 1 : 0));
+			fill_mode = static_cast<FillMode>((state << 1) | (has_ac ? 1 : 0));
 		}
 		rebuild_dynamic_buttons();
 	}
 
 	void toggle_aspect_correction(int state) {
 		has_ac    = state != 0;
-		fill_mode = static_cast<Image_window::FillMode>(
-				(fill_mode & ~1) | (has_ac ? 1 : 0));
+		fill_mode = static_cast<FillMode>((fill_mode & ~1) | (has_ac ? 1 : 0));
 	}
 
 	void toggle_share_settings(int state) {

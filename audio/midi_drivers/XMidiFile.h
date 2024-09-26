@@ -22,6 +22,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "common_types.h"
 #include "gamma.h"
+#include "ignore_unused_variable_warning.h"
+#include "istring.h"
+
+#include <string_view>
 
 class IDataSource;
 class OIDataSource;
@@ -29,17 +33,92 @@ struct XMidiEvent;
 class XMidiEventList;
 
 // Conversion types for Midi files
-#define XMIDIFILE_CONVERT_NOCONVERSION  4
-#define XMIDIFILE_CONVERT_MT32_TO_GM    1
-#define XMIDIFILE_CONVERT_MT32_TO_GS    2
-#define XMIDIFILE_CONVERT_MT32_TO_GS127 3
-#define XMIDIFILE_CONVERT_GM_TO_MT32    0
+enum class MidiConversionType {
+	GM_TO_MT32        = 0,
+	MT32_TO_GM        = 1,
+	MT32_TO_GS        = 2,
+	MT32_TO_GS127     = 3,
+	NO_CONVERSION     = 4,
+	GS127_TO_GS       = 5,
+	U7VOICE_MT_FILE   = 6,
+	XMIDI_MT_FILE     = 7,
+	SYX_FILE          = 8,
+	SYSEX_IN_MID_FILE = 9
+};
 
-#define XMIDIFILE_CONVERT_GS127_TO_GS  5
-#define XMIDIFILE_HINT_U7VOICE_MT_FILE 6
-#define XMIDIFILE_HINT_XMIDI_MT_FILE   7
-#define XMIDIFILE_HINT_SYX_FILE        8
-#define XMIDIFILE_HINT_SYSEX_IN_MID    9
+// Conversion types for Midi files
+enum class SFXConversionType {
+	NO_CONVERSION = static_cast<int>(MidiConversionType::NO_CONVERSION),
+	GS127_TO_GS = static_cast<int>(MidiConversionType::GS127_TO_GS),
+};
+
+constexpr std::string_view to_string(MidiConversionType type) {
+	using std::string_view_literals::operator""sv;
+	switch (type) {
+	case MidiConversionType::GM_TO_MT32:
+		return "fakemt32"sv;
+	case MidiConversionType::MT32_TO_GS:
+		return "gs"sv;
+	case MidiConversionType::MT32_TO_GS127:
+		return "gs127"sv;
+	case MidiConversionType::NO_CONVERSION:
+		return "mt32"sv;
+	// All of these go to GM conversion.
+	case MidiConversionType::MT32_TO_GM:
+	case MidiConversionType::GS127_TO_GS:
+	case MidiConversionType::U7VOICE_MT_FILE:
+	case MidiConversionType::XMIDI_MT_FILE:
+	case MidiConversionType::SYX_FILE:
+	case MidiConversionType::SYSEX_IN_MID_FILE:
+		return "gm"sv;
+	}
+	return "gm"sv;
+}
+
+constexpr MidiConversionType from_string(
+		std::string_view s, MidiConversionType default_value) {
+	ignore_unused_variable_warning(default_value);
+	if (Pentagram::iequals(s, "gs") || Pentagram::iequals(s, "gs127drum")) {
+		return MidiConversionType::MT32_TO_GS;
+	}
+	if (Pentagram::iequals(s, "mt32") || Pentagram::iequals(s, "none")) {
+		return MidiConversionType::NO_CONVERSION;
+	}
+	if (Pentagram::iequals(s, "gs127")) {
+		return MidiConversionType::MT32_TO_GS127;
+	}
+	if (Pentagram::iequals(s, "fakemt32")) {
+		return MidiConversionType::GM_TO_MT32;
+	}
+	return MidiConversionType::MT32_TO_GM;
+}
+
+constexpr std::string_view to_string(SFXConversionType type) {
+	using std::string_view_literals::operator""sv;
+	switch (type) {
+	case SFXConversionType::NO_CONVERSION:
+		return "mt32"sv;
+	// All of these go to GM conversion.
+	case SFXConversionType::GS127_TO_GS:
+		return "gs"sv;
+	}
+	return "gs"sv;
+}
+
+constexpr SFXConversionType from_string(
+		std::string_view s, SFXConversionType default_value) {
+	ignore_unused_variable_warning(default_value);
+	if (Pentagram::iequals(s, "gs")) {
+		return SFXConversionType::GS127_TO_GS;
+	}
+	if (Pentagram::iequals(s, "mt32") || Pentagram::iequals(s, "none")) {
+		return SFXConversionType::NO_CONVERSION;
+	}
+	if (Pentagram::iequals(s, "gs127")) {
+		return SFXConversionType::NO_CONVERSION;
+	}
+	return SFXConversionType::GS127_TO_GS;
+}
 
 class XMidiFile {
 protected:
@@ -54,11 +133,11 @@ private:
 	XMidiEvent* x_patch_bank_cur;
 	XMidiEvent* x_patch_bank_first;
 
-	static const char mt32asgm[128];
-	static const char mt32asgs[256];
-	static const char gmasmt32[128];
-	bool              bank127[16];
-	int               convert_type;
+	static const char  mt32asgm[128];
+	static const char  mt32asgs[256];
+	static const char  gmasmt32[128];
+	bool               bank127[16];
+	MidiConversionType convert_type;
 
 	bool do_reverb;
 	bool do_chorus;
@@ -70,7 +149,7 @@ private:
 
 public:
 	XMidiFile() = delete;    // No default constructor
-	XMidiFile(IDataSource* source, int pconvert);
+	XMidiFile(IDataSource* source, MidiConversionType pconvert);
 	~XMidiFile();
 
 	int number_of_tracks() {

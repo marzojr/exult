@@ -1417,20 +1417,21 @@ void LowLevelMidiDriver::loadTimbreLibrary(
 
 		if (type == TIMBRE_LIBRARY_U7VOICE_MT) {
 			xmidi = std::make_unique<XMidiFile>(
-					ds, XMIDIFILE_HINT_U7VOICE_MT_FILE);
+					ds, MidiConversionType::U7VOICE_MT_FILE);
 		} else if (type == TIMBRE_LIBRARY_SYX_FILE) {
-			xmidi = std::make_unique<XMidiFile>(ds, XMIDIFILE_HINT_SYX_FILE);
+			xmidi = std::make_unique<XMidiFile>(
+					ds, MidiConversionType::SYX_FILE);
 		} else if (type == TIMBRE_LIBRARY_XMIDI_FILE) {
 			xmidi = std::make_unique<XMidiFile>(
-					ds, XMIDIFILE_HINT_SYSEX_IN_MID);
+					ds, MidiConversionType::SYSEX_IN_MID_FILE);
 		} else if (type == TIMBRE_LIBRARY_XMIDI_MT) {
 			loadXMidiTimbreLibrary(ds);
 			ds->seek(0);
 			xmidi = std::make_unique<XMidiFile>(
 					ds,
-					XMIDIFILE_HINT_XMIDI_MT_FILE);    // a bit of a hack, it
-													  // just sets up a few
-													  // sysex messages
+					MidiConversionType::XMIDI_MT_FILE);    // a bit of a hack,
+														   // it just sets up a
+														   // few sysex messages
 		}
 	}
 

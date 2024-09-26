@@ -117,10 +117,10 @@ Game* Game::create_game(BaseGameInfo* mygame) {
 	editing_flag = mygame->being_edited();
 
 	// Need to do this here. Maybe force on for EXULT_DEVEL_GAME too?
-	std::string str;
-	config->value("config/gameplay/bg_paperdolls", str, "yes");
-	sman->set_paperdoll_status(game_type == SERPENT_ISLE || str == "yes");
-	config->set("config/gameplay/bg_paperdolls", str, true);
+	bool bg_paperdolls;
+	config->value("config/gameplay/bg_paperdolls", bg_paperdolls, true);
+	sman->set_paperdoll_status(game_type == SERPENT_ISLE || bg_paperdolls);
+	config->set("config/gameplay/bg_paperdolls", bg_paperdolls, true);
 	char buf[256];
 	if (!mygame->get_mod_title().empty()) {
 		snprintf(
@@ -177,8 +177,8 @@ void Game::show_congratulations(Palette* pal0) {
 	gwin->clear_screen(true);
 	win->fill8(0);
 
-	std::shared_ptr<Font>     end_font = fontManager.get_font("EXULT_END_FONT");
-	const int starty
+	std::shared_ptr<Font> end_font = fontManager.get_font("EXULT_END_FONT");
+	const int             starty
 			= (gwin->get_height() - end_font->get_text_height() * 8) / 2;
 
 	// calculate the time it took to complete the game

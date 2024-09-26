@@ -69,7 +69,7 @@ private:
 	int                sample_rate;
 	int                o_sample_rate;
 	int                midi_enabled;
-	int                midi_conversion;
+	MidiConversionType midi_conversion;
 	int                midi_ogg_enabled;
 	int                midi_driver;
 	int                midi_reverb_chorus;
@@ -77,7 +77,7 @@ private:
 	int                sfx_enabled;
 	int                sfx_package;
 #ifdef ENABLE_MIDISFX
-	int sfx_conversion;
+	SFXConversionType sfx_conversion;
 #endif
 	audio_speech_state speech_option;
 
@@ -154,7 +154,7 @@ public:
 	}
 
 	void toggle_midi_conv(int state) {
-		midi_conversion = state;
+		midi_conversion = static_cast<MidiConversionType>(state);
 	}
 
 	void toggle_midi_effects(int state) {

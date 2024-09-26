@@ -60,17 +60,16 @@ using std::endl;
 
 Gump_manager::Gump_manager() {
 	std::string str;
-	config->value("config/gameplay/right_click_closes_gumps", str, "yes");
-	if (str == "no") {
-		right_click_close = false;
-	}
-	config->set("config/gameplay/right_click_closes_gumps", str, true);
-
-	config->value("config/gameplay/gumps_dont_pause_game", str, "no");
-	dont_pause_game = str == "yes";
+	config->value(
+			"config/gameplay/right_click_closes_gumps", right_click_close,
+			true);
 	config->set(
-			"config/gameplay/gumps_dont_pause_game",
-			dont_pause_game ? "yes" : "no", true);
+			"config/gameplay/right_click_closes_gumps", right_click_close,
+			true);
+
+	config->value(
+			"config/gameplay/gumps_dont_pause_game", dont_pause_game, false);
+	config->set("config/gameplay/gumps_dont_pause_game", dont_pause_game, true);
 }
 
 /*

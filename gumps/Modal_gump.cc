@@ -28,6 +28,31 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include <algorithm>
 
+constexpr Modal_gump::DragType from_string(std::string_view str) {
+	using std::string_view_literals::operator""sv;
+	if (Pentagram::iequals(str, "always"sv)) {
+		return Modal_gump::DragType::Always;
+	}
+	if (Pentagram::iequals(str, "never"sv)) {
+		return Modal_gump::DragType::Never;
+	}
+	return Modal_gump::DragType::Offscreen;
+}
+
+constexpr std::string_view to_string(Modal_gump::DragType type) {
+	using std::string_view_literals::operator""sv;
+	switch (type) {
+	case Modal_gump::DragType::Always:
+		return "always"sv;
+	case Modal_gump::DragType::Never:
+		return "never"sv;
+	case Modal_gump::DragType::Offscreen:
+		return "offscreen"sv;
+	case Modal_gump::DragType::Unknown:
+		return "offscreen"sv;
+	}
+}
+
 Modal_gump::Modal_gump(
 		Container_game_object* cont, int initx, int inity, int shnum,
 		ShapeFile shfile)
@@ -135,18 +160,10 @@ Modal_gump::DragType Modal_gump::GetDragType() {
 	if (dragType == DragType::Unknown) {
 		// Read from config, default to offscreen
 		dragType = DragType::Offscreen;
-		std::string value;
+		DragType newType;
 		config->value(
-				"config/gameplay/modal_gump_dragging", value, "offscreen");
-		const auto newType = [&]() {
-			if (Pentagram::iequals(value, "always")) {
-				return DragType::Always;
-			}
-			if (Pentagram::iequals(value, "never")) {
-				return DragType::Never;
-			}
-			return DragType::Offscreen;
-		}();
+				"config/gameplay/modal_gump_dragging", newType,
+				DragType::Offscreen);
 		SetDragType(newType);
 	}
 
@@ -155,18 +172,8 @@ Modal_gump::DragType Modal_gump::GetDragType() {
 
 void Modal_gump::SetDragType(DragType newtype) {
 	// set new value and write to config
-
 	dragType = newtype;
-	std::string value;
-
-	if (dragType == DragType::Always) {
-		value = "Always";
-	} else if (dragType == DragType::Never) {
-		value = "never";
-	} else {
-		value = "Offscreen";
-	}
-	config->set("config/gameplay/modal_gump_dragging", value, true);
+	config->set("config/gameplay/modal_gump_dragging", dragType, true);
 }
 
 void Modal_gump::SetProceduralBackground(

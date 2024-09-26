@@ -32,6 +32,7 @@
 #include "game.h"
 #include "gamewin.h"
 #include "ignore_unused_variable_warning.h"
+#include "istring.h"
 #include "utils.h"
 
 #include <fcntl.h>
@@ -46,8 +47,6 @@
 #include <fstream>
 #include <iostream>
 #include <set>
-
-// #include <crtdbg.h>
 
 using std::cerr;
 using std::cout;
@@ -73,6 +72,38 @@ const int* Audio::bg2si_sfxs  = nullptr;
 const int* Audio::bg2si_songs = nullptr;
 
 //----- Utilities ----------------------------------------------------
+
+constexpr std::string_view to_string(Audio::LoopingType looping) {
+	using std::string_view_literals::operator""sv;
+	switch (looping) {
+	case Audio::LoopingType::Never:
+		return "never"sv;
+	case Audio::LoopingType::Endless:
+		return "endless"sv;
+	case Audio::LoopingType::Limited:
+		return "limited"sv;
+	case Audio::LoopingType::Auto:
+		return "auto"sv;
+	}
+	return "auto"sv;
+}
+
+constexpr Audio::LoopingType from_string(std::string_view s) {
+	using std::string_view_literals::operator""sv;
+	if (Pentagram::iequals(s, "never"sv) || Pentagram::iequals(s, "no"sv)) {
+		return Audio::LoopingType::Never;
+	}
+	if (Pentagram::iequals(s, "endless"sv)) {
+		return Audio::LoopingType::Endless;
+	}
+	if (Pentagram::iequals(s, "limited"sv)) {
+		return Audio::LoopingType::Limited;
+	}
+	if (Pentagram::iequals(s, "auto"sv)) {
+		return Audio::LoopingType::Auto;
+	}
+	return Audio::LoopingType::Never;
+}
 
 //----- SFX ----------------------------------------------------------
 
@@ -215,11 +246,8 @@ Audio* Audio::get_ptr() {
 Audio::Audio() {
 	assert(self == nullptr);
 
-	string s, newval;
-
-	config->value("config/audio/enabled", s, "yes");
-	audio_enabled = (s != "no");
-	config->set("config/audio/enabled", audio_enabled ? "yes" : "no", false);
+	config->value("config/audio/enabled", audio_enabled, true);
+	config->set("config/audio/enabled", audio_enabled, false);
 
 	config->value("config/audio/effects/sfx_volume", sfx_volume, sfx_volume);
 	config->value(
@@ -227,32 +255,15 @@ Audio::Audio() {
 	config->set("config/audio/effects/sfx_volume", sfx_volume, false);
 	config->set("config/audio/speech/speech_volume", speech_volume, false);
 
-	config->value("config/audio/speech/enabled", s, "yes");
-	speech_enabled = (s != "no");
-	config->value("config/audio/speech/with_subs", s, "no");
-	speech_with_subs = (s != "no");
-	config->value("config/audio/midi/enabled", s, "---");
-	music_enabled = (s != "no");
-	config->value("config/audio/effects/enabled", s, "---");
-	effects_enabled = (s != "no");
-	config->value("config/audio/midi/looping", s, "auto");
+	config->value("config/audio/speech/enabled", speech_enabled, true);
+	config->value("config/audio/speech/with_subs", speech_with_subs, true);
+	config->value("config/audio/midi/enabled", music_enabled, true);
+	config->value("config/audio/effects/enabled", effects_enabled, true);
 
-	newval = s;
-	if (s == "no" || s == "never") {
-		newval        = "never";
-		music_looping = LoopingType::Never;
-	} else if (s == "endless") {
-		music_looping = LoopingType::Endless;
-	} else if (s == "limited") {
-		music_looping = LoopingType::Limited;
-	} else {
-		newval        = "auto";
-		music_looping = LoopingType::Auto;
-	}
-	// Update config file with new value if needed
-	if (newval != s) {
-		config->set("config/audio/midi/looping", newval, false);
-	}
+	config->value(
+			"config/audio/midi/looping", music_looping, LoopingType::Auto);
+	config->set("config/audio/midi/looping", music_looping, false);
+
 	config->write_back();
 
 	mixer.reset();
@@ -353,14 +364,15 @@ void Audio::Init_sfx() {
 	// Collection of .wav's?
 	string flex;
 #ifdef ENABLE_MIDISFX
-	string v;
-	config->value("config/audio/effects/midi", v, "no");
-	if (have_midi_sfx(&flex) && v != "no") {
+	bool use_midi_sfx;
+	config->value("config/audio/effects/midi", use_midi_sfx, false);
+	if (have_midi_sfx(&flex) && use_midi_sfx) {
 		cout << "Opening midi SFX's file: \"" << flex << "\"" << endl;
 		sfx_file = std::make_unique<FlexFile>(std::move(flex));
 		return;
-	} else if (!have_midi_sfx(&flex)) {
-		config->set("config/audio/effects/midi", "no", true);
+	}
+	if (!have_midi_sfx(&flex)) {
+		config->set("config/audio/effects/midi", false, true);
 	}
 #endif
 	if (!have_config_sfx(Game::get_gametitle(), &flex)) {
@@ -651,9 +663,9 @@ int Audio::play_sound_effect(
 	}
 
 #ifdef ENABLE_MIDISFX
-	string v;    // TODO: should make this check faster
-	config->value("config/audio/effects/midi", v, "no");
-	if (v != "no" && mixer && mixer->getMidiPlayer()) {
+	bool use_midi_sfx;    // TODO: should make this check faster
+	config->value("config/audio/effects/midi", use_midi_sfx, false);
+	if (use_midi_sfx && mixer && mixer->getMidiPlayer()) {
 		mixer->getMidiPlayer()->start_sound_effect(num);
 		return -1;
 	}

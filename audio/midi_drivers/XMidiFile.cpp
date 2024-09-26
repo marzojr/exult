@@ -28,6 +28,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "databuf.h"
 #include "game.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
@@ -631,7 +632,7 @@ static RhythmSetupData U7PercussionData[] = {
 GammaTable<unsigned char> XMidiFile::VolumeCurve(128);
 
 // Constructor
-XMidiFile::XMidiFile(IDataSource* source, int pconvert)
+XMidiFile::XMidiFile(IDataSource* source, MidiConversionType pconvert)
 		: num_tracks(0), events(nullptr), convert_type(pconvert),
 		  do_reverb(false), do_chorus(false) {
 	std::memset(bank127, 0, sizeof(bank127));
@@ -639,7 +640,7 @@ XMidiFile::XMidiFile(IDataSource* source, int pconvert)
 	ExtractTracks(source);
 
 	// SysEx data
-	if (pconvert >= XMIDIFILE_HINT_U7VOICE_MT_FILE) {
+	if (pconvert >= MidiConversionType::U7VOICE_MT_FILE) {
 		InsertDisplayEvents();
 	}
 }
@@ -790,7 +791,7 @@ void XMidiFile::ApplyFirstState(first_state& fs, int chan_mask) {
 		vol->data[0] = 7;
 
 		if (!temp) {
-			if (convert_type) {
+			if (convert_type != MidiConversionType::GM_TO_MT32) {
 				vol->data[1] = VolumeCurve[90];
 			} else {
 				vol->data[1] = 90;
@@ -966,9 +967,9 @@ int XMidiFile::ConvertEvent(
 
 		bank127[status & 0xF] = false;
 
-		if (convert_type == XMIDIFILE_CONVERT_MT32_TO_GM
-			|| convert_type == XMIDIFILE_CONVERT_MT32_TO_GS
-			|| convert_type == XMIDIFILE_CONVERT_MT32_TO_GS127) {
+		if (convert_type == MidiConversionType::MT32_TO_GM
+			|| convert_type == MidiConversionType::MT32_TO_GS
+			|| convert_type == MidiConversionType::MT32_TO_GS127) {
 			return 2;
 		}
 
@@ -982,7 +983,7 @@ int XMidiFile::ConvertEvent(
 			fs.bank[status & 0xF] = current;
 		}
 
-		if (convert_type == XMIDIFILE_CONVERT_GS127_TO_GS && data == 127) {
+		if (convert_type == MidiConversionType::GS127_TO_GS && data == 127) {
 			bank127[status & 0xF] = true;
 		}
 
@@ -991,15 +992,15 @@ int XMidiFile::ConvertEvent(
 
 	// Handling for patch change mt32 conversion, probably should go elsewhere
 	if ((status >> 4) == 0xC && (status & 0xF) != 9
-		&& convert_type != XMIDIFILE_CONVERT_NOCONVERSION) {
-		if (convert_type == XMIDIFILE_CONVERT_MT32_TO_GM) {
+		&& convert_type != MidiConversionType::NO_CONVERSION) {
+		if (convert_type == MidiConversionType::MT32_TO_GM) {
 			data = mt32asgm[data];
-		} else if (convert_type == XMIDIFILE_CONVERT_GM_TO_MT32) {
+		} else if (convert_type == MidiConversionType::GM_TO_MT32) {
 			data = gmasmt32[data];
 		} else if (
-				(convert_type == XMIDIFILE_CONVERT_GS127_TO_GS
+				(convert_type == MidiConversionType::GS127_TO_GS
 				 && bank127[status & 0xF])
-				|| convert_type == XMIDIFILE_CONVERT_MT32_TO_GS) {
+				|| convert_type == MidiConversionType::MT32_TO_GS) {
 			CreateNewEvent(time);
 			current->status  = 0xB0 | (status & 0xF);
 			current->data[0] = 0;
@@ -1011,7 +1012,7 @@ int XMidiFile::ConvertEvent(
 			if (!fs.bank[status & 0xF] || fs.bank[status & 0xF]->time > time) {
 				fs.bank[status & 0xF] = current;
 			}
-		} else if (convert_type == XMIDIFILE_CONVERT_MT32_TO_GS127) {
+		} else if (convert_type == MidiConversionType::MT32_TO_GS127) {
 			CreateNewEvent(time);
 			current->status  = 0xB0 | (status & 0xF);
 			current->data[0] = 0;
@@ -1025,7 +1026,7 @@ int XMidiFile::ConvertEvent(
 	}    // Disable patch changes on Track 10 is doing a conversion
 	else if (
 			(status >> 4) == 0xC && (status & 0xF) == 9
-			&& convert_type != XMIDIFILE_CONVERT_NOCONVERSION) {
+			&& convert_type != MidiConversionType::NO_CONVERSION) {
 		return size;
 	}
 
@@ -1088,7 +1089,8 @@ int XMidiFile::ConvertEvent(
 	current->data[1] = source->read1();
 
 	// Volume modify the volume controller, only if converting
-	if (convert_type && (current->status >> 4) == MIDI_STATUS_CONTROLLER
+	if (convert_type != MidiConversionType::GM_TO_MT32
+		&& (current->status >> 4) == MIDI_STATUS_CONTROLLER
 		&& current->data[0] == 7) {
 		current->data[1] = VolumeCurve[current->data[1]];
 	}
@@ -1111,14 +1113,14 @@ int XMidiFile::ConvertNote(
 	current->data[1] = source->read1();
 
 	// Volume modify the note on's, only if converting
-	if (convert_type && (current->status >> 4) == MIDI_STATUS_NOTE_ON
-		&& current->data[1]) {
+	if (convert_type != MidiConversionType::GM_TO_MT32
+		&& (current->status >> 4) == MIDI_STATUS_NOTE_ON && current->data[1]) {
 		current->data[1] = VolumeCurve[current->data[1]];
 	}
 
 	// Perc track note on
 	if (status == 0x99 && current->data[1] != 0
-		&& convert_type == XMIDIFILE_CONVERT_NOCONVERSION) {
+		&& convert_type == MidiConversionType::NO_CONVERSION) {
 		// Add it to the patch and bank change list
 		if (x_patch_bank_first == nullptr) {
 			x_patch_bank_first = current;
@@ -1457,60 +1459,46 @@ int XMidiFile::ExtractTracksFromMid(
 }
 
 int XMidiFile::ExtractTracks(IDataSource* source) {
-	const int format_hint = convert_type;
+	const MidiConversionType format_hint = convert_type;
 
-	if (convert_type >= XMIDIFILE_HINT_U7VOICE_MT_FILE) {
-		convert_type = XMIDIFILE_CONVERT_NOCONVERSION;
+	if (convert_type >= MidiConversionType::U7VOICE_MT_FILE) {
+		convert_type = MidiConversionType::NO_CONVERSION;
 	}
 
 	string s;
 
-	config->value("config/audio/midi/reverb/enabled", s, "no");
-	if (s == "yes") {
-		do_reverb = true;
-	}
-	config->set("config/audio/midi/reverb/enabled", s, true);
+	config->value("config/audio/midi/reverb/enabled", do_reverb, false);
+	config->set("config/audio/midi/reverb/enabled", do_reverb, true);
 
-	config->value("config/audio/midi/reverb/level", s, "---");
-	if (s == "---") {
-		config->value("config/audio/midi/reverb", s, "64");
+	config->value("config/audio/midi/reverb/level", reverb_value, -1);
+	if (reverb_value == -1) {
+		config->value("config/audio/midi/reverb", reverb_value, 64);
 	}
-	reverb_value = atoi(s.c_str());
-	if (reverb_value > 127) {
-		reverb_value = 127;
-	} else if (reverb_value < 0) {
-		reverb_value = 0;
-	}
+	reverb_value = std::clamp(reverb_value, 0, 127);
 	config->set("config/audio/midi/reverb/level", reverb_value, true);
 
-	config->value("config/audio/midi/chorus/enabled", s, "no");
-	if (s == "yes") {
-		do_chorus = true;
-	}
-	config->set("config/audio/midi/chorus/enabled", s, true);
+	config->value("config/audio/midi/chorus/enabled", do_chorus, false);
+	config->set("config/audio/midi/chorus/enabled", do_chorus, true);
 
-	config->value("config/audio/midi/chorus/level", s, "---");
-	if (s == "---") {
-		config->value("config/audio/midi/chorus", s, "16");
+	config->value("config/audio/midi/chorus/level", chorus_value, -1);
+	if (chorus_value == -1) {
+		config->value("config/audio/midi/chorus", chorus_value, 16);
 	}
-	chorus_value = atoi(s.c_str());
-	if (chorus_value > 127) {
-		chorus_value = 127;
-	} else if (chorus_value < 0) {
-		chorus_value = 0;
-	}
+	chorus_value = std::clamp(chorus_value, 0, 127);
 	config->set("config/audio/midi/chorus/level", chorus_value, true);
 
-	config->value("config/audio/midi/volume_curve", s, "---");
-	if (s == "---") {
-		config->value("config/audio/midi/gamma", s, "1");
+	double gamma;
+	config->value(
+			"config/audio/midi/volume_curve", gamma,
+			std::numeric_limits<double>::quiet_NaN());
+	if (std::isnan(gamma)) {
+		config->value("config/audio/midi/gamma", gamma, 1.0);
 	}
-	VolumeCurve.set_gamma(atof(s.c_str()));
-	const int igam = std::lround(VolumeCurve.get_gamma() * 10000);
-	char      buf[32];
-	snprintf(buf, sizeof(buf), "%d.%04d", igam / 10000, igam % 10000);
-	config->set("config/audio/midi/volume_curve", buf, true);
+	gamma = std::lround(VolumeCurve.get_gamma() * 10000.0) / 10000.0;
+	VolumeCurve.set_gamma(gamma);
+	config->set("config/audio/midi/volume_curve", gamma, true);
 
+	char      buf[32];
 	// Read first 4 bytes of header
 	source->read(buf, 4);
 
@@ -1684,9 +1672,9 @@ int XMidiFile::ExtractTracks(IDataSource* source) {
 
 		perr << "Failed to find midi data in RIFF Midi" << endl;
 		return 0;
-	} else if (format_hint == XMIDIFILE_HINT_U7VOICE_MT_FILE) {
+	} else if (format_hint == MidiConversionType::U7VOICE_MT_FILE) {
 		return ExtractTracksFromU7V(source);
-	} else if (format_hint == XMIDIFILE_HINT_XMIDI_MT_FILE) {
+	} else if (format_hint == MidiConversionType::XMIDI_MT_FILE) {
 		return ExtractTracksFromXMIDIMT(source);
 	}
 

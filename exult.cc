@@ -45,6 +45,7 @@
 #include "crc.h"
 #include "drag.h"
 #include "effects.h"
+#include "enums.h"
 #include "exult_bg_flx.h"
 #include "exult_flx.h"
 #include "exult_si_flx.h"
@@ -169,10 +170,12 @@ GameManager*   gamemanager = nullptr;
 Game_window*       gwin          = nullptr;
 quitting_time_enum quitting_time = QUIT_TIME_NO;
 
-bool intrinsic_trace = false;    // Do we trace Usecode-intrinsics?
-int  usecode_trace   = 0;        // Do we trace Usecode-instructions?
-// 0 = no, 1 = short, 2 = long
-bool combat_trace = false;    // show combat messages?
+// Do we trace Usecode-intrinsics?
+bool intrinsic_trace = false;
+// Do we trace Usecode-instructions?
+UsecodeTrace usecode_trace = UsecodeTrace::none;
+// show combat messages?
+bool combat_trace = false;
 
 // Save game compression level
 int  save_compression = 1;
@@ -249,7 +252,7 @@ static bool                 show_items_clicked = false;
 static int                  left_down_x = 0, left_down_y = 0;
 static int                  joy_aim_x = 0, joy_aim_y = 0;
 Mouse::Avatar_Speed_Factors joy_speed_factor = Mouse::medium_speed_factor;
-static Uint32               last_speed_cursor = 0; // When we last updated the mouse cursor
+static Uint32 last_speed_cursor = 0;    // When we last updated the mouse cursor
 #if defined _WIN32
 void do_cleanup_output() {
 	cleanup_output("std");
@@ -521,11 +524,11 @@ int exult_main(const char* runpath) {
 		config->write_back();
 	}
 	if (config->key_exists("config/gameplay/allow_double_right_move")) {
-		string str;
-		config->value("config/gameplay/allow_double_right_move", str, "yes");
-		if (str == "no") {
-			config->value("config/gameplay/allow_right_pathfind", str, "no");
-			config->set("config/gameplay/allow_right_pathfind", str, false);
+		bool value;
+		config->value("config/gameplay/allow_double_right_move", value, true);
+		if (!value) {
+			config->value("config/gameplay/allow_right_pathfind", value, false);
+			config->set("config/gameplay/allow_right_pathfind", value, false);
 		}
 		config->remove("config/gameplay/allow_double_right_move", false);
 	}
@@ -606,16 +609,8 @@ int exult_main(const char* runpath) {
 	config->value("config/debug/trace/intrinsics", intrinsic_trace);
 
 	// Enable tracing of UC-instructions?
-	string uctrace;
-	config->value("config/debug/trace/usecode", uctrace, "no");
-	to_uppercase(uctrace);
-	if (uctrace == "YES") {
-		usecode_trace = 1;
-	} else if (uctrace == "VERBOSE") {
-		usecode_trace = 2;
-	} else {
-		usecode_trace = 0;
-	}
+	config->value(
+			"config/debug/trace/usecode", usecode_trace, UsecodeTrace::none);
 
 	config->value("config/debug/trace/combat", combat_trace);
 
@@ -824,45 +819,31 @@ static void Init() {
 	gamemanager = new GameManager();
 
 	if (arg_buildmap < 0 && !arg_verify_files) {
-		string gr;
-		string gg;
-		string gb;
-		config->value("config/video/gamma/red", gr, "1.0");
-		config->value("config/video/gamma/green", gg, "1.0");
-		config->value("config/video/gamma/blue", gb, "1.0");
-		Image_window8::set_gamma(
-				atof(gr.c_str()), atof(gg.c_str()), atof(gb.c_str()));
-		string fullscreenstr;    // Check config. for fullscreen mode.
-		config->value("config/video/fullscreen", fullscreenstr, "no");
-		const bool fullscreen = (fullscreenstr == "yes");
-		config->set(
-				"config/video/fullscreen", fullscreen ? "yes" : "no", false);
+		double gr;
+		double gg;
+		double gb;
+		config->value("config/video/gamma/red", gr, 1.0);
+		config->value("config/video/gamma/green", gg, 1.0);
+		config->value("config/video/gamma/blue", gb, 1.0);
+		Image_window8::set_gamma(gr, gg, gb);
+
+		bool fullscreen;    // Check config. for fullscreen mode.
+		config->value("config/video/fullscreen", fullscreen, false);
+		config->set("config/video/fullscreen", fullscreen, false);
 
 		int border_red;
 		int border_green;
 		int border_blue;
 		config->value("config/video/game/border/red", border_red, 0);
-		if (border_red < 0) {
-			border_red = 0;
-		} else if (border_red > 255) {
-			border_red = 255;
-		}
+		border_red = std::clamp(border_red, 0, 255);
 		config->set("config/video/game/border/red", border_red, false);
 
 		config->value("config/video/game/border/green", border_green, 0);
-		if (border_green < 0) {
-			border_green = 0;
-		} else if (border_green > 255) {
-			border_green = 255;
-		}
+		border_green = std::clamp(border_green, 0, 255);
 		config->set("config/video/game/border/green", border_green, false);
 
 		config->value("config/video/game/border/blue", border_blue, 0);
-		if (border_blue < 0) {
-			border_blue = 0;
-		} else if (border_blue > 255) {
-			border_blue = 255;
-		}
+		border_blue = std::clamp(border_blue, 0, 255);
 		config->set("config/video/game/border/blue", border_blue, false);
 
 		Palette::set_border(border_red, border_green, border_blue);
@@ -1263,7 +1244,7 @@ static void Handle_events() {
 			&& gwin->main_actor_can_act_charmed()) {
 			int       x  = Mouse::mouse->get_mousex();
 			int       y  = Mouse::mouse->get_mousey();
-			const int ms = SDL_GetMouseState(nullptr,nullptr);
+			const int ms = SDL_GetMouseState(nullptr, nullptr);
 			if ((SDL_BUTTON(3) & ms) && !right_on_gump) {
 				gwin->start_actor(x, y, Mouse::mouse->avatar_speed);
 			} else if (ticks > last_rest) {
@@ -2267,9 +2248,9 @@ void Wizard_eye(long msecs    // Length of time in milliseconds.
 		if (ticks > last_repaint + 50 || gwin->was_painted()) {
 			// Right mouse button down?
 
-			const int ms = SDL_GetMouseState(nullptr,nullptr);
-			int       mx  = Mouse::mouse->get_mousex();
-			int       my  = Mouse::mouse->get_mousey();
+			const int ms = SDL_GetMouseState(nullptr, nullptr);
+			int       mx = Mouse::mouse->get_mousex();
+			int       my = Mouse::mouse->get_mousey();
 			if (SDL_BUTTON(3) & ms) {
 				Shift_wizards_eye(mx, my);
 			}
@@ -2362,7 +2343,7 @@ void set_scaleval(int new_scaleval) {
 		// fill mode to fill and increase/decrease the scale value
 		gwin->resized(
 				resx, resy, fullscreen, 0, 0, current_scaleval, scaler,
-				Image_window::Fill, Image_window::point);
+				FillMode::Fill, Image_window::point);
 	}
 }
 
@@ -2462,7 +2443,7 @@ void BuildGameMap(BaseGameInfo* game, int mapnum) {
 		sc    = 1;
 		sclr  = Image_window::point;
 		Image_window8::set_gamma(1, 1, 1);
-		const Image_window::FillMode fillmode = Image_window::Fit;
+		const FillMode fillmode = FillMode::Fit;
 
 		// string    fullscreenstr;      // Check config. for fullscreen mode.
 		// config->value("config/video/fullscreen",fullscreenstr,"no");
@@ -2508,9 +2489,7 @@ void BuildGameMap(BaseGameInfo* game, int mapnum) {
  */
 void setup_video(
 		bool fullscreen, int setup_video_type, int resx, int resy, int gw,
-		int gh, int scaleval, int scaler, Image_window::FillMode fillmode,
-		int fill_scaler) {
-	string fmode_string;
+		int gh, int scaleval, int scaler, FillMode fillmode, int fill_scaler) {
 	string sclr;
 	string scalerName;
 	string fillScalerName;
@@ -2539,24 +2518,20 @@ void setup_video(
 #ifdef DEBUG
 		cout << "Reading video menu adjustable configuration options" << endl;
 #endif
-#if defined(__IPHONEOS__) || defined(ANDROID)
-		// Default resolution is 320x240 with 1x scaling
 		const int    w                   = 320;
 		const int    h                   = 240;
-		const int    sc                  = 1;
 		const string default_scaler      = "point";
 		const string default_fill_scaler = "point";
-		const string default_fmode       = "Fill";
-		fullscreen                       = true;
+#if defined(__IPHONEOS__) || defined(ANDROID)
+		// Default resolution is 320x240 with 1x scaling
+		const int      sc            = 1;
+		const FillMode default_fmode = FillMode::Fill;
+		fullscreen                   = true;
 		config->set("config/video/force_bpp", 32, true);
 #else
 		// Default resolution is 320x240 with 2x scaling
-		const int    w                   = 320;
-		const int    h                   = 240;
-		const int    sc                  = 2;
-		const string default_scaler      = "point";
-		const string default_fill_scaler = "point";
-		const string default_fmode       = "Fit";
+		const int      sc            = 2;
+		const FillMode default_fmode = FillMode::Fit;
 #endif
 		string fill_scaler_str;
 		if (video_init) {
@@ -2615,11 +2590,7 @@ void setup_video(
 		config->value(vidStr + "/game/width", gw, 320);
 		config->value(vidStr + "/game/height", gh, 200);
 		SDL_SetHint(SDL_HINT_VIDEO_HIGHDPI_DISABLED, high_dpi ? "0" : "1");
-		config->value(vidStr + "/fill_mode", fmode_string, default_fmode);
-		fillmode = Image_window::string_to_fillmode(fmode_string);
-		if (fillmode == 0) {
-			fillmode = Image_window::AspectCorrectFit;
-		}
+		config->value(vidStr + "/fill_mode", fillmode, default_fmode);
 		config->value(
 				vidStr + "/fill_scaler", fill_scaler_str, default_fill_scaler);
 		fill_scaler = Image_window::get_scaler_for_name(fill_scaler_str);
@@ -2630,14 +2601,13 @@ void setup_video(
 	if (set_config) {
 		scalerName     = Image_window::get_name_for_scaler(scaler);
 		fillScalerName = Image_window::get_name_for_scaler(fill_scaler);
-		Image_window::fillmode_to_string(fillmode, fmode_string);
 #ifdef DEBUG
 		cout << "Setting video menu adjustable configuration options " << resx
 			 << " resX, " << resy << " resY, " << gw << " gameW, " << gh
 			 << " gameH, " << scaleval << " scale, " << scalerName
-			 << " scaler, " << fmode_string << " fill mode, " << fillScalerName
-			 << " fill scaler, " << (fullscreen ? "full screen" : "window")
-			 << endl;
+			 << " scaler, " << to_string(fillmode) << " fill mode, "
+			 << fillScalerName << " fill scaler, "
+			 << (fullscreen ? "full screen" : "window") << endl;
 #endif
 		config->set(vidStr + "/display/width", resx, false);
 		config->set(vidStr + "/display/height", resy, false);
@@ -2645,7 +2615,7 @@ void setup_video(
 		config->set(vidStr + "/game/height", gh, false);
 		config->set(vidStr + "/scale", scaleval, false);
 		config->set(vidStr + "/scale_method", scalerName, false);
-		config->set(vidStr + "/fill_mode", fmode_string, false);
+		config->set(vidStr + "/fill_mode", fillmode, false);
 		config->set(vidStr + "/fill_scaler", fillScalerName, false);
 		config->set("config/video/highdpi", high_dpi ? "yes" : "no", false);
 	}
@@ -2653,7 +2623,7 @@ void setup_video(
 #ifdef DEBUG
 		cout << "Initializing Game_window to " << resx << " resX, " << resy
 			 << " resY, " << gw << " gameW, " << gh << " gameH, " << scaleval
-			 << " scale, " << scalerName << " scaler, " << fmode_string
+			 << " scale, " << scalerName << " scaler, " << to_string(fillmode)
 			 << " fill mode, " << fillScalerName << " fill scaler, "
 			 << (fullscreen ? "full screen" : "window") << endl;
 #endif
@@ -2669,13 +2639,12 @@ void setup_video(
 	} else if (change_gwin) {
 #ifdef DEBUG
 		if (!set_config) {
-			Image_window::fillmode_to_string(fillmode, fmode_string);
 			scalerName     = Image_window::get_name_for_scaler(scaler);
 			fillScalerName = Image_window::get_name_for_scaler(fill_scaler);
 		}
 		cout << "Changing Game_window to " << resx << " resX, " << resy
 			 << " resY, " << gw << " gameW, " << gh << " gameH, " << scaleval
-			 << " scale, " << scalerName << " scaler, " << fmode_string
+			 << " scale, " << scalerName << " scaler, " << to_string(fillmode)
 			 << " fill mode, " << fillScalerName << " fill scaler, "
 			 << (fullscreen ? "full screen" : "window") << endl;
 #endif
@@ -2685,13 +2654,12 @@ void setup_video(
 	}
 	if (menu_init) {
 #ifdef DEBUG
-		Image_window::fillmode_to_string(fillmode, fmode_string);
 		scalerName     = Image_window::get_name_for_scaler(scaler);
 		fillScalerName = Image_window::get_name_for_scaler(fill_scaler);
 		cout << "Initializing video options menu settings " << resx << " resX, "
 			 << resy << " resY, " << gw << " gameW, " << gh << " gameH, "
 			 << scaleval << " scale, " << scalerName << " scaler, "
-			 << fmode_string << " fill mode, " << fillScalerName
+			 << to_string(fillmode) << " fill mode, " << fillScalerName
 			 << " fill scaler, " << (fullscreen ? "full screen" : "window")
 			 << endl;
 #endif

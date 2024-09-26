@@ -112,9 +112,7 @@ Cheat::~Cheat() {
 }
 
 void Cheat::init() {
-	std::string cheating;
-	config->value("config/gameplay/cheat", cheating, "no");
-	enabled = cheating == "yes";
+	config->value("config/gameplay/cheat", enabled, false);
 }
 
 void Cheat::finish_init() {

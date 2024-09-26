@@ -45,8 +45,8 @@ Boston, MA  02111-1307, USA.
 // Simulate HighDPI mode without OS or Display Support for it
 // uncomment the define and set to a value greater than 1.0 to multiply the
 // fullscreen render surface resolution This should only be used for testing and
-// development and will likely degrade performance and quality 
-//#define SIMULATE_HIDPI 2.0f
+// development and will likely degrade performance and quality
+// #define SIMULATE_HIDPI 2.0f
 
 #ifdef __GNUC__
 #	pragma GCC diagnostic push
@@ -66,7 +66,7 @@ using std::cout;
 using std::endl;
 using std::exit;
 
-#define SCALE_BIT(factor) (1 << ((factor)-1))
+#define SCALE_BIT(factor) (1 << ((factor) - 1))
 
 Image_window::ScalerVector        Image_window::p_scalers;
 const Image_window::ScalerVector& Image_window::Scalers
@@ -1088,7 +1088,7 @@ bool Image_window::get_draw_dims(
 		int& ih) {
 	// Handle each type separately
 
-	if (fillmode == Fill) {
+	if (fillmode == FillMode::Fill) {
 		if (gw == 0 || gh == 0) {
 			gw = sw / scale;
 			gh = sh / scale;
@@ -1097,7 +1097,7 @@ bool Image_window::get_draw_dims(
 		iw = gw * scale;
 
 		ih = gh * scale;
-	} else if (fillmode == Fit) {
+	} else if (fillmode == FillMode::Fit) {
 		if (gw == 0 || gh == 0) {
 			gw = sw / scale;
 			gh = sh / scale;
@@ -1115,7 +1115,7 @@ bool Image_window::get_draw_dims(
 
 			ih = (sh * iw) / (sw);
 		}
-	} else if (fillmode == AspectCorrectFit) {
+	} else if (fillmode == FillMode::AspectCorrectFit) {
 		if (gw == 0 || gh == 0) {
 			gw = sw / scale;
 			gh = (sh * 5) / (scale * 6);
@@ -1141,8 +1141,10 @@ bool Image_window::get_draw_dims(
 
 			ih = (sh * iw * 5) / (sw * 6);
 		}
-	} else if (fillmode >= Centre && fillmode < (1 << 16)) {
-		const int factor        = 2 + ((fillmode - Centre) / 2);
+	} else if (
+			fillmode >= FillMode::Centre
+			&& fillmode < static_cast<FillMode>(1 << 16)) {
+		const int factor        = 2 + ((fillmode - FillMode::Centre) / 2);
 		const int aspect_factor = (fillmode & 1) ? 5 : 6;
 
 		if (gw == 0 || gh == 0) {
@@ -1162,7 +1164,7 @@ bool Image_window::get_draw_dims(
 		}
 	} else {
 		const int fw = fillmode & 0xFFFF;
-		const int fh = (fillmode >> 16) & 0xFFFF;
+		const int fh = (static_cast<int>(fillmode) >> 16) & 0xFFFF;
 
 		if (!fw || !fh) {
 			return false;
@@ -1199,25 +1201,25 @@ bool Image_window::get_draw_dims(
 	return true;
 }
 
-Image_window::FillMode Image_window::string_to_fillmode(std::string_view str) {
+FillMode Image_window::string_to_fillmode(std::string_view str) {
 	// If only C++ had reflection capabilities...
 
 	if (Pentagram::iequals(str, "Fill")) {
-		return Fill;
+		return FillMode::Fill;
 	} else if (Pentagram::iequals(str, "Fit")) {
-		return Fit;
+		return FillMode::Fit;
 	} else if (Pentagram::iequals(str, "Aspect Correct Fit")) {
-		return AspectCorrectFit;
+		return FillMode::AspectCorrectFit;
 	} else if (
 			Pentagram::iequals(str, "Centre")
 			|| Pentagram::iequals(str, "Center")) {
-		return Centre;
+		return FillMode::Centre;
 	} else if (
 			Pentagram::iequals(str, "Aspect Correct Centre")
 			|| Pentagram::iequals(str, "Aspect Correct Center")
 			|| Pentagram::iequals(str, "Centre Aspect Correct")
 			|| Pentagram::iequals(str, "Center Aspect Correct")) {
-		return AspectCorrectCentre;
+		return FillMode::AspectCorrectCentre;
 	} else if (
 			Pentagram::iequals(str.substr(0, 7), "Centre ")
 			|| Pentagram::iequals(str.substr(0, 7), "Center ")) {
@@ -1235,11 +1237,12 @@ Image_window::FillMode Image_window::string_to_fillmode(std::string_view str) {
 		const unsigned long f = std::strtoul(str.data(), &end, 10);
 		str.remove_prefix(end - str.data());
 
-		if (f >= (65536 - Centre) / 2 || str.front() != 0) {
+		if (f >= (65536 - static_cast<int>(FillMode::Centre)) / 2
+			|| str.front() != 0) {
 			return static_cast<FillMode>(0);
 		}
 
-		return static_cast<FillMode>(Centre + f * 2);
+		return static_cast<FillMode>(FillMode::Centre + f * 2);
 	} else if (
 			Pentagram::iequals(str.substr(0, 22), "Aspect Correct Centre ")
 			|| Pentagram::iequals(str.substr(0, 22), "Aspect Correct Center ")
@@ -1260,11 +1263,12 @@ Image_window::FillMode Image_window::string_to_fillmode(std::string_view str) {
 		const unsigned long f = std::strtoul(str.data(), &end, 10);
 		str.remove_prefix(end - str.data());
 
-		if (f >= (65536 - AspectCorrectCentre) / 2 || str.front() != 0) {
+		if (f >= (65536 - static_cast<int>(FillMode::AspectCorrectCentre)) / 2
+			|| str.front() != 0) {
 			return static_cast<FillMode>(0);
 		}
 
-		return static_cast<FillMode>(AspectCorrectCentre + f * 2);
+		return static_cast<FillMode>(FillMode::AspectCorrectCentre + f * 2);
 	} else {
 		if (std::isdigit(static_cast<unsigned char>(str.front())) == 0) {
 			return static_cast<FillMode>(0);
@@ -1297,17 +1301,19 @@ Image_window::FillMode Image_window::string_to_fillmode(std::string_view str) {
 bool Image_window::fillmode_to_string(FillMode fmode, std::string& str) {
 	// If only C++ had reflection capabilities...
 
-	if (fmode == Fill) {
+	if (fmode == FillMode::Fill) {
 		str = "Fill";
 		return true;
-	} else if (fmode == Fit) {
+	} else if (fmode == FillMode::Fit) {
 		str = "Fit";
 		return true;
-	} else if (fmode == AspectCorrectFit) {
+	} else if (fmode == FillMode::AspectCorrectFit) {
 		str = "Aspect Correct Fit";
 		return true;
-	} else if (fmode >= Centre && fmode < (1 << 16)) {
-		const int factor = 2 + ((fmode - Centre) / 2);
+	} else if (
+			fmode >= FillMode::Centre
+			&& fmode < static_cast<FillMode>(1 << 16)) {
+		const int factor = 2 + ((fmode - FillMode::Centre) / 2);
 		char      factor_str[16];
 
 		if (factor == 2) {
@@ -1318,7 +1324,7 @@ bool Image_window::fillmode_to_string(FillMode fmode, std::string& str) {
 					(factor & 1) ? " x%d.5" : " x%d", factor / 2);
 		}
 
-		if (fmode & 1) {
+		if ((fmode & 1) != 0) {
 			str = std::string("Aspect Correct Centre")
 				  + std::string(factor_str);
 		} else {
@@ -1327,9 +1333,9 @@ bool Image_window::fillmode_to_string(FillMode fmode, std::string& str) {
 		return true;
 	} else {
 		const int fw = fmode & 0xFFFF;
-		const int fh = (fmode >> 16) & 0xFFFF;
+		const int fh = (static_cast<int>(fmode) >> 16) & 0xFFFF;
 
-		if (!fw || !fh) {
+		if (fw == 0 || fh == 0) {
 			return false;
 		}
 
@@ -1379,3 +1385,18 @@ int Image_window::VideoModeOK(int width, int height) {
 }
 
 SDL_DisplayMode Image_window::desktop_displaymode;
+
+std::string to_string(FillMode type) {
+	std::string ret;
+	Image_window::fillmode_to_string(type, ret);
+	return ret;
+}
+
+FillMode from_string(std::string_view s, FillMode default_value) {
+	ignore_unused_variable_warning(default_value);
+	FillMode fillmode = Image_window::string_to_fillmode(s);
+	if (fillmode == static_cast<FillMode>(0)) {
+		return FillMode::AspectCorrectFit;
+	}
+	return fillmode;
+}

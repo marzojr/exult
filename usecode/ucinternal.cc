@@ -99,8 +99,8 @@ using std::vector;
 
 // External globals..
 
-extern bool intrinsic_trace;
-extern int  usecode_trace;
+extern bool         intrinsic_trace;
+extern UsecodeTrace usecode_trace;
 
 #ifdef USECODE_DEBUGGER
 
@@ -1967,7 +1967,7 @@ int Usecode_internal::run() {
 			}
 
 #ifdef DEBUG
-			if (usecode_trace == 2) {
+			if (usecode_trace == UsecodeTrace::verbose) {
 				uc_trace_disasm(frame);
 			}
 #endif

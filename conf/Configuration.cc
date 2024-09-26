@@ -23,7 +23,6 @@
 #include "Configuration.h"
 
 #include "exceptions.h"
-#include "istring.h"
 #include "utils.h"
 
 #ifndef _WIN32
@@ -32,6 +31,7 @@
 
 #include <cassert>
 #include <charconv>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
@@ -90,6 +90,24 @@ void Configuration::value(
 	}
 }
 
+void Configuration::value(
+		std::string_view key, double& ret, double defaultvalue) const {
+	const XMLnode* sub = xmltree->subtree(key);
+	if (sub != nullptr) {
+		const auto& value = sub->value();
+		const auto* start = value.data();
+		const auto* end   = std::next(start, value.size());
+		auto [p, ec]
+				= std::from_chars(start, end, ret, std::chars_format::fixed);
+		if (ec != std::errc() || p != end || std::isnan(ret)
+			|| std::isinf(ret)) {
+			ret = defaultvalue;
+		}
+	} else {
+		ret = defaultvalue;
+	}
+}
+
 bool Configuration::key_exists(std::string_view key) const {
 	const XMLnode* sub = xmltree->subtree(key);
 	return sub != nullptr;
@@ -110,11 +128,6 @@ void Configuration::set(
 	if (write_out) {
 		write_back();
 	}
-}
-
-void Configuration::set(std::string_view key, int value, bool write_out) {
-	const string v = std::to_string(value);
-	set(key, v, write_out);
 }
 
 void Configuration::remove(std::string_view key, bool write_out) {

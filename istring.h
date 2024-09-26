@@ -37,13 +37,23 @@ namespace Pentagram {
 		return static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
 	}
 
-	inline bool iequals(std::string_view lhs, std::string_view rhs) {
+	constexpr inline bool iequals(std::string_view lhs, std::string_view rhs) {
+#if __cplusplus >= 202002L
 		return std::equal(
 				lhs.begin(), lhs.end(), rhs.begin(), rhs.end(),
 				[](char left, char right) {
 					return Pentagram::toupper(left)
 						   == Pentagram::toupper(right);
 				});
+#else
+		for (auto itl = lhs.begin(), itr = rhs.begin();
+			 itl != lhs.end() && itr != rhs.end(); ++itl, ++itr) {
+			if (Pentagram::toupper(*itl) != Pentagram::toupper(*itr)) {
+				return false;
+			}
+		}
+		return lhs.size() == rhs.size();
+#endif
 	}
 }    // namespace Pentagram
 

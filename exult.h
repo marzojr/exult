@@ -74,8 +74,7 @@ extern void decrease_scaleval();
 extern void setup_video(
 		bool fullscreen, int setup_video_type, int resx = 0, int resy = 0,
 		int gw = 0, int gh = 0, int scaleval = 0, int scaler = 0,
-		Image_window::FillMode fillmode    = Image_window::Fill,
-		int                    fill_scaler = 0);
+		FillMode fillmode = FillMode::Fill, int fill_scaler = 0);
 
 enum setup_video_type {
 	VIDEO_INIT        = 0,    // read and write initial settings and create gwin
