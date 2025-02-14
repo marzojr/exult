@@ -68,8 +68,6 @@ else
 	CXX:=g++
 endif
 
-
-
 ifdef USE_CONSOLE
 	SUBSYSTEM:=-mconsole
 	SYSFLAGS:=-DUSE_CONSOLE
@@ -139,14 +137,28 @@ GIMP3_INSTALLED:=$(shell pkg-config --silence-errors --cflags gimpui-3.0)
 GIMP2_INSTALLED:=$(shell pkg-config --silence-errors --cflags gimpui-2.0)
 ifneq ($(GIMP3_INSTALLED),$())
 PLUGIN_SRC:=u7shp
-GIMP_INCLUDES:=$(shell pkg-config --cflags gimpui-3.0 gtk+-3.0)
+GIMP_INCLUDES:=$(GIMP3_INSTALLED)
 GIMP_LIBS:=$(shell pkg-config --libs gimpui-3.0)
+IS_GIMP3:=1
 else
 ifneq ($(GIMP2_INSTALLED),$())
 PLUGIN_SRC:=u7shp-old
-GIMP_INCLUDES:=$(shell pkg-config --cflags gimpui-2.0 gtk+-2.0)
+GIMP_INCLUDES:=$(GIMP2_INSTALLED)
 GIMP_LIBS:=$(shell pkg-config --libs gimpui-2.0)
+IS_GIMP3:=0
 endif
+endif
+# libgexiv2 is for the Exiv2 metadata library. For some weird dumb reason, it is
+# including libstdc++ symbols at least in MinGW64 with GCC builds. This causes
+# linking errors in the plugin. We should probably file a bug upstream.
+# But in the mean time, we can work around the issue by removing it from the
+# list of libraries we link to, since we don't need any symbols from it.
+GIMP_LIBS:=$(subst -lgexiv2,,$(GIMP_LIBS))
+
+ifeq ($(GCC),g++)
+PLUGIN_NEEDS_LIBS:=$(IS_GIMP3)
+else
+PLUGIN_NEEDS_LIBS:=0
 endif
 
 ### Ogg vorbis inclides
@@ -572,7 +584,7 @@ mapedit/u7shp.o:
 	$(error Neither Gimp 3 nor Gimp 2 is installed, cannot build the Gimp plugin)
 endif
 u7shp$(EXEEXT) : mapedit/u7shp.o $(FILE_OBJS) shapes/vgafile.o imagewin/ibuf8.o imagewin/imagebuf.o
-	$(CXX) $(LDFLAGS) -static-libgcc -static-libstdc++ -o $(@) $+ $(GIMP_LIBS) -mwindows
+	$(CXX) $(LDFLAGS) -o $(@) $+ $(GIMP_LIBS) -mwindows
 
 install: $(EXEC)
 	mkdir -p $(U7PATH)
@@ -751,9 +763,13 @@ plugin: u7shp$(EXEEXT)
 plugininstall: plugin
 	mkdir -p $(GIMPPATH)
 	strip u7shp$(EXEEXT) -o $(GIMPPATH)/u7shp$(EXEEXT)
-	# Note: Gimp has everything a plugin needs already, so we don't
-	# need to ship anything else really.
+	# Note: Gimp has almost everything a plugin needs already, so we don't
+	# need to do this step.
 	#$(call copy_dlls_for_exe, u7shp$(EXEEXT), $(GIMPPATH))
+	# But we do need to do this for Gimp3.
+	if [ $(PLUGIN_NEEDS_LIBS) -ne 0 ]; then \
+		cp $(MSYSTEM_PREFIX)/bin/libgcc_s_seh-1.dll $(MSYSTEM_PREFIX)/libstdc++-6.dll $(GIMPPATH); \
+	fi
 
 plugindist: GIMPPATH:=$(DISTPATH)/GimpPlugin-$(MSYSTEM_CARCH)
 plugindist: plugin plugininstall
