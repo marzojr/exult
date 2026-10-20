@@ -486,9 +486,7 @@ void Uc_infinite_loop_statement::gen(
 			} else {
 				// There may be a label somewhere in the block.
 				if (!nobreak_block->is_empty_block()) {
-					nobreak->warning(
-							Uc_location::Warning::unreachable_code, "Some statements in 'nobreak' block will never "
-																	"execute");
+					nobreak->warning(Uc_location::Warning::unreachable_code, "some statements in 'nobreak' block are unreachable");
 				}
 			}
 		}

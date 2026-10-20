@@ -492,6 +492,87 @@ void example 0x901 () { var callback = &helper; script item call callback; }
         result = self.compile("void example 0x900 () { var x unexpected; }\n")
         self.assert_failed(result, "unexpected identifier 'unexpected'")
 
+    def test_typo_suggestions(self):
+        result = self.compile('void example 0x900 () { var counter; coutner = 1; }\n')
+        self.assert_failed(result, "did you mean 'counter'?")
+        self.assertIn("note: 'counter' declared here", result.stdout)
+        result = self.compile('void calculate 0x900 () {}\nvoid example 0x901 () { calcualte(); }\n')
+        self.assert_failed(result, "did you mean 'calculate'?")
+
+    def test_ambiguous_and_placeholder_names_are_not_suggested(self):
+        for body in ("var cat, cut; cot = 1;", "missng = 1; missing = 1;"):
+            with self.subTest(body=body):
+                result = self.compile('void example 0x900 () { ' + body + ' }\n')
+                self.assert_failed(result, "undeclared identifier")
+                self.assertNotIn("did you mean", result.stdout)
+
+    def test_repeated_nonvariable_use_recovers(self):
+        result = self.compile('const int value = 1;\nvoid example 0x900 () {\n'
+                              + ' var first = value[1];\n var second = value[2];\n}\n')
+        self.assert_failed(result, "'value' is not a variable")
+        self.assertIn("input.uc:4:", result.stdout)
+        self.assertEqual(result.returncode, 1, result.stdout)
+
+    def test_return_conflict_avoids_secondary_return_errors(self):
+        result = self.compile('extern void helper 0x900 ();\nvar helper 0x900 () { return 1; }\n')
+        self.assert_failed(result, "conflicting return type")
+        self.assertEqual(result.stdout.count("error:"), 1, result.stdout)
+
+    def test_file_io_errors(self):
+        result = self.run_ucc("-c", "never", "-o", str(self.output), "missing.uc")
+        self.assert_failed(result, "error: cannot open input file 'missing.uc'")
+        source = self.directory / "input.uc"
+        source.write_text("void example 0x900 () {}\n", encoding="ascii")
+        result = self.run_ucc("-c", "never", "-o", str(self.directory / "missing" / "output.uco"), str(source))
+        self.assert_failed(result, "error: cannot open output file")
+
+    def test_default_output_in_directory_with_dots(self):
+        directory = self.directory / "directory.with.dots"
+        directory.mkdir()
+        source = directory / "source"
+        source.write_text("void example 0x900 () {}\n", encoding="ascii")
+        result = self.run_ucc("-c", "never", str(source))
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertTrue((directory / "source.uco").exists())
+
+    def test_invalid_color_mode(self):
+        self.assert_failed(self.run_ucc("-c", "sometimes"), "error: invalid color mode 'sometimes'")
+
+    def test_unknown_long_option_spelling(self):
+        self.assert_failed(self.run_ucc("--unknown-option"), "unknown option '--unknown-option'")
+
+    def test_string_prefix_diagnostics(self):
+        result = self.compile('void example 0x900 () { say("missing"*); }\n')
+        self.assert_failed(result, "string prefix 'missing' matches no string")
+        result = self.compile('void example 0x900 () {\n say("text one", "text two");\n say("text"*);\n}\n')
+        self.assert_failed(result, "string prefix 'text' is ambiguous")
+        self.assertEqual(result.stdout.count("candidate string starts here"), 2, result.stdout)
+
+    def test_include_diagnostic_uses_resolved_path(self):
+        include = self.directory / "includes"
+        include.mkdir()
+        (include / "helper.uc").write_text("void helper 0x901 () { var broken = ; }\n", encoding="ascii")
+        result = self.compile('#include "helper.uc"\n', "-I", str(include))
+        self.assert_failed(result, "helper.uc:1:")
+        self.assertIn(str(include / "helper.uc").replace("\\", "/") + ":1:", result.stdout.replace("\\", "/"))
+
+    def test_nul_in_directive_is_diagnosed(self):
+        result = self.compile('#unknown\x00ignored\nvoid example 0x900 () { var broken = ; }\n')
+        self.assert_failed(result, "NUL byte in directive")
+        self.assertIn("input.uc:2:", result.stdout)
+
+    def test_nul_in_string_recovers(self):
+        result = self.compile('void example 0x900 () { say("text\x00continued");\n var broken = ; }\n')
+        self.assert_failed(result, "NUL byte in string literal")
+        self.assertIn("input.uc:2:", result.stdout)
+
+    def test_nonascii_escape_diagnostic_is_printable(self):
+        source = self.directory / "input.uc"
+        source.write_bytes(b'void example 0x900 () { say("\\\xff"); }\n')
+        result = self.run_ucc("-c", "never", "-o", str(self.output), str(source))
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn(r"unknown escape sequence '\xFF'", result.stdout)
+
     def test_malformed_token_corpus_does_not_crash_or_hang(self):
         source = '''#game "blackgate"
 #autonumber 0x900
