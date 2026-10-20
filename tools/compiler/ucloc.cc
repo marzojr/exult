@@ -32,7 +32,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include <cstdarg>
 #include <cstring>
+#include <fstream>
 #include <iostream>
+#include <map>
 #include <string_view>
 
 using std::cout;
@@ -45,6 +47,10 @@ std::vector<char*> Uc_location::source_names;
 
 char* Uc_location::cur_source    = nullptr;
 int   Uc_location::cur_line      = 0;
+int   Uc_location::cur_column    = 1;
+int   Uc_location::cur_length    = 1;
+int   Uc_location::next_line     = 0;
+int   Uc_location::next_column   = 1;
 int   Uc_location::num_errors    = 0;
 bool  Uc_location::strict_mode   = false;
 bool  Uc_location::color_output  = false;
@@ -56,9 +62,11 @@ bool  Uc_location::shapefun_warn = true;
  *  Set current source and line #.
  */
 
-void Uc_location::set_cur(const char* s, int l) {
-	cur_line   = l;
-	cur_source = nullptr;    // See if already here.
+void Uc_location::set_cur(const char* s, int l, int c) {
+	cur_line = next_line = l;
+	cur_column = next_column = c;
+	cur_length               = 1;
+	cur_source               = nullptr;    // See if already here.
 	for (auto* name : source_names) {
 		if (strcmp(s, name) == 0) {
 			cur_source = name;
@@ -73,7 +81,59 @@ void Uc_location::set_cur(const char* s, int l) {
 	}
 }
 
-void Uc_location::assemble_message(const char* msg, const char* source_file, int line_num, bool is_error) {
+namespace {
+	std::map<std::string, std::vector<std::string>> source_lines;
+}
+
+void Uc_location::register_source(const char* name, const char* path) {
+	if (source_lines.find(name) != source_lines.end()) {
+		return;
+	}
+	std::ifstream input(path);
+	if (!input) {
+		return;
+	}
+	auto&       lines = source_lines[name];
+	std::string text;
+	while (std::getline(input, text)) {
+		if (!text.empty() && text.back() == '\r') {
+			text.pop_back();
+		}
+		lines.push_back(text);
+	}
+}
+
+void Uc_location::advance(const char* text, int size) {
+	cur_line        = next_line;
+	cur_column      = next_column;
+	cur_length      = 0;
+	bool first_line = true;
+	for (int i = 0; i < size; ++i) {
+		if (text[i] == '\n') {
+			++next_line;
+			next_column = 1;
+			first_line  = false;
+		} else {
+			++next_column;
+			if (first_line) {
+				++cur_length;
+			}
+		}
+	}
+}
+
+Uc_location Uc_location::next_location() {
+	Uc_location loc;
+	loc.line   = next_line;
+	loc.column = next_column;
+	loc.length = 1;
+	return loc;
+}
+
+void Uc_location::assemble_message(const char* msg, const char* source_file, int line_num, int column, int length, bool is_error) {
+	if (!source_file) {
+		source_file = "<unknown>";
+	}
 	// For colorization.
 	constexpr static const std::string_view error_prefix   = "\033[1;31merror:\033[0m ";
 	constexpr static const std::string_view warning_prefix = "\033[1;35mwarning:\033[0m ";
@@ -81,7 +141,8 @@ void Uc_location::assemble_message(const char* msg, const char* source_file, int
 	constexpr static const std::string_view line_prefix    = "\033[1;34m";
 	constexpr static const std::string_view reset_style    = "\033[0m";
 	if (color_output) {
-		cout << source_prefix << source_file << ":" << reset_style << line_prefix << line_num << ": " << reset_style;
+		cout << source_prefix << source_file << ":" << reset_style << line_prefix << line_num << ":" << column << ": "
+			 << reset_style;
 		if (is_error) {
 			cout << error_prefix;
 		} else {
@@ -89,7 +150,7 @@ void Uc_location::assemble_message(const char* msg, const char* source_file, int
 		}
 		cout << msg << reset_style << endl;
 	} else {
-		cout << source_file << ':' << line_num << ": ";
+		cout << source_file << ':' << line_num << ':' << column << ": ";
 		if (is_error) {
 			cout << "error: ";
 		} else {
@@ -97,6 +158,41 @@ void Uc_location::assemble_message(const char* msg, const char* source_file, int
 		}
 		cout << msg << endl;
 	}
+	const auto file = source_lines.find(source_file ? source_file : "");
+	if (file == source_lines.end() || line_num < 1 || static_cast<size_t>(line_num) > file->second.size()) {
+		return;
+	}
+	const auto& text = file->second[line_num - 1];
+	// Expand tabs consistently in both the source line and the underline.
+	std::string expanded;
+	std::string marker;
+	for (size_t i = 0; i < text.size(); ++i) {
+		const size_t width = text[i] == '\t' ? 8 - expanded.size() % 8 : 1;
+		expanded.append(width, text[i] == '\t' ? ' ' : text[i]);
+		if (i < static_cast<size_t>(column - 1)) {
+			marker.append(width, ' ');
+		} else if (i < static_cast<size_t>(column - 1 + length)) {
+			if (i == static_cast<size_t>(column - 1)) {
+				marker += '^';
+				marker.append(width - 1, '~');
+			} else {
+				marker.append(width, '~');
+			}
+		}
+	}
+	if (static_cast<size_t>(column - 1) >= text.size()) {
+		marker.append(static_cast<size_t>(column - 1) - text.size(), ' ');
+		marker += '^';
+	}
+	cout << "  " << expanded << '\n';
+	if (color_output) {
+		cout << "\033[1;32m";
+	}
+	cout << "  " << marker;
+	if (color_output) {
+		cout << reset_style;
+	}
+	cout << endl;
 }
 
 /*
@@ -105,7 +201,7 @@ void Uc_location::assemble_message(const char* msg, const char* source_file, int
 
 void Uc_location::yyerror(preformatted_t tag, const char* s) {
 	ignore_unused_variable_warning(tag);
-	assemble_message(s, cur_source, cur_line + 1, true);
+	assemble_message(s, cur_source, cur_line + 1, cur_column, cur_length, true);
 	num_errors++;
 }
 
@@ -115,7 +211,7 @@ void Uc_location::yyerror(preformatted_t tag, const char* s) {
 
 void Uc_location::yywarning(preformatted_t tag, const char* s) {
 	ignore_unused_variable_warning(tag);
-	assemble_message(s, cur_source, cur_line + 1, false);
+	assemble_message(s, cur_source, cur_line + 1, cur_column, cur_length, false);
 }
 
 constexpr const size_t BufferSize = 2048;
@@ -129,7 +225,7 @@ void Uc_location::error(const char* format, ...) {
 	va_start(args, format);
 	char s[BufferSize + 1]{};
 	vsnprintf(s, BufferSize, format, args);
-	assemble_message(s, source, line + 1, true);
+	assemble_message(s, source, line + 1, column, length, true);
 	va_end(args);
 	num_errors++;
 }
@@ -143,7 +239,7 @@ void Uc_location::warning(const char* format, ...) {
 	va_start(args, format);
 	char s[BufferSize + 1]{};
 	vsnprintf(s, BufferSize, format, args);
-	assemble_message(s, source, line + 1, false);
+	assemble_message(s, source, line + 1, column, length, false);
 	va_end(args);
 }
 
@@ -156,7 +252,7 @@ void Uc_location::yyerror(const char* format, ...) {
 	va_start(args, format);
 	char s[BufferSize + 1]{};
 	vsnprintf(s, BufferSize, format, args);
-	assemble_message(s, cur_source, cur_line + 1, true);
+	assemble_message(s, cur_source, cur_line + 1, cur_column, cur_length, true);
 	va_end(args);
 	num_errors++;
 }
@@ -170,7 +266,7 @@ void Uc_location::yywarning(const char* format, ...) {
 	va_start(args, format);
 	char s[BufferSize + 1]{};
 	vsnprintf(s, BufferSize, format, args);
-	assemble_message(s, cur_source, cur_line + 1, false);
+	assemble_message(s, cur_source, cur_line + 1, cur_column, cur_length, false);
 	va_end(args);
 }
 
@@ -182,7 +278,7 @@ void Uc_location::error(std::string& buffer, const char* format, ...) {
 	va_list args;
 	va_start(args, format);
 	vsnprintf(buffer.data(), buffer.length(), format, args);
-	assemble_message(buffer.c_str(), source, line + 1, true);
+	assemble_message(buffer.c_str(), source, line + 1, column, length, true);
 	va_end(args);
 	num_errors++;
 }
@@ -195,7 +291,7 @@ void Uc_location::warning(std::string& buffer, const char* format, ...) {
 	va_list args;
 	va_start(args, format);
 	vsnprintf(buffer.data(), buffer.length(), format, args);
-	assemble_message(buffer.c_str(), source, line + 1, false);
+	assemble_message(buffer.c_str(), source, line + 1, column, length, false);
 	va_end(args);
 }
 
@@ -207,7 +303,7 @@ void Uc_location::yyerror(std::string& buffer, const char* format, ...) {
 	va_list args;
 	va_start(args, format);
 	vsnprintf(buffer.data(), buffer.length(), format, args);
-	assemble_message(buffer.c_str(), cur_source, cur_line + 1, true);
+	assemble_message(buffer.c_str(), cur_source, cur_line + 1, cur_column, cur_length, true);
 	va_end(args);
 	num_errors++;
 }
@@ -220,6 +316,6 @@ void Uc_location::yywarning(std::string& buffer, const char* format, ...) {
 	va_list args;
 	va_start(args, format);
 	vsnprintf(buffer.data(), buffer.length(), format, args);
-	assemble_message(buffer.c_str(), cur_source, cur_line + 1, false);
+	assemble_message(buffer.c_str(), cur_source, cur_line + 1, cur_column, cur_length, false);
 	va_end(args);
 }

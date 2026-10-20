@@ -49,6 +49,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #pragma GCC diagnostic pop
 #endif    // __GNUC__
 
+#define YY_USER_ACTION Uc_location::advance(yytext, yyleng);
+
 using std::string;
 
 extern std::vector<char*> include_dirs;    // -I directories.
@@ -129,8 +131,9 @@ static void Include(char* yytext    // ->text containing name.
 	if (it != inclfiles.end()) {
 		return;
 	}
-	locstack.push_back(new Uc_location());
+	locstack.push_back(new Uc_location(Uc_location::next_location()));
 	bufstack.push_back(YY_CURRENT_BUFFER);
+	string source_path(name);
 	yyin = fopen(name, "r");
 	// Look in -I list if not found here.
 	if (yyin == nullptr) {
@@ -140,6 +143,7 @@ static void Include(char* yytext    // ->text containing name.
 			path += name;
 			yyin = fopen(path.c_str(), "r");
 			if (yyin != nullptr) {
+				source_path = path;
 				break;
 			}
 		}
@@ -151,6 +155,7 @@ static void Include(char* yytext    // ->text containing name.
 	}
 	// Add file to list of included files.
 	inclfiles.insert(name);
+	Uc_location::register_source(name, source_path.c_str());
 	// Set location to new file.
 	Uc_location::set_cur(name, 0);
 	yy_switch_to_buffer(yy_create_buffer(yyin, YY_BUF_SIZE));
@@ -563,27 +568,21 @@ sonic_damage	return SONIC_DAMAGE;
 
 "#"[ \t]+[0-9]+[ \t]+\"[^"]*\".*\n	{
 			Set_location(yytext + 2);
-			Uc_location::increment_cur_line();
 		}
 "#line"[ \t]+[0-9]+[ \t]+\"[^"]*\".*\n	{
 			Set_location(yytext + 6);
-			Uc_location::increment_cur_line();
 		}
 "#include"[ \t]+.*\n		{
-			Uc_location::increment_cur_line();
 			Include(yytext + 8);
 		}
 "#game"[ \t]+.*\n		{
 			Set_game(yytext + 5);
-			Uc_location::increment_cur_line();
 		}
 "#autonumber"[ \t]+"0x"[0-9a-fA-F]+.*\n	{
 			Set_autonum(yytext + 11);
-			Uc_location::increment_cur_line();
 		}
 "#strictbraces"[ \t]+.*\n		{
 			Set_strict_mode(yytext + 13);
-			Uc_location::increment_cur_line();
 		}
 
 \#[^\n]*	{
@@ -593,35 +592,36 @@ sonic_damage	return SONIC_DAMAGE;
 		}
 \#[^\n]*\n	{
 			Uc_location::yywarning("Unknown directive is being ignored");
-			Uc_location::increment_cur_line();
 		}
 
 [ \t\r]+					/* Ignore spaces. */
 "//"[^\n]*					/* Comments. */
-"//"[^\n]*\n	Uc_location::increment_cur_line();
+"//"[^\n]*\n		/* Comments, including newline. */
 "/*"			yy_push_state(comment);
 
 <comment>{control_chars}	{ assert_ascii_clean(yytext); }
 <comment>[^*\n\x00]*				/* All but '*'. */
-<comment>[^*\n\x00]*\n			Uc_location::increment_cur_line();
+<comment>[^*\n\x00]*\n			/* Comment line. */
 <comment>"*"+[^*/\n\x00]*			/* *'s not followed by '/'. */
-<comment>"*"+[^*/\n\x00]*\n		Uc_location::increment_cur_line();
+<comment>"*"+[^*/\n\x00]*\n		/* Comment line. */
 <comment>"*"+"/"			yy_pop_state();
 <comment><<EOF>>			{
 			Uc_location::yyerror("Comment not terminated");
 			yyterminate();
 		}
-\n			Uc_location::increment_cur_line();
+\n			/* Newline. */
 .			return *yytext;		/* Being lazy. */
 <<EOF>>			{
 			if (locstack.empty()) {
+				auto loc = Uc_location::next_location();
+				Uc_location::set_cur(loc.get_source(), loc.get_line(), loc.get_column());
 				yyterminate();
 			} else {
 				// Restore buffer and location.
 				Uc_location* loc = locstack.back();
 				locstack.pop_back();
 				const char* nm = loc->get_source();
-				Uc_location::set_cur(nm, loc->get_line());
+				Uc_location::set_cur(nm, loc->get_line(), loc->get_column());
 				delete loc;
 				// Close currently opened file.
 				if (yyin && yyin != stdin && bufstack.size()) {
