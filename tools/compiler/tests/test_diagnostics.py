@@ -189,6 +189,61 @@ void following_function 0x901 () { var another = ; }
         result = self.compile('#game "blackgate"\nvoid example 0x900 (callback) { var value = (*callback)(); }\n')
         self.assertEqual(result.returncode, 0, result.stdout)
 
+    def test_global_declaration_recovery(self):
+        for invalid in (
+            "const long broken = ;", "enum Broken { value = };",
+            "extern var broken (;", "void broken (;", "void broken ( { }",
+            "static class<Unknown> broken;", "@ invalid tokens;",
+        ):
+            with self.subTest(invalid=invalid):
+                result = self.compile('#game "blackgate"\n' + invalid
+                                      + '\nvoid following 0x900 () { var value = ; }\n')
+                self.assert_failed(result, "error:")
+                self.assertIn("input.uc:3:", result.stdout)
+                self.assertEqual(result.returncode, 1, result.stdout)
+
+    def test_member_declaration_recovery(self):
+        source = '''#game "blackgate"
+class Widget {
+ var broken = ;
+ void method(;
+ var following;
+ void valid() { var broken = ; }
+}
+struct Record {
+ var ;
+ @ invalid tokens;
+ var field;
+}
+void following 0x900 () { var broken = ; }
+'''
+        result = self.compile(source)
+        self.assert_failed(result, "error:")
+        for line in (3, 4, 6, 9, 10, 13):
+            self.assertIn("input.uc:%d:" % line, result.stdout)
+        self.assertEqual(result.returncode, 1, result.stdout)
+
+    def test_member_closing_brace_recovery(self):
+        result = self.compile('class Widget { var broken = }\nstruct Record { var }\n'
+                              + 'void following 0x900 () { var broken = ; }\n')
+        self.assert_failed(result, "error:")
+        self.assertIn("input.uc:2:", result.stdout)
+        self.assertIn("input.uc:3:", result.stdout)
+
+    def test_missing_declaration_semicolon_preserves_next_declaration(self):
+        for declaration in ("const long value = 1", "extern void helper 0x901 ()", "static var value"):
+            with self.subTest(declaration=declaration):
+                result = self.compile(declaration + '\nvoid following 0x900 () { var broken = ; }\n')
+                self.assert_failed(result, "error:")
+                self.assertEqual(result.stdout.count("error:"), 2, result.stdout)
+
+    def test_missing_local_semicolon_recovers_at_next_delimiter(self):
+        result = self.compile("void example 0x900 () {\n var value = 1\n var following = ;\n}\n"
+                              + "void following 0x901 () { var broken = ; }\n")
+        self.assert_failed(result, "error:")
+        self.assertEqual(result.stdout.count("error:"), 2, result.stdout)
+        self.assertIn("input.uc:5:", result.stdout)
+
     def test_codegen_location_and_no_output(self):
         result = self.compile('void helper 0x900 () {}\nvoid example 0x901 () {\n var value = helper();\n}\n')
         self.assert_failed(result, "input.uc:3:14: error: Function 'helper' does not have a return value")

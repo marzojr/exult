@@ -95,6 +95,21 @@ static int converse = 0;    // If we are in a converse block.
 
 extern std::vector<int> save_lex_state();
 extern void restore_lex_state(const std::vector<int>&);
+extern void reset_lex_state();
+
+static void Reset_declaration_context(Uc_class* cls = nullptr, Uc_struct_symbol* structure = nullptr) {
+	cur_fun = nullptr;
+	cur_class = cls;
+	cur_struct = structure;
+	class_type = nullptr;
+	struct_type = nullptr;
+	has_ret = is_extern = false;
+	enum_val = -1;
+	repeat_nesting = converse = 0;
+	const_opcode.clear();
+	nested_if.clear();
+	reset_lex_state();
+}
 
 // Each statement list is a recovery boundary. Save the enclosing context so
 // that discarding a partial statement also discards its unfinished scopes,
@@ -496,6 +511,15 @@ global_decl:
 	| static_decl
 	| class_definition
 	| struct_definition
+	| global_recovery ';'
+		{ yyerrok; }
+	| global_recovery '}'
+		{ yyerrok; }
+	;
+
+global_recovery:
+	error
+		{ Reset_declaration_context(); }
 	;
 
 class_definition:
@@ -509,13 +533,24 @@ class_definition:
 		}
 		units.push_back(cur_class);
 		}
-		'{' class_item_list '}'
+		class_body
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
 		// Add to 'globals' symbol table.
 		Uc_class_symbol::create($2, cur_class);
 		cur_class = nullptr;
 		}
+	;
+
+class_body:
+	'{' class_item_list '}'
+	| '{' class_item_list class_recovery '}'
+		{ yyerrok; }
+	;
+
+class_recovery:
+	error
+		{ Reset_declaration_context(cur_class); }
 	;
 
 opt_inheritance:
@@ -548,15 +583,17 @@ class_item:
 	| CLASS '<' defined_class '>' { class_type = $3; } method
 		{ class_type = nullptr; }
 	| opt_void method
+	| class_recovery ';'
+		{ yyerrok; }
 	;
 
 class_var_def:
-	var_decl_list ';'
+	var_decl_list declaration_end
 	| method
 	;
 
 class_struct_def:
-	struct_decl_list ';'
+	struct_decl_list declaration_end
 	| method
 	;
 
@@ -598,12 +635,23 @@ struct_definition:
 		cur_struct = new Uc_struct_symbol($2);
 		Uc_function::add_global_struct_symbol(cur_struct);
 		}
-		'{' struct_item_list '}'
+		struct_body
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
 		// Add to 'globals' symbol table.
 		cur_struct = nullptr;
 		}
+	;
+
+struct_body:
+	'{' struct_item_list '}'
+	| '{' struct_item_list struct_recovery '}'
+		{ yyerrok; }
+	;
+
+struct_recovery:
+	error
+		{ Reset_declaration_context(nullptr, cur_struct); }
 	;
 
 struct_item_list:
@@ -612,21 +660,23 @@ struct_item_list:
 	;
 
 struct_item:
-	VAR IDENTIFIER ';'
+	VAR IDENTIFIER declaration_end
 		{
 		Uc_location::Context diagnostic_context(@2.loc());
 		cur_struct->add($2);
 		}
-	| STRUCT '<' defined_struct '>' ';'
+	| STRUCT '<' defined_struct '>' declaration_end
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
 		cur_struct->merge_struct($3);
 		}
-	| STRUCT '<' defined_struct '>' IDENTIFIER ';'
+	| STRUCT '<' defined_struct '>' IDENTIFIER declaration_end
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
 		cur_struct->merge_struct($3);
 		}
+	| struct_recovery ';'
+		{ yyerrok; }
 	;
 
 function:
@@ -1006,7 +1056,7 @@ alias_tok:
 	;
 
 stmt_declaration:
-	DECLARE_ VAR IDENTIFIER ';'
+	DECLARE_ VAR IDENTIFIER declaration_end
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
 		if (cur_fun) {
@@ -1016,7 +1066,7 @@ stmt_declaration:
 		}
 		$$ = nullptr;
 		}
-	| DECLARE_ STRUCT '<' defined_struct '>' { struct_type = $4; } IDENTIFIER ';'
+	| DECLARE_ STRUCT '<' defined_struct '>' { struct_type = $4; } IDENTIFIER declaration_end
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
 		if (cur_fun) {
@@ -1027,7 +1077,7 @@ stmt_declaration:
 		struct_type = nullptr;
 		$$          = nullptr;
 		}
-	| DECLARE_ CLASS '<' defined_class '>' { class_type = $4; } IDENTIFIER ';'
+	| DECLARE_ CLASS '<' defined_class '>' { class_type = $4; } IDENTIFIER declaration_end
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
 		if (class_type && cur_fun) {
@@ -1038,23 +1088,23 @@ stmt_declaration:
 		class_type = nullptr;
 		$$         = nullptr;
 		}
-	| VAR var_decl_list ';'
+	| VAR var_decl_list declaration_end
 		{ $$ = $2; }
-	| VAR alias_tok IDENTIFIER '=' declared_var ';'
+	| VAR alias_tok IDENTIFIER '=' declared_var declaration_end
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
 		cur_fun->add_alias($3, $5); $$ = nullptr;
 		}
-	| STRUCT '<' defined_struct '>' { struct_type = $3; } struct_decl_list ';'
+	| STRUCT '<' defined_struct '>' { struct_type = $3; } struct_decl_list declaration_end
 		{ struct_type = nullptr; $$ = $6; }
-	| STRUCT '<' defined_struct '>' alias_tok IDENTIFIER '=' declared_var ';'
+	| STRUCT '<' defined_struct '>' alias_tok IDENTIFIER '=' declared_var declaration_end
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
 		cur_fun->add_alias($6, $8, $3); $$ = nullptr;
 		}
-	| CLASS '<' defined_class '>' { class_type = $3; } class_decl_list ';'
+	| CLASS '<' defined_class '>' { class_type = $3; } class_decl_list declaration_end
 		{ class_type = nullptr; $$ = $6; }
-	| CLASS '<' defined_class '>' alias_tok IDENTIFIER '=' declared_var ';'
+	| CLASS '<' defined_class '>' alias_tok IDENTIFIER '=' declared_var declaration_end
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
 		if (!$8->get_cls()) {
@@ -1065,7 +1115,7 @@ stmt_declaration:
 		}
 		$$ = nullptr;
 		}
-	| STRING string_decl_list opt_comma ';'
+	| STRING string_decl_list opt_comma declaration_end
 		{ $$ = nullptr; }
 	| const_int_decl
 		{ $$ = nullptr; }
@@ -1114,7 +1164,7 @@ opt_comma:
 
 enum_decl:				/* Decls. the elems, not the enum. */
 	ENUM IDENTIFIER { enum_val = -1; }
-			opt_enum_type '{' enum_item_list opt_comma '}' ';'
+			opt_enum_type '{' enum_item_list opt_comma '}' declaration_end
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
 		const_opcode.pop_back();
@@ -1172,7 +1222,7 @@ const_int_decl:
 		Uc_location::Context diagnostic_context(@$.loc());
 		const_opcode.push_back(static_cast<UsecodeOps>($2));
 		}
-		const_int_decl_list opt_comma ';'
+		const_int_decl_list opt_comma declaration_end
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
 		const_opcode.pop_back();
@@ -1390,14 +1440,14 @@ class_expr:
 	;
 
 static_decl:
-	STATIC_ VAR static_var_decl_list ';'
+	STATIC_ VAR static_var_decl_list declaration_end
 	| STATIC_ STRUCT '<' defined_struct '>'
 		{ struct_type = $4; }
-		static_struct_var_decl_list ';'
+		static_struct_var_decl_list declaration_end
 		{ struct_type = nullptr; }
 	| STATIC_ CLASS '<' defined_class '>'
 		{ class_type = $4; }
-		static_cls_decl_list ';'
+		static_cls_decl_list declaration_end
 		{ class_type = nullptr; }
 	;
 
@@ -1499,8 +1549,16 @@ string_decl:
 		}
 	;
 
+// Only use this after a complete declaration; an error-only empty statement
+// would accept the same bad lookahead repeatedly without consuming input.
+declaration_end:
+	';'
+	| error
+		{ yyerrok; }
+	;
+
 function_decl:
-	EXTERN { is_extern = true; } function_proto ';'
+	EXTERN { is_extern = true; } function_proto declaration_end
 		{ $$ = $3; is_extern = false; }
 	;
 
