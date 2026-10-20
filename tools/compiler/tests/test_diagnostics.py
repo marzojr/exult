@@ -84,6 +84,70 @@ class Diagnostics(unittest.TestCase):
         result = self.compile('#line 42 "generated.uc"\nvoid example 0x900 () { var value = ; }\n')
         self.assert_failed(result, "generated.uc:42:37: error:")
 
+    def test_recover_at_semicolon(self):
+        result = self.compile("void example 0x900 () {\n var a = ;\n var b = ;\n missing = 1;\n}\n")
+        self.assert_failed(result, "input.uc:2:10: error:")
+        self.assertIn("input.uc:3:10: error:", result.stdout)
+        self.assertIn("'missing' not declared", result.stdout)
+        self.assertEqual(result.stdout.count("error:"), 3, result.stdout)
+
+    def test_recover_at_closing_brace(self):
+        result = self.compile("void first 0x900 () { var a = }\nvoid second 0x901 () { var b = ; }\n")
+        self.assert_failed(result, "unexpected '}'")
+        self.assertIn("input.uc:2:", result.stdout)
+        self.assertEqual(result.stdout.count("error:"), 2, result.stdout)
+
+    def test_recovery_contexts(self):
+        for malformed in (
+            "const long value = ;",  # Constant operand width stack.
+            "extern var helper (;",  # Function ID lexer mode and return type.
+            "while (true) var value = ;",  # Implicit scope and loop mode.
+            "for (value in ;",  # Array loop scope.
+            "if (true) var value = ;",  # Implicit scope and nested-if tracking.
+            "script item repeat 2 repeat 3 call ;",  # Script mode and repeat nesting.
+            "var value = new script call ;",  # Script mode within an expression.
+            "switch ( ;",  # Switch scope before its case list starts.
+            "class<Widget> broken = ;",  # Class declaration type.
+            "struct<Record> broken = ;",  # Struct declaration type.
+        ):
+            with self.subTest(malformed=malformed):
+                result = self.compile(
+                    '#game "blackgate"\nclass Widget {} struct Record { var field; } '
+                    + 'void example 0x900 () {\n ' + malformed
+                    + '\n var repeat = 1;\n break;\n continue;\n'
+                    + ' var choice = user_choice;\n var following = ;\n}\n'
+                    + 'void following_function 0x901 () { var another = ; }\n'
+                )
+                self.assert_failed(result, "syntax error")
+                self.assertIn("'break' statement not allowed", result.stdout)
+                self.assertIn("'continue' statement not allowed", result.stdout)
+                self.assertIn("'CHOICE' can only be used", result.stdout)
+                self.assertIn("input.uc:8:", result.stdout)
+                self.assertIn("input.uc:10:", result.stdout)
+                self.assertNotIn("'repeat' not declared", result.stdout)
+
+    def test_recover_inside_scopes(self):
+        source = '''#game "blackgate"
+void example 0x900 () {
+ var outer = 1;
+ while (outer) {
+  var value = ;
+  break;
+ }
+ try { var value = ; } catch (exception) { var value = ; }
+ switch (outer) { case 1: var value = ; break; default: break; }
+ converse (0) { case "topic": var value = ; break; }
+ outer = 2;
+ break;
+}
+void following_function 0x901 () { var another = ; }
+'''
+        result = self.compile(source)
+        self.assert_failed(result, "syntax error")
+        self.assertEqual(result.stdout.count("syntax error"), 6, result.stdout)
+        self.assertEqual(result.stdout.count("'break' statement not allowed"), 1, result.stdout)
+        self.assertNotIn("'outer' not declared", result.stdout)
+
     def test_forced_color(self):
         for source in ("void example 0x900 () {}\n", "void\n"):
             with self.subTest(source=source):
