@@ -664,8 +664,8 @@ int Uc_call_expression::is_object_function(bool error) const {
 		// Let's say it is, but issue a warning.
 		if (error && Uc_location::get_shapefun_warn()) {
 			Uc_location::warning(
-					"Shape # is equal to fun. ID only for shapes < 0x400; use "
-					"UI_get_usecode_fun instead");
+					Uc_location::Warning::shape_to_function, "a shape number is a function ID only below 0x400; use "
+															 "UI_get_usecode_fun instead");
 		}
 		return -2;
 	}
@@ -784,7 +784,9 @@ Uc_new_expression::Uc_new_expression(Uc_var_symbol* v, Uc_array_expression* p) :
 	const int pushed_parms = parms->get_exprs().size();
 	if (cls->get_num_vars() > pushed_parms) {
 		const int missing = cls->get_num_vars() - pushed_parms;
-		warning("%d argument%s missing in constructor of class '%s'", missing, (missing > 1) ? "s" : "", cls->get_name());
+		warning(Uc_location::Warning::constructor_arguments,
+				"%d constructor argument%s missing for class '%s'; initializing remaining members to zero", missing,
+				(missing > 1) ? "s" : "", cls->get_name());
 	} else if (cls->get_num_vars() < pushed_parms) {
 		error("Too many arguments in constructor of class '%s'", cls->get_name());
 	}

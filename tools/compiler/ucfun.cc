@@ -863,8 +863,7 @@ constexpr const std::array sibeta_intrinsic_table{
 
 void Uc_function::set_intrinsics() {
 	if (intrinsic_type == unset) {
-		Uc_location::yywarning(
-				"Use '#game \"[blackgate|serpentisle|serpentbeta]\" to specify intrinsics to use (default = blackgate).");
+		Uc_location::yywarning(Uc_location::Warning::missing_game, "no #game directive specified; assuming 'blackgate'");
 		intrinsic_type = bg;
 	}
 	tcb::span<const std::string_view> table;

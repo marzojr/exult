@@ -47,7 +47,6 @@ using std::string_view;
 using std::vector;
 
 void                        yyerror(const char*);
-void                        yywarning(const char*);
 extern int                  yylex();
 extern void                 start_script();
 extern void                 end_script();
@@ -1698,12 +1697,12 @@ if_statement:
 		if ($3->eval_const(val)) {
 			if (val) {
 				if (dynamic_cast<Uc_bool_expression*>($3) == nullptr) {
-					$3->warning("'if' clause will always be executed");
+					$3->warning(Uc_location::Warning::constant_condition, "'if' condition is always true");
 				}
 				$$ = $5;
 			} else {    // Need this because of those pesky GOTOs...
 				if (dynamic_cast<Uc_bool_expression*>($3) == nullptr) {
-					$3->warning("'if' clause may never execute");
+					$3->warning(Uc_location::Warning::constant_condition, "'if' condition is always false");
 				}
 				$$ = new Uc_if_statement(nullptr, $5, nullptr);
 			}
@@ -1724,14 +1723,14 @@ if_statement:
 			if (val) {
 				// Need this because of those pesky GOTOs...
 				if (dynamic_cast<Uc_bool_expression*>($3) == nullptr) {
-					$3->warning("'else' clause may never execute");
+					$3->warning(Uc_location::Warning::constant_condition, "'else' branch is unreachable because the condition is always true");
 				}
 				$$ = new Uc_if_statement(
 						new Uc_int_expression(val != 0), $5, $8);
 			} else {
 				// Need this because of those pesky GOTOs...
 				if (dynamic_cast<Uc_bool_expression*>($3) == nullptr) {
-					$3->warning("'if' clause may never execute");
+					$3->warning(Uc_location::Warning::constant_condition, "'if' condition is always false");
 				}
 				$$ = new Uc_if_statement(nullptr, $5, $8);
 			}
@@ -1820,12 +1819,12 @@ while_statement:
 		if ($3->eval_const(val)) {
 			if (val) {
 				if (dynamic_cast<Uc_bool_expression*>($3) == nullptr) {
-					$3->warning("Infinite loop detected");
+					$3->warning(Uc_location::Warning::constant_condition, "loop condition is always true");
 				}
 				$$ = new Uc_infinite_loop_statement($6, $8);
 			} else {    // Need 'may' because of those pesky GOTOs...
 				if (dynamic_cast<Uc_bool_expression*>($3) == nullptr) {
-					$3->warning("Body of 'while' statement may never execute");
+					$3->warning(Uc_location::Warning::constant_condition, "'while' condition is always false");
 				}
 				$$ = new Uc_while_statement(nullptr, $6, $8);
 			}
@@ -1858,7 +1857,7 @@ while_statement:
 		if ($6->eval_const(val)) {
 			if (val) {
 				if (dynamic_cast<Uc_bool_expression*>($6) == nullptr) {
-					$6->warning("Infinite loop detected");
+					$6->warning(Uc_location::Warning::constant_condition, "loop condition is always true");
 				}
 				$$ = new Uc_infinite_loop_statement($3, $9);
 			} else    // Optimize loop away.
@@ -2707,9 +2706,9 @@ start_call:
 			// May generate errors.
 			if ($2->is_object_function() == -1 && Uc_location::get_shapefun_warn()) {
 				// Don't know.
-				Uc_location::yywarning(
+				Uc_location::yywarning(Uc_location::Warning::shape_to_function,
 						"Please ensure that 'call' uses a function declared "
-						"with 'shape#' or 'object#' [-Wshape-to-function]");
+						"with 'shape#' or 'object#'");
 			}
 			$$ = $2;
 		}
@@ -2883,7 +2882,7 @@ goto_statement:
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
 		if (Uc_location::get_goto_warn()) {
-			@1.loc().warning("use of 'goto' statement [-Wgoto]");
+			@1.loc().warning(Uc_location::Warning::goto_statement, "use of 'goto' statement");
 		}
 		$$ = new Uc_goto_statement($2);
 		}
@@ -3478,9 +3477,8 @@ opt_void:
 	VOID
 	| %empty
 		{
-		Uc_location::Context diagnostic_context(@$.loc());
-		Uc_location::yywarning("You should prepend 'void' for functions that do"
-				  " not return a value.");
+		Uc_location::Context diagnostic_context(Uc_parser_location::current().loc());
+		Uc_location::yywarning(Uc_location::Warning::implicit_return_type, "function has no return type; assuming 'void'");
 		}
 	;
 
@@ -3571,15 +3569,15 @@ static UsecodeOps Integer_literal_opcode(int value, UsecodeOps opcode, Uc_locati
 	const bool promote = is_int_32bit(value);
 	if (Uc_location::get_integer_warn()) {
 		if (promote) {
-			loc.warning(
+			loc.warning(Uc_location::Warning::integer_coercion,
 					"Literal integer '%d' cannot be represented as 16-bit "
-					"integer. Assuming '(long)' cast. [-Winteger-coercion]",
+					"integer. Assuming '(long)' cast.",
 					value);
 		} else {
-			loc.warning(
+			loc.warning(Uc_location::Warning::integer_coercion,
 					"Interpreting integer '%d' as the signed 16-bit "
 					"integer '%d'. If this is incorrect, use '(long)' "
-					"cast. [-Winteger-coercion]",
+					"cast.",
 					value, static_cast<short>(value));
 		}
 	}
@@ -3710,7 +3708,7 @@ static bool Uc_is_valid_calle(
 		}
 	} else {
 		if (!ths) {
-			Uc_location::yywarning(
+			Uc_location::yywarning(Uc_location::Warning::missing_itemref,
 					"'%s' expects an itemref, but none was supplied; using "
 					"current itemref",
 					nm);

@@ -55,9 +55,86 @@ const Uc_location* Uc_location::diagnostic_context = nullptr;
 int                Uc_location::num_errors         = 0;
 bool               Uc_location::strict_mode        = false;
 bool               Uc_location::color_output       = false;
-bool               Uc_location::goto_warn          = true;
-bool               Uc_location::integer_warn       = true;
-bool               Uc_location::shapefun_warn      = true;
+
+namespace {
+	constexpr std::array<std::string_view, static_cast<size_t>(Uc_location::Warning::count)> warning_names
+			= {"goto",
+			   "integer-coercion",
+			   "shape-to-function",
+			   "constant-condition",
+			   "unreachable-code",
+			   "implicit-return-type",
+			   "implicit-function-kind",
+			   "autonumber",
+			   "missing-game",
+			   "missing-itemref",
+			   "constructor-arguments",
+			   "unknown-directives",
+			   "unknown-escape-sequence",
+			   "general"};
+}
+
+std::array<bool, static_cast<size_t>(Uc_location::Warning::count)> Uc_location::enabled_warnings = [] {
+	std::array<bool, static_cast<size_t>(Warning::count)> flags{};
+	flags.fill(true);
+	return flags;
+}();
+std::array<int, static_cast<size_t>(Uc_location::Warning::count)> Uc_location::promoted_warnings = [] {
+	std::array<int, static_cast<size_t>(Warning::count)> flags{};
+	flags.fill(-1);
+	return flags;
+}();
+bool Uc_location::warnings_as_errors = false;
+
+void Uc_location::set_all_warnings(bool enabled) {
+	enabled_warnings.fill(enabled);
+}
+
+bool Uc_location::set_warning_option(std::string_view option) {
+	if (option == "error" || option == "no-error") {
+		warnings_as_errors = option == "error";
+		return true;
+	}
+	const bool enable = option.substr(0, 3) != "no-";
+	if (!enable) {
+		option.remove_prefix(3);
+	}
+	if (option == "all") {
+		set_all_warnings(enable);
+		return true;
+	}
+	const bool promote = option.substr(0, 6) == "error=";
+	if (promote) {
+		option.remove_prefix(6);
+	}
+	for (size_t i = 0; i < warning_names.size(); ++i) {
+		if (option == warning_names[i]) {
+			if (promote) {
+				promoted_warnings[i] = enable ? 1 : 0;
+				if (enable) {
+					enabled_warnings[i] = true;
+				}
+			} else {
+				enabled_warnings[i] = enable;
+			}
+			return true;
+		}
+	}
+	return false;
+}
+
+void Uc_location::emit_warning(Warning category, const std::string& message) const {
+	if (!warning_enabled(category)) {
+		return;
+	}
+	const auto index     = static_cast<size_t>(category);
+	const bool promoted  = promoted_warnings[index] < 0 ? warnings_as_errors : promoted_warnings[index] != 0;
+	const auto decorated = message + (promoted ? " [-Werror=" : " [-W") + std::string(warning_names[index]) + "]";
+	assemble_message(decorated.c_str(), source, line + 1, column, length, promoted ? Severity::error : Severity::warning);
+	if (promoted) {
+		++num_errors;
+	}
+}
 
 /*
  *  Set current source and line #.
@@ -131,6 +208,20 @@ Uc_location Uc_location::next_location() {
 	return loc;
 }
 
+Uc_location Uc_location::at_offset(const char* text, size_t bytes, int token_length) const {
+	Uc_location loc = *this;
+	for (size_t i = 0; i < bytes; ++i) {
+		if (text[i] == '\n') {
+			++loc.line;
+			loc.column = 1;
+		} else {
+			++loc.column;
+		}
+	}
+	loc.length = token_length;
+	return loc;
+}
+
 void Uc_location::assemble_message(
 		const char* msg, const char* source_file, int line_num, int column, int length, Severity severity) {
 	if (!source_file) {
@@ -174,8 +265,17 @@ void Uc_location::assemble_message(
 	std::string expanded;
 	std::string marker;
 	for (size_t i = 0; i < text.size(); ++i) {
-		const size_t width = text[i] == '\t' ? 8 - expanded.size() % 8 : 1;
-		expanded.append(width, text[i] == '\t' ? ' ' : text[i]);
+		const auto   byte    = static_cast<unsigned char>(text[i]);
+		const bool   escaped = byte != '\t' && (byte < 32 || byte >= 127);
+		const size_t width   = byte == '\t' ? 8 - expanded.size() % 8 : escaped ? 4 : 1;
+		if (escaped) {
+			constexpr char hex[] = "0123456789ABCDEF";
+			expanded += "\\x";
+			expanded += hex[byte >> 4];
+			expanded += hex[byte & 15];
+		} else {
+			expanded.append(width, byte == '\t' ? ' ' : text[i]);
+		}
 		if (i < static_cast<size_t>(column - 1)) {
 			marker.append(width, ' ');
 		} else if (i < static_cast<size_t>(column - 1 + length)) {
@@ -220,7 +320,7 @@ void Uc_location::yyerror(preformatted_t tag, const char* s) {
 void Uc_location::yywarning(preformatted_t tag, const char* s) {
 	const Uc_location loc;
 	ignore_unused_variable_warning(tag);
-	assemble_message(s, loc.source, loc.line + 1, loc.column, loc.length, Severity::warning);
+	loc.emit_warning(Warning::general, s);
 }
 
 namespace {
@@ -238,6 +338,28 @@ namespace {
 		return message;
 	}
 }    // namespace
+
+void Uc_location::warning(Warning category, const char* format, ...) const {
+	if (!warning_enabled(category)) {
+		return;
+	}
+	va_list args;
+	va_start(args, format);
+	const auto message = format_message(format, args);
+	va_end(args);
+	emit_warning(category, message);
+}
+
+void Uc_location::yywarning(Warning category, const char* format, ...) {
+	if (!warning_enabled(category)) {
+		return;
+	}
+	va_list args;
+	va_start(args, format);
+	const auto message = format_message(format, args);
+	va_end(args);
+	Uc_location().emit_warning(category, message);
+}
 
 void Uc_location::note(const char* format, ...) const {
 	va_list args;
@@ -268,7 +390,7 @@ void Uc_location::warning(const char* format, ...) const {
 	va_list args;
 	va_start(args, format);
 	const auto message = format_message(format, args);
-	assemble_message(message.c_str(), source, line + 1, column, length, Severity::warning);
+	emit_warning(Warning::general, message);
 	va_end(args);
 }
 
@@ -295,7 +417,7 @@ void Uc_location::yywarning(const char* format, ...) {
 	va_list           args;
 	va_start(args, format);
 	const auto message = format_message(format, args);
-	assemble_message(message.c_str(), loc.source, loc.line + 1, loc.column, loc.length, Severity::warning);
+	loc.emit_warning(Warning::general, message);
 	va_end(args);
 }
 
@@ -320,7 +442,7 @@ void Uc_location::warning(std::string& buffer, const char* format, ...) const {
 	va_list args;
 	va_start(args, format);
 	buffer = format_message(format, args);
-	assemble_message(buffer.c_str(), source, line + 1, column, length, Severity::warning);
+	emit_warning(Warning::general, buffer);
 	va_end(args);
 }
 
@@ -347,6 +469,6 @@ void Uc_location::yywarning(std::string& buffer, const char* format, ...) {
 	va_list           args;
 	va_start(args, format);
 	buffer = format_message(format, args);
-	assemble_message(buffer.c_str(), loc.source, loc.line + 1, loc.column, loc.length, Severity::warning);
+	loc.emit_warning(Warning::general, buffer);
 	va_end(args);
 }

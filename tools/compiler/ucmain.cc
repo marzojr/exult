@@ -108,25 +108,13 @@ int main(int argc, char** argv) {
 			want_sym_table = false;
 			break;
 		case 'W':
-			if (optarg == "goto"sv || optarg == "no-goto"sv) {
-				Uc_location::set_goto_warn(optarg == "goto"sv);
-			} else if (optarg == "integer-coercion"sv || optarg == "no-integer-coercion"sv) {
-				Uc_location::set_integer_warn(optarg == "integer-coercion"sv);
-			} else if (optarg == "shape-to-function"sv || optarg == "no-shape-to-function"sv) {
-				Uc_location::set_shapefun_warn(optarg == "shape-to-function"sv);
-			} else {
-				std::cout << "Invalid argument to -W: '" << optarg
-						  << "' expected one of 'goto', 'no-goto', "
-							 "'integer-coercion', 'no-integer-coercion', "
-							 "'shape-to-function', or 'no-shape-to-function'"
-						  << std::endl;
+			if (!Uc_location::set_warning_option(optarg)) {
+				std::cerr << "error: unknown warning option '-W" << optarg << "'\n";
 				return EXIT_FAILURE;
 			}
 			break;
 		case 'u':
-			Uc_location::set_goto_warn(false);
-			Uc_location::set_integer_warn(false);
-			Uc_location::set_shapefun_warn(false);
+			Uc_location::set_all_warnings(false);
 			break;
 		case '?': {
 			const char* option = optopt ? strchr(optstring, optopt) : nullptr;

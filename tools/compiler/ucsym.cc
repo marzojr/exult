@@ -122,8 +122,8 @@ int Uc_var_symbol::is_object_function(bool print_error) const {
 		case -2:
 			if (Uc_location::get_shapefun_warn()) {
 				Uc_location::yywarning(
-						"Shape # is equal to fun. ID only for shapes < 0x400; use "
-						"UI_get_usecode_fun instead [-Wshape-to-function]");
+						Uc_location::Warning::shape_to_function, "a shape number is a function ID only below 0x400; use "
+																 "UI_get_usecode_fun instead");
 			}
 			break;
 		case 1:
@@ -371,12 +371,14 @@ Uc_function_symbol* Uc_function_symbol::create(
 		}
 	} else if (num < 0x400) {
 		if (kind == utility_fun) {
-			Uc_location::yywarning("Treating function '%s' as being a 'shape#()' function.", nm);
+			Uc_location::yywarning(
+					Uc_location::Warning::implicit_function_kind, "Treating function '%s' as being a 'shape#()' function.", nm);
 			kind = shape_fun;
 		}
 	} else if (num < 0x800) {
 		if (kind == utility_fun) {
-			Uc_location::yywarning("Treating function '%s' as being an 'object#()' function.", nm);
+			Uc_location::yywarning(
+					Uc_location::Warning::implicit_function_kind, "Treating function '%s' as being an 'object#()' function.", nm);
 			kind = object_fun;
 		}
 	}
@@ -445,6 +447,7 @@ Uc_function_symbol* Uc_function_symbol::create(
 
 	if (num < 0 && !new_auto_num) {
 		Uc_location::yywarning(
+				Uc_location::Warning::autonumber,
 				"Auto-numbering function '%s', but '#autonumber' directive not "
 				"used.",
 				nm);
