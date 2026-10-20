@@ -105,6 +105,10 @@ public:
 		color_output = tf;
 	}
 
+	static bool get_color_output() {
+		return color_output;
+	}
+
 	static bool get_goto_warn() {
 		return goto_warn;
 	}
