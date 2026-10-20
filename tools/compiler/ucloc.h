@@ -72,6 +72,7 @@ public:
 		constructor_arguments,
 		unknown_directives,
 		unknown_escape_sequence,
+		function_id_alias,
 		general,
 		count
 	};

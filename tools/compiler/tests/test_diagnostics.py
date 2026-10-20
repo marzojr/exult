@@ -466,6 +466,105 @@ void example 0x901 () { var callback = &helper; script item call callback; }
         self.assert_failed(result, "conflicting type for parameter 1")
         self.assertIn("previous parameter declaration is here", result.stdout)
 
+    def test_function_id_alias_names_and_definition(self):
+        source = ('#game "blackgate"\nextern var original 0x900 (old_parameter);\n'
+                  'extern var alternate 0x900 (alias_parameter);\n'
+                  'var alternate 0x900 (value) { return value; }\n'
+                  'void example 0x901 () { var first = original(1); var second = alternate(2); }\n')
+        result = self.compile(source, '-Werror', '-b')
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertNotIn('warning:', result.stdout)
+        self.assertNotIn('previous declaration', result.stdout)
+        source = source.replace('alternate(2)', 'original(2)')
+        result = self.compile(source, '-b')
+        self.assertEqual(result.returncode, 0, result.stdout)
+        expected = self.output.read_bytes()
+        result = self.compile(source.replace('original(1)', 'alternate(1)').replace('original(2)', 'alternate(2)'), '-b')
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(self.output.read_bytes(), expected)
+
+    def test_function_id_alias_declaration_orders(self):
+        for declarations in (
+            'var original 0x900 (value) { return value; }\nextern var alternate 0x900 (other);\n',
+            'extern var original 0x900 (value);\nextern var alternate 0x900 (other);\n'
+            'extern var third 0x900 (third_parameter);\nextern var alternate 0x900 (again);\n'
+            'var original (value) { return value; }\n',
+        ):
+            with self.subTest(declarations=declarations):
+                result = self.compile('#game "blackgate"\n' + declarations
+                                      + 'void example 0x901 () { var a = original(1); var b = alternate(2); }\n', '-Werror')
+                self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_automatic_id_collision_remains_an_error(self):
+        result = self.compile('#autonumber 0x900\nextern void original 0x900 ();\nvoid alternate () {}\n')
+        self.assert_failed(result, "function 'alternate' conflicts with previously declared function 'original'")
+
+    def test_function_id_alias_compatible_signatures(self):
+        for signature in ('void NAME 0x900 (class<Widget> value)',
+                          'class<Widget> NAME 0x900 (struct<Record> value)',
+                          'struct<Record> NAME 0x900 ()',
+                          'void NAME object#(0x900) ()',
+                          'void NAME shape#(0x100) ()'):
+            with self.subTest(signature=signature):
+                result = self.compile('class Widget {} struct Record { var field; }\nextern '
+                                      + signature.replace('NAME', 'original') + ';\nextern '
+                                      + signature.replace('NAME', 'alternate') + ';\n', '-Wfunction-id-alias')
+                self.assertEqual(result.returncode, 0, result.stdout)
+                self.assertIn('[-Wfunction-id-alias]', result.stdout)
+
+    def test_function_id_alias_warning_controls(self):
+        source = 'extern void original 0x900 ();\nextern void alternate 0x900 ();\n'
+        for options, enabled in (((), False), (('-Werror',), False),
+                                 (('-Wfunction-id-alias',), True), (('-Wall',), True),
+                                 (('-Wall', '-Wno-function-id-alias'), False),
+                                 (('-Wfunction-id-alias', '-u'), False),
+                                 (('-Werror=function-id-alias', '-Wno-error=function-id-alias'), True)):
+            with self.subTest(options=options):
+                result = self.compile(source, *options)
+                self.assertEqual(result.returncode, 0, result.stdout)
+                self.assertEqual('[-Wfunction-id-alias]' in result.stdout, enabled)
+                self.assertEqual('note: previous declaration is here' in result.stdout, enabled)
+                if enabled:
+                    self.assertIn("function 'alternate' shares usecode ID 0x900", result.stdout)
+                    self.assertIn("previously declared function 'original'", result.stdout)
+        self.output.unlink()
+        result = self.compile(source, '-Werror=function-id-alias')
+        self.assert_failed(result, '[-Werror=function-id-alias]')
+
+    def test_incompatible_function_id_aliases(self):
+        for first, second, message in (
+            ('void original 0x900 ()', 'void alternate 0x900 (value)', 'expected 0 parameters, got 1'),
+            ('void original 0x900 (var value)', 'void alternate 0x900 (class<Widget> value)', 'conflicting type for parameter 1'),
+            ('void original 0x900 (class<Widget> value)', 'void alternate 0x900 (class<Other> value)', 'conflicting type for parameter 1'),
+            ('void original 0x900 (struct<Record> value)', 'void alternate 0x900 (var value)', 'conflicting type for parameter 1'),
+            ('void original 0x900 ()', 'var alternate 0x900 ()', 'conflicting return type'),
+            ('class<Widget> original 0x900 ()', 'class<Other> alternate 0x900 ()', 'conflicting return type'),
+            ('struct<Record> original 0x900 ()', 'var alternate 0x900 ()', 'conflicting return type'),
+            ('void original 0x900 ()', 'void alternate object#(0x900) ()', 'conflicting kind'),
+        ):
+            with self.subTest(first=first, second=second):
+                result = self.compile('class Widget {} class Other {} struct Record { var field; }\n'
+                                      + 'extern ' + first + ';\nextern ' + second + ';\n', '-Wfunction-id-alias')
+                self.assert_failed(result, message)
+                self.assertIn("function 'alternate'", result.stdout)
+                self.assertIn("usecode ID 0x900", result.stdout)
+                self.assertIn("previously declared as 'original'", result.stdout)
+                self.assertIn('note: previous', result.stdout)
+                self.assertNotIn('[-Wfunction-id-alias]', result.stdout)
+
+    def test_function_id_alias_does_not_allow_multiple_definitions(self):
+        for source in (
+            'void original 0x900 () {}\nvoid alternate 0x900 () {}\n',
+            'extern void original 0x900 ();\nvoid alternate 0x900 () {}\nvoid original 0x900 () {}\n',
+            'extern void original 0x900 ();\nvoid original 0x900 () {}\nvoid alternate 0x900 () {}\n',
+        ):
+            with self.subTest(source=source):
+                result = self.compile(source)
+                self.assert_failed(result, 'redefinition of function')
+                self.assertIn('usecode ID 0x900 is already defined as', result.stdout)
+                line = 2 if source.startswith('extern') else 1
+                self.assertIn(f'input.uc:{line}:6: note: previous definition is here', result.stdout)
+
     def test_duplicate_label_and_default_notes(self):
         for body, message, note in (
             ("label: ; label: ;", "redefinition of label 'label'", "previous label is here"),
