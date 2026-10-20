@@ -631,19 +631,19 @@ int Uc_array_expression::gen_values(Basic_block* out) {
 }
 
 inline bool Uc_call_expression::is_struct() const {
-	return sym->get_struct() != nullptr;
+	return sym && sym->get_struct() != nullptr;
 }
 
 inline Uc_struct_symbol* Uc_call_expression::get_struct() const {
-	return sym->get_struct();
+	return sym ? sym->get_struct() : nullptr;
 }
 
 inline bool Uc_call_expression::is_class() const {
-	return sym->get_cls() != nullptr;
+	return sym && sym->get_cls() != nullptr;
 }
 
 inline Uc_class* Uc_call_expression::get_cls() const {
-	return sym->get_cls();
+	return sym ? sym->get_cls() : nullptr;
 }
 
 /*
