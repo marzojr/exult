@@ -598,6 +598,11 @@ public:
 
 private:
 	static Sym_nums nums_used;
+	// Aliases retain their own names and parameters, but share an ID/signature.
+	Uc_function_symbol* id_declaration = nullptr;
+	Uc_function_symbol* definition     = nullptr;
+	Uc_location         definition_location;
+	bool                id_declaration_valid = true;
 	// Note:  offset = Usecode fun. #.
 	std::vector<Uc_var_symbol*> parms;          // Parameters.
 	int                         usecode_num;    // Usecode function #.

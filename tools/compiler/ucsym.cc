@@ -351,6 +351,16 @@ Uc_function_symbol::Uc_function_symbol(
 }
 
 bool Uc_function_symbol::check_return_type(Function_ret type, Uc_class* cls, Uc_struct_symbol* structure) {
+	if (id_declaration
+		&& (type != id_declaration->ret_type || (type == class_ret && cls != id_declaration->ret_sym.cls)
+			|| (type == struct_ret && structure != id_declaration->ret_sym.str))) {
+		Uc_location::yyerror(
+				"conflicting return type for function '%s': usecode ID 0x%x was previously declared as '%s'", get_name(),
+				static_cast<unsigned int>(usecode_num), id_declaration->get_name());
+		id_declaration->note("previous declaration is here");
+		return_type_valid = false;
+		return false;
+	}
 	if (return_declared
 		&& (type != ret_type || (type == class_ret && cls != ret_sym.cls) || (type == struct_ret && structure != ret_sym.str))) {
 		Uc_location::yyerror("conflicting return type for function '%s'", get_name());
@@ -359,6 +369,12 @@ bool Uc_function_symbol::check_return_type(Function_ret type, Uc_class* cls, Uc_
 		return false;
 	}
 	return_declared = true;
+	if (id_declaration && id_declaration_valid && warning_enabled(Warning::function_id_alias)) {
+		Uc_location::yywarning(
+				Warning::function_id_alias, "function '%s' shares usecode ID 0x%x with previously declared function '%s'",
+				get_name(), static_cast<unsigned int>(usecode_num), id_declaration->get_name());
+		id_declaration->note("previous declaration is here");
+	}
 	return true;
 }
 
@@ -393,6 +409,9 @@ Uc_function_symbol* Uc_function_symbol::create(
 		int   num,    // Function #, or -1 to assign
 		//  1 + last_num.
 		std::vector<Uc_var_symbol*>& p, bool is_extern, Uc_scope* scope, Function_kind kind) {
+	const auto kind_name = [](Function_kind type) {
+		return type == utility_fun ? "utility" : type == shape_fun ? "shape#" : "object#";
+	};
 	// Checking num and kind for backward compatibility.
 	if (num < 0) {
 		// Treat as autonumber request.
@@ -432,9 +451,6 @@ Uc_function_symbol* Uc_function_symbol::create(
 	auto* sym = dynamic_cast<Uc_function_symbol*>(scope ? scope->search(nm) : Uc_function::search_globals(nm));
 	if (sym) {
 		if (sym->get_function_type() != kind) {
-			const auto kind_name = [](Function_kind type) {
-				return type == utility_fun ? "utility" : type == shape_fun ? "shape#" : "object#";
-			};
 			Uc_location::yyerror(
 					"conflicting kind for function '%s': declared as '%s', previously '%s'", nm, kind_name(kind),
 					kind_name(sym->get_function_type()));
@@ -491,14 +507,65 @@ Uc_function_symbol* Uc_function_symbol::create(
 			sym->set_externed();
 		}
 		nums_used[ucnum] = sym;
+		if (!is_extern) {
+			sym->definition = sym;
+		}
 		return sym;
 	}
-	sym = it->second;
-	if (sym->name != nm || sym->get_num_parms() != p.size()) {
+	auto* previous = it->second;
+	if (!sym || sym->get_usecode_num() != ucnum) {
+		sym = previous;
+	}
+	const bool alias = sym->name != nm;
+	if (alias) {
+		sym                 = new Uc_function_symbol(nm, ucnum, p, shp, kind);
+		sym->id_declaration = previous;
+		if (is_extern) {
+			sym->set_externed();
+		}
+	}
+	auto*       signature = sym->id_declaration ? sym->id_declaration : sym;
+	std::string id_context;
+	if (sym->id_declaration) {
+		id_context = " (usecode ID 0x";
+		char id[16];
+		snprintf(id, sizeof(id), "%x", static_cast<unsigned int>(ucnum));
+		id_context += id;
+		id_context += " previously declared as '";
+		id_context += signature->get_name();
+		id_context += "')";
+	}
+	sym->id_declaration_valid = true;
+	if (alias && (num < 0 || scope)) {
 		Uc_location::yyerror(
-				"usecode ID 0x%x is already assigned to function '%s' with %zu parameters", static_cast<unsigned int>(ucnum),
-				sym->get_name(), sym->get_num_parms());
-		sym->note("previous declaration is here");
+				"function '%s' conflicts with previously declared function '%s' at usecode ID 0x%x", nm, previous->get_name(),
+				static_cast<unsigned int>(ucnum));
+		previous->note("previous declaration is here");
+		sym->id_declaration_valid = false;
+	}
+	if (sym->id_declaration && kind != signature->get_function_type()) {
+		Uc_location::yyerror(
+				"conflicting kind for function '%s'%s: declared as '%s', previously '%s'", nm, id_context.c_str(), kind_name(kind),
+				kind_name(signature->get_function_type()));
+		signature->note("previous declaration is here");
+		sym->id_declaration_valid = false;
+	}
+	if (!is_extern && previous->definition && previous->definition != sym) {
+		Uc_location::yyerror(
+				"redefinition of function '%s': usecode ID 0x%x is already defined as '%s'", nm, static_cast<unsigned int>(ucnum),
+				previous->definition->get_name());
+		previous->definition_location.note("previous definition is here");
+		sym->id_declaration_valid = false;
+	} else if (!is_extern) {
+		previous->definition          = sym;
+		previous->definition_location = Uc_location();
+	}
+	if (signature->get_num_parms() != p.size()) {
+		Uc_location::yyerror(
+				"conflicting declaration of function '%s'%s: expected %zu parameters, got %zu", nm, id_context.c_str(),
+				signature->get_num_parms(), p.size());
+		signature->note("previous declaration is here");
+		sym->id_declaration_valid = false;
 	} else {
 		auto get_param_type = [](const Uc_var_symbol* var) {
 			std::string type;
@@ -515,15 +582,16 @@ Uc_function_symbol* Uc_function_symbol::create(
 			}
 			return type;
 		};
-		const auto& parms = sym->get_parms();
+		const auto& parms = signature->get_parms();
 		for (size_t i = 0; i < p.size(); i++) {
 			if (p[i]->get_sym_type() != parms[i]->get_sym_type()
 				|| (p[i]->get_sym_type() == Uc_symbol::Class && p[i]->get_cls() != parms[i]->get_cls())
 				|| p[i]->get_struct() != parms[i]->get_struct()) {
 				Uc_location::yyerror(
-						"conflicting type for parameter %zu of function '%s': expected '%s', got '%s'", i + 1, nm,
-						get_param_type(parms[i]).c_str(), get_param_type(p[i]).c_str());
+						"conflicting type for parameter %zu of function '%s'%s: expected '%s', got '%s'", i + 1, nm,
+						id_context.c_str(), get_param_type(parms[i]).c_str(), get_param_type(p[i]).c_str());
 				parms[i]->note("previous parameter declaration is here");
+				sym->id_declaration_valid = false;
 			}
 		}
 		if (!is_extern) {

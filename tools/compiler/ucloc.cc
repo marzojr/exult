@@ -71,12 +71,14 @@ namespace {
 			   "constructor-arguments",
 			   "unknown-directives",
 			   "unknown-escape-sequence",
+			   "function-id-alias",
 			   "general"};
 }
 
 std::array<bool, static_cast<size_t>(Uc_location::Warning::count)> Uc_location::enabled_warnings = [] {
 	std::array<bool, static_cast<size_t>(Warning::count)> flags{};
 	flags.fill(true);
+	flags[static_cast<size_t>(Warning::function_id_alias)] = false;
 	return flags;
 }();
 std::array<int, static_cast<size_t>(Uc_location::Warning::count)> Uc_location::promoted_warnings = [] {
