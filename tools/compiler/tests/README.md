@@ -2,6 +2,8 @@
 
 Build UCC, then run `python3 tools/compiler/tests/test_diagnostics.py /path/to/ucc` from the source tree. Python 3 and the compiler executable are the only requirements; on Windows, ensure UCC's runtime DLL directory is on `PATH`. The tests create isolated temporary inputs and outputs, clear `UCC_INCLUDE`, and place a timeout on each compiler invocation.
 
+The standalone location test checks nested context-stack growth, restoration during exception unwinding, and interned filename stability and reuse. Build it from the repository root with `c++ -std=c++17 -Iheaders -Itools/compiler tools/compiler/tests/test_locations.cc tools/compiler/ucloc.cc -o /tmp/ucc-test-locations`, then run `/tmp/ucc-test-locations` (use a suitable temporary executable path on Windows). Keep assertions enabled.
+
 The suite checks diagnostic locations and excerpts, include and line-directive handling, color controls, invalid command-line options, failure exit status, statement recovery, restoration of parser and lexer contexts, and warning controls. Warning suppression must preserve bytecode and must not suppress hard errors. Recovery tests include independent errors in following statements and functions to detect premature termination and state leakage.
 
 For compiler changes, also compile `tools/compiler/test1.uc`, BG Keyring's `content/bgkeyring/src/usecode.uc`, and SI Fixes' `content/sifixes/src/usecode.uc`, each with its corresponding include directory and a temporary output path. Compare their diagnostics and bytecode against the baseline for changes that should not affect code generation. `test1.uc` deliberately triggers warnings.

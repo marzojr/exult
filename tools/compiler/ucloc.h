@@ -26,6 +26,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define INCL_UCLOC
 
 #include <array>
+#include <set>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -81,18 +82,18 @@ private:
 	static std::array<bool, static_cast<size_t>(Warning::count)> enabled_warnings;
 	static std::array<int, static_cast<size_t>(Warning::count)>  promoted_warnings;
 	static bool                                                  warnings_as_errors;
-	static std::vector<char*>                                    source_names;    // All filenames.
+	static std::set<std::string>                                 source_names;    // Interned filenames; stable addresses.
 
-	static char*              cur_source;    // Source filename.
-	static int                cur_line;      // Line #.
-	static int                cur_column;    // Byte column, 1-based.
-	static int                cur_length;    // Length of token on its first line.
-	static int                next_line;
-	static int                next_column;
-	static const Uc_location* diagnostic_context;
-	static int                num_errors;      // Total #.
-	static bool               strict_mode;     // If all blocks are required to have braces
-	static bool               color_output;    // If output should be colorized.
+	static const char*              cur_source;    // Source filename.
+	static int                      cur_line;      // Line #.
+	static int                      cur_column;    // Byte column, 1-based.
+	static int                      cur_length;    // Length of token on its first line.
+	static int                      next_line;
+	static int                      next_column;
+	static std::vector<Uc_location> diagnostic_context;
+	static int                      num_errors;      // Total #.
+	static bool                     strict_mode;     // If all blocks are required to have braces
+	static bool                     color_output;    // If output should be colorized.
 
 	const char* source;
 	int         line;
@@ -116,8 +117,8 @@ public:
 
 	// Use current location.
 	Uc_location() : source(cur_source), line(cur_line), column(cur_column), length(cur_length) {
-		if (diagnostic_context) {
-			*this = *diagnostic_context;
+		if (!diagnostic_context.empty()) {
+			*this = diagnostic_context.back();
 		}
 	}
 
@@ -233,17 +234,15 @@ public:
 
 // Semantic checks must not change the scanner's physical cursor. A context
 // redirects diagnostics and default AST/symbol locations for its lifetime.
+// Values are owned by the stack; no references into it survive a push/pop.
 class Uc_location::Context {
-	Uc_location        location;
-	const Uc_location* previous;
-
 public:
-	explicit Context(Uc_location loc) : location(loc), previous(diagnostic_context) {
-		diagnostic_context = &location;
+	explicit Context(Uc_location loc) {
+		diagnostic_context.push_back(loc);
 	}
 
 	~Context() {
-		diagnostic_context = previous;
+		diagnostic_context.pop_back();
 	}
 
 	Context(const Context&)            = delete;
