@@ -244,6 +244,60 @@ void following 0x900 () { var broken = ; }
         self.assertEqual(result.stdout.count("error:"), 2, result.stdout)
         self.assertIn("input.uc:5:", result.stdout)
 
+    def test_missing_include_recovers(self):
+        result = self.compile('#include "missing.uc"\nvoid example 0x900 () { var broken = ; }\n')
+        self.assert_failed(result, "cannot open include file 'missing.uc'")
+        self.assertIn("input.uc:2:", result.stdout)
+
+    def test_directive_at_eof(self):
+        result = self.compile('void example 0x900 () {}\n#strictbraces "true"')
+        self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_bad_directives_recover(self):
+        for directive in ('#include', '#game "unknown"', '#line 0 "fake.uc"',
+                          '#autonumber 0', '#autonumber 999999999999999999999',
+                          '#autonumber 0xC00oops', '#strictbraces "yes"'):
+            with self.subTest(directive=directive):
+                result = self.compile(directive + '\nvoid example 0x900 () { var broken = ; }\n')
+                self.assert_failed(result, "error:")
+                self.assertIn("input.uc:2:", result.stdout)
+                self.assertEqual(result.returncode, 1, result.stdout)
+
+    def test_integer_literal_errors(self):
+        for literal in ('4294967296', '0x100000000', '999999999999999999999', '0xGG', '12abc'):
+            with self.subTest(literal=literal):
+                result = self.compile('void example 0x900 () { var value = ' + literal
+                                      + ';\n var following = ; }\n')
+                self.assert_failed(result, "integer literal")
+                self.assertIn("input.uc:2:", result.stdout)
+
+    def test_unterminated_comment_in_include(self):
+        (self.directory / "helper.uc").write_text("\n/* unfinished\n", encoding="ascii")
+        result = self.compile('#include "helper.uc"\nvoid example 0x900 () { var broken = ; }\n')
+        self.assert_failed(result, "helper.uc:2:1: error: unterminated block comment")
+        self.assertIn("input.uc:2:", result.stdout)
+
+    def test_unterminated_string(self):
+        result = self.compile('void example 0x900 () { say("unfinished\n')
+        self.assert_failed(result, "input.uc:1:29: error: unterminated string literal")
+
+    def test_bad_rune_escapes(self):
+        for escape in (r"\{xx}", r"\{xyz}", r"\{unfinished"):
+            with self.subTest(escape=escape):
+                result = self.compile('void example 0x900 () { say("' + escape + '");\n var following = ; }\n')
+                self.assert_failed(result, "rune escape sequence")
+                self.assertIn("input.uc:2:", result.stdout)
+
+    def test_invalid_bytes_recover(self):
+        for byte in (b"\x00", b"\x01", b"\xff"):
+            with self.subTest(byte=byte):
+                source = self.directory / "input.uc"
+                source.write_bytes(b'void example 0x900 () { ' + byte + b' var broken = ; }\n')
+                result = self.run_ucc("-c", "never", "-o", str(self.output), str(source))
+                self.assert_failed(result, "invalid byte")
+                self.assertIn("syntax error", result.stdout)
+                self.assertEqual(result.returncode, 1, result.stdout)
+
     def test_codegen_location_and_no_output(self):
         result = self.compile('void helper 0x900 () {}\nvoid example 0x901 () {\n var value = helper();\n}\n')
         self.assert_failed(result, "input.uc:3:14: error: Function 'helper' does not have a return value")
@@ -316,7 +370,7 @@ void example 0x901 () { var callback = &helper; script item call callback; }
 
     def test_unknown_warning(self):
         self.assert_failed(self.compile("void example 0x900 () {}\n", "-Wtypo"),
-                           "Invalid argument to -W: 'typo'")
+                           "unknown warning option '-Wtypo'")
 
     def test_unknown_option(self):
         self.assert_failed(self.run_ucc("-Q"), "unknown option '-Q'")
@@ -335,6 +389,50 @@ void example 0x901 () { var callback = &helper; script item call callback; }
             "missing%d = 1;\n" % i for i in range(256)
         ) + "}\n"
         self.assert_failed(self.compile(source), "Usecode compilation failed!")
+
+
+    def test_warning_categories(self):
+        examples = {
+            "constant-condition": "void example 0x900 () { if (1) { return; } }",
+            "implicit-return-type": "example 0x900 () {}",
+            "implicit-function-kind": "void example 0x100 () {}",
+            "autonumber": "void example () {}",
+            "missing-game": "void example 0x900 () { var value = item->get_item_shape(); }",
+            "missing-itemref": "void helper object#(0x900) () {} void example 0x901 () { helper(); }",
+            "constructor-arguments": "class Widget { var field; } void example 0x900 () { class<Widget> value = new Widget(); }",
+            "unknown-directives": "#unknown\nvoid example 0x900 () {}",
+            "unknown-escape-sequence": r'void example 0x900 () { say("\q"); }',
+            "shape-to-function": "void example 0x900 () { var callback = item->get_item_shape(); script item call callback; }",
+            "unreachable-code": "void example 0x900 (condition) { var value; do { if (condition) { break; } else { goto target; } } while (true) nobreak { value = 1; target: } }",
+        }
+        for category, body in examples.items():
+            with self.subTest(category=category):
+                source = ('' if category == 'missing-game' else '#game "blackgate"\n') + body + '\n'
+                enabled = self.compile(source)
+                self.assertEqual(enabled.returncode, 0, enabled.stdout)
+                self.assertIn("[-W" + category + "]", enabled.stdout)
+                expected = self.output.read_bytes()
+                disabled = self.compile(source, "-Wno-" + category)
+                self.assertEqual(disabled.returncode, 0, disabled.stdout)
+                self.assertNotIn("[-W" + category + "]", disabled.stdout)
+                self.assertEqual(self.output.read_bytes(), expected)
+                self.output.unlink()
+                promoted = self.compile(source, "-Werror=" + category)
+                self.assert_failed(promoted, "[-Werror=" + category + "]")
+
+    def test_global_warning_controls(self):
+        source = "void example 0x900 () { goto target; target: return; }\n"
+        result = self.compile(source, "-Werror")
+        self.assert_failed(result, "[-Werror=goto]")
+        result = self.compile(source, "-Werror", "-Wno-error=goto")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("[-Wgoto]", result.stdout)
+        result = self.compile(source, "-u")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertNotIn("warning:", result.stdout)
+        result = self.compile(source, "-u", "-Wall")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("[-Wgoto]", result.stdout)
 
 
 if __name__ == "__main__":

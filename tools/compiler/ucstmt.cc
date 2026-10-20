@@ -429,8 +429,7 @@ void Uc_dowhile_statement::gen(
  *  Delete.
  */
 
-Uc_infinite_loop_statement::~Uc_infinite_loop_statement() {
-}
+Uc_infinite_loop_statement::~Uc_infinite_loop_statement() {}
 
 /*
  *  Generate code.
@@ -484,12 +483,13 @@ void Uc_infinite_loop_statement::gen(
 
 		if (nobreak_block->is_orphan()) {
 			if (next_block == nobreak_block) {
-				warning("No statements in 'nobreak' block will never execute");
+				nobreak->warning(Uc_location::Warning::unreachable_code, "statements in 'nobreak' block are unreachable");
 			} else {
 				// There may be a label somewhere in the block.
 				if (!nobreak_block->is_empty_block()) {
-					warning("Some statements in 'nobreak' block will never "
-							"execute");
+					nobreak->warning(
+							Uc_location::Warning::unreachable_code, "Some statements in 'nobreak' block will never "
+																	"execute");
 				}
 			}
 		}

@@ -40,7 +40,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "ucloc.h"
 #include "ucparse.h"
 
+#include <cerrno>
+#include <cctype>
+#include <climits>
+#include <cstdint>
 #include <cstring>
+#include <limits>
 #include <set>
 #include <string>
 #include <vector>
@@ -52,6 +57,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define YY_USER_ACTION Uc_location::advance(yytext, yyleng); yylloc = Uc_parser_location::current();
 
 using std::string;
+
+static bool finish_include();
+static Uc_location comment_start;
 
 extern std::vector<char*> include_dirs;    // -I directories.
 
@@ -73,10 +81,10 @@ static char* Find_name(
 		char*  name,
 		char*& ename    // ->null at end of name returned.
 ) {
-	while (*name && *name != '"') {    // Find start of filename.
+	while (*name && std::isspace(static_cast<unsigned char>(*name))) {
 		name++;
 	}
-	if (!*name) {
+	if (*name != '"') {
 		return nullptr;
 	}
 	name++;          // Point to name.
@@ -98,16 +106,21 @@ static char* Find_name(
 static void Set_location(char* text    // ->first digit of line #.
 ) {
 	char* name;
-	int   line = strtol(text, &name, 10);
+	errno = 0;
+	const long line = strtol(text, &name, 10);
+	if (errno == ERANGE || name == text || line <= 0 || line >= INT_MAX) {
+		Uc_location::yyerror("invalid line number in #line directive");
+		return;
+	}
 	char* ename;
 	name = Find_name(name, ename);
 	if (!name) {
+		Uc_location::yyerror("expected a quoted filename after line number");
 		return;
 	}
 	// cout << "Setting location at line " << line - 1 << endl;
 	//  We're 0-based.
 	Uc_location::set_cur(name, line - 1);
-	*name = '"';    // Restore text.
 }
 
 /*
@@ -117,13 +130,13 @@ static void Set_location(char* text    // ->first digit of line #.
 static void Include(char* yytext    // ->text containing name.
 ) {
 	if (bufstack.size() > 20) {
-		Uc_location::yyerror("#includes are nested too deeply");
-		exit(1);
+		Uc_location::yyerror("include nesting exceeds the limit of 21 files");
+		return;
 	}
 	char* ename;
 	char* name = Find_name(yytext, ename);
 	if (!name) {
-		Uc_location::yyerror("No file in #include");
+		Uc_location::yyerror("expected a quoted filename after #include");
 		return;
 	}
 	// Check if file has already been included.
@@ -131,28 +144,29 @@ static void Include(char* yytext    // ->text containing name.
 	if (it != inclfiles.end()) {
 		return;
 	}
-	locstack.push_back(new Uc_location(Uc_location::next_location()));
-	bufstack.push_back(YY_CURRENT_BUFFER);
 	string source_path(name);
-	yyin = fopen(name, "r");
+	FILE* include_file = fopen(name, "r");
 	// Look in -I list if not found here.
-	if (yyin == nullptr) {
+	if (include_file == nullptr) {
 		for (char* dir : include_dirs) {
 			string path(dir);
 			path += '/';
 			path += name;
-			yyin = fopen(path.c_str(), "r");
-			if (yyin != nullptr) {
+			include_file = fopen(path.c_str(), "r");
+			if (include_file != nullptr) {
 				source_path = path;
 				break;
 			}
 		}
 	}
 
-	if (!yyin) {
-		Uc_location::yyerror("Can't open '%s'", name);
-		exit(1);
+	if (!include_file) {
+		Uc_location::yyerror("cannot open include file '%s': %s", name, strerror(errno));
+		return;
 	}
+	locstack.push_back(new Uc_location(Uc_location::next_location()));
+	bufstack.push_back(YY_CURRENT_BUFFER);
+	yyin = include_file;
 	// Add file to list of included files.
 	inclfiles.insert(name);
 	Uc_location::register_source(name, source_path.c_str());
@@ -211,12 +225,46 @@ static void Set_strict_mode(char* yytext    // Contains name.
 static void Set_autonum(char* text    // Contains number.
 ) {
 	char* name;
-	int   fun_number = strtol(text, &name, 0);
-	if (fun_number <= 0) {
-		Uc_location::yyerror("Starting function number too low in #autonumber");
+	errno = 0;
+	const long fun_number = strtol(text, &name, 0);
+	while (std::isspace(static_cast<unsigned char>(*name))) { ++name; }
+	if (errno == ERANGE || name == text || fun_number <= 0 || fun_number > INT_MAX
+			|| (*name && strncmp(name, "//", 2) != 0)) {
+		Uc_location::yyerror("expected a function number in the range 1..2147483647 after #autonumber");
+		return;
 	}
 
 	Uc_function_symbol::set_last_num(fun_number - 1);
+}
+
+static void Set_directive(char* text) {
+	char* argument = text + 1;
+	while (std::isspace(static_cast<unsigned char>(*argument))) { ++argument; }
+	if (std::isdigit(static_cast<unsigned char>(*argument))) {
+		Set_location(argument);
+		return;
+	}
+	char* end = argument;
+	while (*end && !std::isspace(static_cast<unsigned char>(*end))) { ++end; }
+	const std::string directive(argument, end);
+	if (directive == "include") { Include(end); }
+	else if (directive == "line") { Set_location(end); }
+	else if (directive == "game") { Set_game(end); }
+	else if (directive == "autonumber") { Set_autonum(end); }
+	else if (directive == "strictbraces") { Set_strict_mode(end); }
+	else { Uc_location::yywarning(Uc_location::Warning::unknown_directives, "unknown directive '#%s' ignored", directive.c_str()); }
+}
+
+static int Integer_literal(const char* text, int base) {
+	errno = 0;
+	const unsigned long long value = strtoull(text, nullptr, base);
+	if (errno == ERANGE || value > UINT32_MAX) {
+		Uc_location::yyerror("integer literal '%s' is too large for a 32-bit usecode integer", text);
+		return 0;
+	}
+	// Preserve hexadecimal bit patterns without an out-of-range signed cast.
+	return value <= INT32_MAX ? static_cast<int>(value)
+			: static_cast<int>(static_cast<int64_t>(value) - (INT64_C(1) << 32));
 }
 
 /*
@@ -228,6 +276,8 @@ static void Set_autonum(char* text    // Contains number.
 char* Handle_string(
 		const char* from,    // Ends with a '"'.
 		size_t      length) {
+	const Uc_location token_location;
+	const char* begin = from - 1; // Include the opening quote in offsets.
 	char* to  = new char[length];    // (Bigger than needed.)
 	char* str = to;
 
@@ -241,6 +291,7 @@ char* Handle_string(
 			*to++ = *from++;
 			continue;
 		}
+		const auto escape_location = token_location.at_offset(begin, from - begin, 2);
 		switch (*++from) {
 		case 'n':
 			*to++ = '\n';
@@ -260,12 +311,12 @@ char* Handle_string(
 			// We know that this will be of the form \\{xxx}
 			// where xxx is one of dot, ea, ee, ng, st, or th.
 			const char* term = from;
-			while (*term != '\0' && *term != '}') {
+			while (*term != '\0' && *term != '"' && *term != '}') {
 				++term;
 			}
 			if (*term != '}') {
 				// Just in case.
-				Uc_location::yyerror(
+				escape_location.error(
 						"Unterminated rune escape sequence in string. This is "
 						"probably a stray '\\{' which should be fixed.");
 				*to++ = '{';
@@ -285,9 +336,9 @@ char* Handle_string(
 			} else if (escape == "th") {
 				*to++ = '(';
 			} else {
-				if (escape.size() != 2 && escape.size() != 3) {
+				{
 					// Just in case.
-					Uc_location::yyerror(
+					escape_location.error(
 							"Invalid rune escape sequence '\\{%s}'. "
 							"Valid escapes are: '\\{dot}', '\\{ea}', '\\{ee}', "
 							"'\\{ng}', '\\{st}', '\\{th}'",
@@ -300,7 +351,7 @@ char* Handle_string(
 			break;
 		}
 		default: {
-			Uc_location::yywarning(
+			escape_location.warning(Uc_location::Warning::unknown_escape_sequence,
 					"Unknown escape sequence '\\%c'. If you are trying "
 					"to insert a literal backslash ('\\') into text, "
 					"write it as '\\\\'.",
@@ -318,20 +369,13 @@ char* Handle_string(
 
 void assert_no_embedded_nulls(const char* strval, size_t length) {
 	if (length != strlen(strval) + 1) {
-		Uc_location::yyerror("Stray null character found in string literal. "
-							"The file may have been corrupted. "
-							"Compilation cannot continue.");
-		exit(1);
+		Uc_location().at_offset(strval - 1, strlen(strval) + 1).error("NUL byte in string literal");
 	}
 }
 
-[[noreturn]]
 void assert_ascii_clean(const char* text) {
-	unsigned chr = static_cast<unsigned char>(*text);
-	Uc_location::yyerror("Invalid character found in source file: "
-							"'\\x%02X'. The file may have been corrupted. "
-							"Compilation cannot continue.", chr);
-	exit(1);
+	const unsigned chr = static_cast<unsigned char>(*text);
+	Uc_location::yyerror("invalid byte 0x%02X outside a string literal", chr);
 }
 
 #ifdef __GNUC__
@@ -363,7 +407,8 @@ void assert_ascii_clean(const char* text) {
 %s in_conversation
 %s in_breakable
 
-string_literal		\"([^"]|\\\{(dot|ea|ee|ng|st|th)\}|\\[^\{])*\"
+string_literal		\"([^"\\]|\\(.|\n))*\"
+unterminated_string	\"([^"\\]|\\(.|\n))*(\\)?
 control_chars		[\x00-\x08\x0B\x0C\x0E-\x1F]
 non_ascii_chars		[\x80-\xFF]
 invalid_chars		{control_chars}|{non_ascii_chars}
@@ -543,12 +588,23 @@ sonic_damage	return SONIC_DAMAGE;
 			yylval.strval      = Handle_string(strval, yyleng);
 			return STRING_PREFIX;
 		}
+{unterminated_string}	{
+			Uc_location::yyerror("unterminated string literal; expected '\"'");
+			yylval.strval = new char[1]{};
+			return STRING_LITERAL;
+		}
 [0-9]+			{
-			yylval.intval = atoi(yytext);
+			yylval.intval = Integer_literal(yytext, 10);
 			return INT_LITERAL;
 		}
-0x[0-9a-fA-F]+		{
-			yylval.intval = strtol(yytext + 2, nullptr, 16);
+0[xX][0-9a-fA-F]+		{
+			yylval.intval = Integer_literal(yytext, 16);
+			return INT_LITERAL;
+		}
+
+[0-9][a-zA-Z0-9_]*	{
+			Uc_location::yyerror("invalid integer literal '%s'", yytext);
+			yylval.intval = 0;
 			return INT_LITERAL;
 		}
 
@@ -566,38 +622,12 @@ sonic_damage	return SONIC_DAMAGE;
 "%="			{ return MOD_EQ; }
 "&="			{ return AND_EQ; }
 
-"#"[ \t]+[0-9]+[ \t]+\"[^"]*\".*\n	{
-			Set_location(yytext + 2);
-		}
-"#line"[ \t]+[0-9]+[ \t]+\"[^"]*\".*\n	{
-			Set_location(yytext + 6);
-		}
-"#include"[ \t]+.*\n		{
-			Include(yytext + 8);
-		}
-"#game"[ \t]+.*\n		{
-			Set_game(yytext + 5);
-		}
-"#autonumber"[ \t]+"0x"[0-9a-fA-F]+.*\n	{
-			Set_autonum(yytext + 11);
-		}
-"#strictbraces"[ \t]+.*\n		{
-			Set_strict_mode(yytext + 13);
-		}
-
-\#[^\n]*	{
-			Uc_location::yyerror(
-					"Directives require a terminating new-line character "
-					"before the end of file");
-		}
-\#[^\n]*\n	{
-			Uc_location::yywarning("Unknown directive is being ignored");
-		}
+\#[^\n]*\n?	{ Set_directive(yytext); }
 
 [ \t\r]+					/* Ignore spaces. */
 "//"[^\n]*					/* Comments. */
 "//"[^\n]*\n		/* Comments, including newline. */
-"/*"			yy_push_state(comment);
+"/*"			{ comment_start = Uc_location(); yy_push_state(comment); }
 
 <comment>{control_chars}	{ assert_ascii_clean(yytext); }
 <comment>[^*\n\x00]*				/* All but '*'. */
@@ -606,39 +636,40 @@ sonic_damage	return SONIC_DAMAGE;
 <comment>"*"+[^*/\n\x00]*\n		/* Comment line. */
 <comment>"*"+"/"			yy_pop_state();
 <comment><<EOF>>			{
-			Uc_location::yyerror("Comment not terminated");
-			yyterminate();
+			comment_start.error("unterminated block comment; expected '*/'");
+			yy_pop_state();
+			if (!finish_include()) { yyterminate(); }
 		}
 \n			/* Newline. */
-.			return *yytext;		/* Being lazy. */
+.			return *yytext;
 <<EOF>>			{
-			if (locstack.empty()) {
+			if (!finish_include()) {
 				auto loc = Uc_location::next_location();
 				Uc_location::set_cur(loc.get_source(), loc.get_line(), loc.get_column());
 				yylloc = Uc_parser_location::current();
 				yyterminate();
-			} else {
-				// Restore buffer and location.
-				Uc_location* loc = locstack.back();
-				locstack.pop_back();
-				const char* nm = loc->get_source();
-				Uc_location::set_cur(nm, loc->get_line(), loc->get_column());
-				delete loc;
-				// Close currently opened file.
-				if (yyin && yyin != stdin && bufstack.size()) {
-					fclose(yyin);
-				}
-				yy_delete_buffer(YY_CURRENT_BUFFER);
-				yy_switch_to_buffer(bufstack.back());
-				bufstack.pop_back();
 			}
 		}
+
 
 %%
 
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif    // __GNUC__
+
+static bool finish_include() {
+	if (locstack.empty()) { return false; }
+	Uc_location* loc = locstack.back();
+	locstack.pop_back();
+	Uc_location::set_cur(loc->get_source(), loc->get_line(), loc->get_column());
+	delete loc;
+	fclose(yyin);
+	yy_delete_buffer(YY_CURRENT_BUFFER);
+	yy_switch_to_buffer(bufstack.back());
+	bufstack.pop_back();
+	return true;
+}
 
 // Preserve the complete stack: nested scripts, loops, and conversations can
 // change both the current mode and the modes below it during a statement.
