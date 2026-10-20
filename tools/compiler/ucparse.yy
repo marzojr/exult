@@ -486,6 +486,7 @@ global_decl:
 	function
 	| function_decl
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (!Uc_function::add_global_function_symbol($1)) {
 			delete $1;
 		}
@@ -500,6 +501,7 @@ global_decl:
 class_definition:
 	CLASS IDENTIFIER opt_inheritance
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if ($3) {
 			cur_class = new Uc_class($2, $3);
 		} else {
@@ -509,6 +511,7 @@ class_definition:
 		}
 		'{' class_item_list '}'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		// Add to 'globals' symbol table.
 		Uc_class_symbol::create($2, cur_class);
 		cur_class = nullptr;
@@ -531,11 +534,17 @@ class_item:
 	VAR { has_ret = true; } class_var_def
 		{ has_ret = false; }
 	| VAR alias_tok IDENTIFIER '=' declared_var ';'
-		{ cur_class->add_alias($3, $5); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		cur_class->add_alias($3, $5);
+		}
 	| STRUCT '<' defined_struct '>' { struct_type = $3; } class_struct_def
 		{ struct_type = nullptr; }
 	| STRUCT '<' defined_struct '>' alias_tok IDENTIFIER '=' declared_var ';'
-		{ cur_class->add_alias($6, $8, $3); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		cur_class->add_alias($6, $8, $3);
+		}
 	| CLASS '<' defined_class '>' { class_type = $3; } method
 		{ class_type = nullptr; }
 	| opt_void method
@@ -554,6 +563,7 @@ class_struct_def:
 method:
 	IDENTIFIER '(' opt_param_list ')'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$3->insert(
 				$3->begin(),    // So it's local[0].
 				new Uc_class_inst_symbol("this", cur_class, 0));
@@ -584,11 +594,13 @@ method:
 struct_definition:
 	STRUCT IDENTIFIER
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		cur_struct = new Uc_struct_symbol($2);
 		Uc_function::add_global_struct_symbol(cur_struct);
 		}
 		'{' struct_item_list '}'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		// Add to 'globals' symbol table.
 		cur_struct = nullptr;
 		}
@@ -601,21 +613,32 @@ struct_item_list:
 
 struct_item:
 	VAR IDENTIFIER ';'
-		{ cur_struct->add($2); }
+		{
+		Uc_location::Context diagnostic_context(@2.loc());
+		cur_struct->add($2);
+		}
 	| STRUCT '<' defined_struct '>' ';'
-		{ cur_struct->merge_struct($3); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		cur_struct->merge_struct($3);
+		}
 	| STRUCT '<' defined_struct '>' IDENTIFIER ';'
-		{ cur_struct->merge_struct($3); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		cur_struct->merge_struct($3);
+		}
 	;
 
 function:
 	function_proto
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		cur_fun = new Uc_function($1);
 		units.push_back(cur_fun);
 		}
 	function_body
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		cur_fun = nullptr;
 		}
 	;
@@ -623,6 +646,7 @@ function:
 opt_trailing_label:
 	label_statement
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (cur_fun->has_ret()) {
 			Uc_location::yyerror(
 					"Trailing label '%s' in non-void function '%s' is not "
@@ -633,6 +657,7 @@ opt_trailing_label:
 		}
 	| %empty
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = nullptr;
 		}
 	;
@@ -640,14 +665,19 @@ opt_trailing_label:
 function_body:
 	'{' terminated_statement_list
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		cur_fun->set_statement($2);
 		}
 	;
 
 					/* opt_const_int_val assigns function #. */
 function_proto:
-	ret_type IDENTIFIER { start_fun_id(); } opt_funid '(' opt_param_list ')'
+	ret_type IDENTIFIER {
+		Uc_location::Context diagnostic_context(@$.loc());
+		start_fun_id();
+		} opt_funid '(' opt_param_list ')'
 		{
+		Uc_location::Context diagnostic_context(@2.loc());
 		end_fun_id();
 		if ($4->kind != Uc_function_symbol::utility_fun) {
 			if (has_ret || struct_type) {
@@ -677,6 +707,7 @@ function_proto:
 		}
 	| CLASS '<' defined_class '>' IDENTIFIER opt_const_int_val '(' opt_param_list ')'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = Uc_function_symbol::create(
 				$5, $6, *$8, is_extern, nullptr,
 				Uc_function_symbol::utility_fun);
@@ -688,17 +719,27 @@ function_proto:
 opt_funid:
 	SHAPENUM '(' const_int_expr ')'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = new Fun_id_info(Uc_function_symbol::shape_fun, $3 < 0 ? -1 : $3);
 		if ($3 < 0) {
 			Uc_location::yyerror("Shape number cannot be negative");
 		}
 		}
 	| OBJECTNUM '(' opt_const_int_expr ')'
-		{ $$ = new Fun_id_info(Uc_function_symbol::object_fun, $3); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Fun_id_info(Uc_function_symbol::object_fun, $3);
+		}
 	| opt_const_int_val
-		{ $$ = new Fun_id_info(Uc_function_symbol::utility_fun, $1); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Fun_id_info(Uc_function_symbol::utility_fun, $1);
+		}
 	| IDNUM '(' const_int_expr ')'
-		{ $$ = new Fun_id_info(Uc_function_symbol::utility_fun, $3); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Fun_id_info(Uc_function_symbol::utility_fun, $3);
+		}
 	;
 
 opt_const_int_expr:
@@ -717,6 +758,7 @@ const_int_expr:
 		{ $$ = $1 * $3; }
 	| const_int_expr '/' const_int_expr
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if ($3 == 0) {
 			Uc_location::yyerror("Division by 0");
 			$$ = -1;
@@ -726,6 +768,7 @@ const_int_expr:
 		}
 	| const_int_expr '%' const_int_expr
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if ($3 == 0) {
 			Uc_location::yyerror("Division by 0");
 			$$ = -1;
@@ -766,6 +809,7 @@ const_int_val:
 	sign_int_literal
 	| IDENTIFIER
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		Uc_symbol*           sym = Uc_function::search_globals($1);
 		Uc_const_int_symbol* var;
 		if (!sym) {
@@ -782,13 +826,15 @@ const_int_val:
 
 statement_block:
 	statement_block_start terminated_statement_list
-		{	// Block ends in label.
+		{
+		Uc_location::Context diagnostic_context(@$.loc());	// Block ends in label.
 		$$ = $2;
 		nested_if.pop_back();
 		cur_fun->pop_scope();
 		}
 	| label_statement statement
-		{	// Label followed by statements; "grab" next statement for label.
+		{
+		Uc_location::Context diagnostic_context(@$.loc());	// Label followed by statements; "grab" next statement for label.
 		if ($2) {
 			$2->set_loop_name($1->get_label());
 			auto* stmt = new Uc_block_statement();
@@ -804,6 +850,7 @@ statement_block:
 statement_block_start:
 	'{'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		cur_fun->push_scope();
 		nested_if.push_back(false);
 		}
@@ -812,6 +859,7 @@ statement_block_start:
 statement_list:
 	statement_list statement
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if ($2) {
 			$$->add($2);
 		}
@@ -819,12 +867,18 @@ statement_list:
 	| recovered_statement_list ';'
 		{ $$ = $1; yyerrok; }
 	| %empty
-		{ $$ = new Uc_recovery_block(); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_recovery_block();
+		}
 	;
 
 recovered_statement_list:
 	statement_list error
-		{ $1->recover(); $$ = $1; }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$1->recover(); $$ = $1;
+		}
 	;
 
 // Keep the closing brace as a synchronization point, so an error just before
@@ -832,6 +886,7 @@ recovered_statement_list:
 terminated_statement_list:
 	statement_list opt_trailing_label '}'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if ($2) {
 			$1->add($2);
 		}
@@ -844,6 +899,7 @@ terminated_statement_list:
 noncase_statement_list:
 	noncase_statement_list noncase_statement
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if ($2) {
 			$$->add($2);
 		}
@@ -851,12 +907,18 @@ noncase_statement_list:
 	| recovered_noncase_statement_list ';'
 		{ $$ = $1; yyerrok; }
 	| %empty
-		{ $$ = new Uc_recovery_block(); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_recovery_block();
+		}
 	;
 
 recovered_noncase_statement_list:
 	noncase_statement_list error
-		{ $1->recover(); $$ = $1; }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$1->recover(); $$ = $1;
+		}
 	;
 
 simple_or_if_statement:
@@ -879,6 +941,7 @@ simple_statement:
 	| script_statement
 	| break_statement
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (!can_break()) {
 			Uc_location::yyerror("'break' statement not allowed outside of "
 					"loops/converse/breakable/forever statements");
@@ -887,6 +950,7 @@ simple_statement:
 		}
 	| continue_statement
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (!can_continue()) {
 			Uc_location::yyerror("'continue' statement not allowed outside of "
 					"loops/converse/breakable/forever statements");
@@ -897,16 +961,31 @@ simple_statement:
 	| goto_statement
 	| delete_statement
 	| SAY  '(' opt_nonclass_expr_list ')' ';'
-		{ $$ = new Uc_say_statement($3); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_say_statement($3);
+		}
 	| MESSAGE '(' opt_nonclass_expr_list ')' ';'
-		{ $$ = new Uc_message_statement($3); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_message_statement($3);
+		}
 	| answer_statement
 	| ENDCONV ';'
-		{ $$ = new Uc_endconv_statement(); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_endconv_statement();
+		}
 	| throwabort_statement ';'
-		{ $$ = new Uc_abort_statement(); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_abort_statement();
+		}
 	| throwabort_statement expression ';'
-		{ $$ = new Uc_abort_statement($2); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_abort_statement($2);
+		}
 	| ';'				/* Null statement */
 		{ $$ = nullptr; }
 	;
@@ -935,6 +1014,7 @@ alias_tok:
 stmt_declaration:
 	DECLARE_ VAR IDENTIFIER ';'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (cur_fun) {
 			cur_fun->add_symbol($3, false);
 		} else {
@@ -944,6 +1024,7 @@ stmt_declaration:
 		}
 	| DECLARE_ STRUCT '<' defined_struct '>' { struct_type = $4; } IDENTIFIER ';'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (cur_fun) {
 			cur_fun->add_symbol($7, struct_type, false);
 		} else {
@@ -954,6 +1035,7 @@ stmt_declaration:
 		}
 	| DECLARE_ CLASS '<' defined_class '>' { class_type = $4; } IDENTIFIER ';'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (class_type && cur_fun) {
 			cur_fun->add_symbol($7, class_type, false);
 		} else {
@@ -965,15 +1047,22 @@ stmt_declaration:
 	| VAR var_decl_list ';'
 		{ $$ = $2; }
 	| VAR alias_tok IDENTIFIER '=' declared_var ';'
-		{ cur_fun->add_alias($3, $5); $$ = nullptr; }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		cur_fun->add_alias($3, $5); $$ = nullptr;
+		}
 	| STRUCT '<' defined_struct '>' { struct_type = $3; } struct_decl_list ';'
 		{ struct_type = nullptr; $$ = $6; }
 	| STRUCT '<' defined_struct '>' alias_tok IDENTIFIER '=' declared_var ';'
-		{ cur_fun->add_alias($6, $8, $3); $$ = nullptr; }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		cur_fun->add_alias($6, $8, $3); $$ = nullptr;
+		}
 	| CLASS '<' defined_class '>' { class_type = $3; } class_decl_list ';'
 		{ class_type = nullptr; $$ = $6; }
 	| CLASS '<' defined_class '>' alias_tok IDENTIFIER '=' declared_var ';'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (!$8->get_cls()) {
 			Uc_location::yyerror("Can't convert non-class into class.");
 		} else if (!Incompatible_classes_error($8->get_cls(), $3)) {
@@ -990,6 +1079,7 @@ stmt_declaration:
 		{ $$ = nullptr; }
 	| function_decl
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (!cur_fun->add_function_symbol(
 					$1, cur_class ? cur_class->get_scope() : nullptr)) {
 			delete $1;
@@ -1003,6 +1093,7 @@ stmt_declaration:
 var_decl_list:
 	var_decl_list ',' var_decl
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (!$3) {
 			$$ = $1;
 		} else if (!$1) {
@@ -1030,7 +1121,10 @@ opt_comma:
 enum_decl:				/* Decls. the elems, not the enum. */
 	ENUM IDENTIFIER { enum_val = -1; }
 			opt_enum_type '{' enum_item_list opt_comma '}' ';'
-		{ const_opcode.pop_back(); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		const_opcode.pop_back();
+		}
 	;
 
 const_int_type:
@@ -1048,9 +1142,15 @@ const_int_type:
 
 opt_enum_type:
 	':' const_int_type
-		{ const_opcode.push_back(static_cast<UsecodeOps>($2)); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		const_opcode.push_back(static_cast<UsecodeOps>($2));
+		}
 	| %empty
-		{ const_opcode.push_back(UC_PUSHI); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		const_opcode.push_back(UC_PUSHI);
+		}
 	;
 
 enum_item_list:
@@ -1061,7 +1161,8 @@ enum_item_list:
 enum_item:
 	const_int
 	| IDENTIFIER
-		{			/* Increment last value.	*/
+		{
+		Uc_location::Context diagnostic_context(@$.loc());			/* Increment last value.	*/
 		++enum_val;
 		int op = const_opcode.back();
 		if (cur_fun) {
@@ -1073,9 +1174,15 @@ enum_item:
 	;
 
 const_int_decl:
-	UCC_CONST const_int_type { const_opcode.push_back(static_cast<UsecodeOps>($2)); }
+	UCC_CONST const_int_type {
+		Uc_location::Context diagnostic_context(@$.loc());
+		const_opcode.push_back(static_cast<UsecodeOps>($2));
+		}
 		const_int_decl_list opt_comma ';'
-		{ const_opcode.pop_back(); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		const_opcode.pop_back();
+		}
 	;
 
 const_int_decl_list:
@@ -1086,6 +1193,7 @@ const_int_decl_list:
 const_int:
 	IDENTIFIER '=' const_int_expr
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		int op = const_opcode.back();
 		if (cur_fun) {
 			cur_fun->add_int_const_symbol($1, $3, op);
@@ -1096,6 +1204,7 @@ const_int:
 		}
 	| IDENTIFIER '=' int_cast const_int_expr
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		auto op = static_cast<UsecodeOps>($3);
 		if (cur_fun) {
 			cur_fun->add_int_const_symbol($1, $4, op);
@@ -1109,6 +1218,7 @@ const_int:
 var_decl:
 	IDENTIFIER
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (cur_fun) {
 			cur_fun->add_symbol($1, true);
 		} else {
@@ -1118,6 +1228,7 @@ var_decl:
 		}
 	| IDENTIFIER '=' nonclass_expr
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (cur_class && !cur_fun) {
 			Uc_location::yyerror(
 					"Initialization of class member var '%s' must be done "
@@ -1133,6 +1244,7 @@ var_decl:
 		}
 	| IDENTIFIER '=' script_expr
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (cur_class && !cur_fun) {
 			Uc_location::yyerror(
 					"Initialization of class member var '%s' must be done "
@@ -1150,6 +1262,7 @@ var_decl:
 class_decl_list:
 	class_decl_list ',' class_decl
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (!$3) {
 			$$ = $1;
 		} else if (!$1) {
@@ -1172,6 +1285,7 @@ class_decl_list:
 class_decl:
 	IDENTIFIER
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (class_type && cur_fun) {
 			cur_fun->add_symbol($1, class_type, true);
 		} else {
@@ -1181,6 +1295,7 @@ class_decl:
 		}
 	| IDENTIFIER '=' class_expr
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (!class_type || !$3 || Nonclass_unexpected_error($3)) {
 			$$ = nullptr;
 		} else {
@@ -1199,6 +1314,7 @@ class_decl:
 struct_decl_list:
 	struct_decl_list ',' struct_decl
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (!$3) {
 			$$ = $1;
 		} else if (!$1) {
@@ -1221,6 +1337,7 @@ struct_decl_list:
 struct_decl:
 	IDENTIFIER
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (cur_fun) {
 			cur_fun->add_symbol($1, struct_type, true);
 		} else {
@@ -1230,6 +1347,7 @@ struct_decl:
 		}
 	| IDENTIFIER '=' nonclass_expr
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (cur_class && !cur_fun) {
 			Uc_location::yyerror(
 					"Initialization of class member struct '%s' must be done "
@@ -1251,6 +1369,7 @@ class_expr:
 		{ $$ = $1; }
 	| IDENTIFIER
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		Uc_symbol* sym = cur_fun->search_up($1);
 		if (!sym) {
 			Uc_location::yyerror("'%s' not declared", $1);
@@ -1267,6 +1386,7 @@ class_expr:
 		}
 	| function_call
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = $1;
 		}
 	;
@@ -1291,6 +1411,7 @@ static_var_decl_list:
 static_var:
 	IDENTIFIER
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (cur_fun) {
 			cur_fun->add_static($1);
 		} else {
@@ -1307,6 +1428,7 @@ static_struct_var_decl_list:
 static_struct_var:
 	IDENTIFIER
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (cur_fun) {
 			cur_fun->add_static($1, struct_type);
 		} else {
@@ -1323,6 +1445,7 @@ static_cls_decl_list:
 static_cls:
 	IDENTIFIER
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (cur_fun) {
 			cur_fun->add_static($1, class_type);
 		} else {
@@ -1334,6 +1457,7 @@ static_cls:
 string_literal:
 	string_literal STRING_LITERAL
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		size_t left_len  = strlen($1);
 		size_t right_len = strlen($2);
 		char*  ret       = new char[left_len + right_len + 1];
@@ -1350,6 +1474,7 @@ string_literal:
 string_prefix:
 	string_literal STRING_PREFIX
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		size_t left_len  = strlen($1);
 		size_t right_len = strlen($2);
 		char*  ret       = new char[left_len + right_len + 1];
@@ -1371,6 +1496,7 @@ string_decl_list:
 string_decl:
 	IDENTIFIER '=' string_literal
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		cur_fun->add_string_symbol($1, $3);
 		}
 	;
@@ -1383,6 +1509,7 @@ function_decl:
 assignment_statement:
 	expression '=' expression ';'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		// Some rudimentary type-checking for classes
 		if ($1->is_class()) {
 			if (Nonclass_unexpected_error($3)) {
@@ -1406,6 +1533,7 @@ assignment_statement:
 		}
 	| expression '=' script_expr ';'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (Class_unexpected_error($1)) {
 			$$ = nullptr;
 		} else {
@@ -1414,6 +1542,7 @@ assignment_statement:
 		}
 	| nonclass_expr assignment_operator nonclass_expr ';'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$1->set_is_obj_fun(-1);
 		$$ = new Uc_assignment_statement(
 				$1,
@@ -1421,6 +1550,7 @@ assignment_statement:
 		}
 	| nonclass_expr UCC_INSERT appended_element_list ';'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$1->set_is_obj_fun(-1);
 		$$ = new Uc_assignment_statement($1, new Uc_array_expression($1, $3));
 		}
@@ -1443,9 +1573,13 @@ assignment_operator:
 
 appended_element_list:
 	appended_element_list UCC_INSERT appended_element
-		{ $$->add($3); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$->add($3);
+		}
 	| appended_element
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = new Uc_array_expression();
 		$$->add($1);
 		}
@@ -1453,8 +1587,12 @@ appended_element_list:
 
 appended_element:
 	nonclass_expr
-	| '{' { start_script(); } script_command_list '}'
+	| '{' {
+		Uc_location::Context diagnostic_context(@$.loc());
+		start_script();
+		} script_command_list '}'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = $3;
 		end_script();
 		}
@@ -1463,12 +1601,17 @@ appended_element:
 scoped_statement:
 	statement_block_start terminated_statement_list
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		cur_fun->pop_scope();
 		nested_if.pop_back();
 		$$ = $2;
 		}
-	| { cur_fun->push_scope(); nested_if.push_back(false); } simple_statement
+	| {
+		Uc_location::Context diagnostic_context(@$.loc());
+		cur_fun->push_scope(); nested_if.push_back(false);
+		} simple_statement
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (Uc_location::get_strict_mode()) {
 			Uc_location::yyerror("A Statements must be surrounded by braces in strict mode");
 		}
@@ -1476,8 +1619,12 @@ scoped_statement:
 		nested_if.pop_back();
 		$$ = $2;
 		}
-	| { cur_fun->push_scope(); nested_if.push_back(false); } if_statement
+	| {
+		Uc_location::Context diagnostic_context(@$.loc());
+		cur_fun->push_scope(); nested_if.push_back(false);
+		} if_statement
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		nested_if.pop_back();
 		if (Uc_location::get_strict_mode() && (nested_if.empty() || !nested_if.back())) {
 			Uc_location::yyerror("B Statements must be surrounded by braces in strict mode");
@@ -1490,6 +1637,7 @@ scoped_statement:
 if_statement:
 	IF '(' expression ')' scoped_statement %prec IF
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		int val;
 		if ($3->eval_const(val)) {
 			if (val) {
@@ -1509,8 +1657,12 @@ if_statement:
 		}
 		}
 	| IF '(' expression ')' scoped_statement
-		ELSE { nested_if.push_back(true); } scoped_statement
+		ELSE {
+		Uc_location::Context diagnostic_context(@$.loc());
+		nested_if.push_back(true);
+		} scoped_statement
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		int val;
 		if ($3->eval_const(val)) {
 			if (val) {
@@ -1538,6 +1690,7 @@ if_statement:
 trycatch_statement:
 	trystart_statement '{' terminated_statement_list
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		auto* stmt = dynamic_cast<Uc_trycatch_statement*>($1);
 		if (!stmt) {
 			Uc_location::yyerror("try/catch statement is not a try/catch statement");
@@ -1552,12 +1705,14 @@ trycatch_statement:
 trystart_statement:
 	try_statement terminated_statement_list CATCH '(' ')'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		cur_fun->pop_scope();
 		cur_fun->push_scope();
 		$$ = new Uc_trycatch_statement($2);
 		}
 	| try_statement terminated_statement_list CATCH '(' IDENTIFIER ')'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		cur_fun->pop_scope();
 		cur_fun->push_scope();
 		auto* stmt = new Uc_trycatch_statement($2);
@@ -1569,6 +1724,7 @@ trystart_statement:
 try_statement:
 	TRY '{'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		cur_fun->push_scope();
 		}
 	;
@@ -1595,8 +1751,15 @@ opt_nobreak_conv:
 	;
 
 while_statement:
-	WHILE '(' nonclass_expr ')' { start_loop(); } scoped_statement { end_loop(); } opt_nobreak
+	WHILE '(' nonclass_expr ')' {
+		Uc_location::Context diagnostic_context(@$.loc());
+		start_loop();
+		} scoped_statement {
+		Uc_location::Context diagnostic_context(@$.loc());
+		end_loop();
+		} opt_nobreak
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		int val;
 		if ($3->eval_const(val)) {
 			if (val) {
@@ -1615,10 +1778,26 @@ while_statement:
 			$$ = new Uc_while_statement($3, $6, $8);
 		}
 		}
-	| FOREVER { start_loop(); } scoped_statement { end_loop(); } opt_nobreak
-		{ $$ = new Uc_infinite_loop_statement($3, $5); }
-	| DO { start_loop(); } scoped_statement WHILE '(' nonclass_expr ')' { end_loop(); } opt_nobreak_do
+	| FOREVER {
+		Uc_location::Context diagnostic_context(@$.loc());
+		start_loop();
+		} scoped_statement {
+		Uc_location::Context diagnostic_context(@$.loc());
+		end_loop();
+		} opt_nobreak
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_infinite_loop_statement($3, $5);
+		}
+	| DO {
+		Uc_location::Context diagnostic_context(@$.loc());
+		start_loop();
+		} scoped_statement WHILE '(' nonclass_expr ')' {
+		Uc_location::Context diagnostic_context(@$.loc());
+		end_loop();
+		} opt_nobreak_do
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		int val;
 		if ($6->eval_const(val)) {
 			if (val) {
@@ -1635,18 +1814,37 @@ while_statement:
 			$$ = new Uc_dowhile_statement($6, $3, $9);
 		}
 		}
-	| BREAKABLE { start_loop(); } scoped_statement { end_loop(); } opt_nobreak
-		{ $$ = new Uc_breakable_statement($3, $5); }
+	| BREAKABLE {
+		Uc_location::Context diagnostic_context(@$.loc());
+		start_loop();
+		} scoped_statement {
+		Uc_location::Context diagnostic_context(@$.loc());
+		end_loop();
+		} opt_nobreak
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_breakable_statement($3, $5);
+		}
 	;
 
 array_enum_statement:
 	ENUM '(' ')' ';'
-		{ $$ = new array_enum_statement(); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new array_enum_statement();
+		}
 	;
 
 array_loop_statement:
-	start_array_variables { start_loop(); } scoped_statement { end_loop(); } opt_nobreak
+	start_array_variables {
+		Uc_location::Context diagnostic_context(@$.loc());
+		start_loop();
+		} scoped_statement {
+		Uc_location::Context diagnostic_context(@$.loc());
+		end_loop();
+		} opt_nobreak
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		auto* expr = new Uc_arrayloop_statement($1->var, $1->array);
 		expr->set_statement($3);
 		expr->set_nobreak($5);
@@ -1659,6 +1857,7 @@ array_loop_statement:
 		}
 	| start_array_variables ATTEND IDENTIFIER ';'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		auto* expr = new Uc_arrayloop_attend_statement($1->var, $1->array);
 		expr->set_index($1->index);
 		expr->set_array_size($1->length);
@@ -1673,6 +1872,7 @@ array_loop_statement:
 start_array_variables:
 	start_array_loop ')'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		Uc_var_symbol* index
 				= cur_fun->add_symbol("$$for_loop_index_tempvar", true);
 		Uc_var_symbol* length
@@ -1683,6 +1883,7 @@ start_array_variables:
 		}
 	| start_array_loop WITH IDENTIFIER ')'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		Uc_var_symbol* index = Get_variable($3);
 		Uc_var_symbol* length
 				= cur_fun->add_symbol("$$for_loop_length_tempvar", true);
@@ -1692,6 +1893,7 @@ start_array_variables:
 		}
 	| start_array_loop WITH IDENTIFIER TO IDENTIFIER ')'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		Uc_var_symbol* index  = Get_variable($3);
 		Uc_var_symbol* length = Get_variable($5);
 		Uc_var_symbol* var    = Get_variable($1->var);
@@ -1703,6 +1905,7 @@ start_array_variables:
 start_array_loop:
 	start_for IDENTIFIER UCC_IN declared_var
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if ($4->get_cls()) {
 			Uc_location::yyerror(
 					"Can't convert class '%s' into non-class",
@@ -1714,18 +1917,25 @@ start_array_loop:
 
 start_for:
 	FOR '('
-		{ cur_fun->push_scope(); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		cur_fun->push_scope();
+		}
 	;
 
 function_call_statement:
 	function_call ';'
-		{ $$ = new Uc_call_statement($1);  }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_call_statement($1); 
+		}
 	;
 
 special_method_call_statement:
 					/* Have 'primary' say something.*/
 	primary hierarchy_tok SAY '(' opt_nonclass_expr_list ')' ';'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		auto* stmts = new Uc_block_statement();
 		/* Set up 'show' call.		*/
 		stmts->add(new Uc_call_statement(new Uc_call_expression(
@@ -1737,17 +1947,22 @@ special_method_call_statement:
 		}
 	| primary hierarchy_tok HIDE '(' ')' ';'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = new Uc_call_statement(new Uc_call_expression(
 				Uc_function::get_remove_face(), new Uc_array_expression($1),
 				cur_fun));
 		}
 	| run_script_expression ';'
-		{ $$ = new Uc_call_statement($1); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_call_statement($1);
+		}
 	;
 
 run_script_expression:
 	opt_primary_expression RUNSCRIPT '(' nonclass_expr opt_delay ')'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		auto* parms = new Uc_array_expression();
 		parms->add($1);    // Itemref.
 		parms->add($4);    // Script.
@@ -1770,6 +1985,7 @@ opt_delay:
 return_statement:
 	RETURN expression ';'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (!cur_fun->has_ret()) {
 			Uc_location::yyerror(
 					"Function '%s' can't return a value",
@@ -1802,6 +2018,7 @@ return_statement:
 		}
 	| RETURN ';'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (cur_fun->has_ret()) {
 			Uc_class* cls = cur_fun->get_cls();
 			Uc_location::yyerror(
@@ -1823,21 +2040,30 @@ opt_nest:
 
 converse_statement:
 	CONVERSE start_conv
-			noncase_statement_list response_case_list '}' { end_converse(); } opt_nobreak_conv
+			noncase_statement_list response_case_list '}' {
+		Uc_location::Context diagnostic_context(@$.loc());
+		end_converse();
+		} opt_nobreak_conv
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		cur_fun->pop_scope();
 		--converse;
 		$$ = new Uc_converse_statement(nullptr, $3, $4, false, $7);
 		}
 	| CONVERSE opt_nest conv_expression start_conv
-			noncase_statement_list converse_case_list '}' { end_converse(); } opt_nobreak_conv
+			noncase_statement_list converse_case_list '}' {
+		Uc_location::Context diagnostic_context(@$.loc());
+		end_converse();
+		} opt_nobreak_conv
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		cur_fun->pop_scope();
 		--converse;
 		$$ = new Uc_converse_statement($3, $5, $6, $2, $9);
 		}
 	| CONVERSE ATTEND IDENTIFIER ';'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = new Uc_converse_attend_statement($3);
 		}
 	;
@@ -1845,6 +2071,7 @@ converse_statement:
 start_conv:
 	'{'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		start_converse();
 		cur_fun->push_scope();
 		++converse;
@@ -1854,6 +2081,7 @@ start_conv:
 conv_expression:
 	'(' expression ')'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (Class_unexpected_error($2)) {
 			$$ = nullptr;
 		} else {
@@ -1870,6 +2098,7 @@ conv_expression:
 converse_case_list:
 	converse_case_list converse_case
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if ($2) {
 			$$->push_back($2);
 		}
@@ -1880,8 +2109,12 @@ converse_case_list:
 
 converse_case:
 	CASE declared_var_value converse_options ':'
-			{ cur_fun->push_scope(); } noncase_statement_list
+			{
+		Uc_location::Context diagnostic_context(@$.loc());
+		cur_fun->push_scope();
+		} noncase_statement_list
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		Uc_expression* expr = $2;
 		if (Class_unexpected_error(expr)) {
 			expr = nullptr;
@@ -1891,22 +2124,34 @@ converse_case:
 		cur_fun->pop_scope();
 		}
 	| CASE string_list converse_options ':'
-			{ cur_fun->push_scope(); } noncase_statement_list
+			{
+		Uc_location::Context diagnostic_context(@$.loc());
+		cur_fun->push_scope();
+		} noncase_statement_list
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = new Uc_converse_strings_case_statement(
 				*$2, $6, ($3 ? true : false));
 		delete $2;    // A copy was made.
 		cur_fun->pop_scope();
 		}
 	| ALWAYS ':'
-			{ cur_fun->push_scope(); } noncase_statement_list
+			{
+		Uc_location::Context diagnostic_context(@$.loc());
+		cur_fun->push_scope();
+		} noncase_statement_list
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = new Uc_converse_always_case_statement($4);
 		cur_fun->pop_scope();
 		}
 	| DEFAULT ':'
-			{ cur_fun->push_scope(); } noncase_statement_list
+			{
+		Uc_location::Context diagnostic_context(@$.loc());
+		cur_fun->push_scope();
+		} noncase_statement_list
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = new Uc_converse_default_case_statement($4);
 		cur_fun->pop_scope();
 		}
@@ -1915,6 +2160,7 @@ converse_case:
 opt_int_value:
 	'(' int_literal ')'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		int ival;
 		if (!$2->eval_const(ival)) {
 			Uc_location::yyerror("Failed to obtain value from integer constant");
@@ -1928,6 +2174,7 @@ opt_int_value:
 converse_case_attend:
 	CASE declared_var_value converse_options ATTEND IDENTIFIER ':'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		Uc_expression* expr = $2;
 		if (Class_unexpected_error(expr)) {
 			expr = nullptr;
@@ -1937,17 +2184,25 @@ converse_case_attend:
 		}
 	| CASE string_list converse_options ATTEND IDENTIFIER ':'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = new Uc_converse_strings_case_attend_statement(
 				*$2, $5, ($3 ? true : false));
 		delete $2;    // A copy was made.
 		}
 	| DEFAULT opt_int_value ATTEND IDENTIFIER ':'
-		{ $$ = new Uc_converse_default_case_attend_statement($4, $2); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_converse_default_case_attend_statement($4, $2);
+		}
 	;
 
 response_case_list:
-	response_case_list ELSE { nested_if.push_back(true); } response_case
+	response_case_list ELSE {
+		Uc_location::Context diagnostic_context(@$.loc());
+		nested_if.push_back(true);
+		} response_case
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if ($4) {
 			$$->push_back($4);
 		}
@@ -1955,6 +2210,7 @@ response_case_list:
 		}
 	| response_case %prec IF
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = new vector<Uc_statement*>;
 		$$->push_back($1);
 		}
@@ -1962,8 +2218,12 @@ response_case_list:
 
 response_case:
 	response_expression
-			{ cur_fun->push_scope(); } statement_list
+			{
+		Uc_location::Context diagnostic_context(@$.loc());
+		cur_fun->push_scope();
+		} statement_list
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = new Uc_converse_strings_case_statement(*$1, $3, false);
 		delete $1;    // A copy was made.
 		cur_fun->pop_scope();
@@ -1973,6 +2233,7 @@ response_case:
 response_expression:
 	IF '(' RESPONSE EQUALS string_literal ')'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = new vector<int>;
 		$$->push_back(cur_fun->add_string($5));
 		}
@@ -1982,9 +2243,13 @@ response_expression:
 
 string_list:
 	string_list ',' string_literal
-		{ $$->push_back(cur_fun->add_string($3)); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$->push_back(cur_fun->add_string($3));
+		}
 	| string_literal
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = new vector<int>;
 		$$->push_back(cur_fun->add_string($1));
 		}
@@ -1999,10 +2264,17 @@ converse_options:
 
 switch_statement:
 	SWITCH '('
-			{ cur_fun->push_scope(); }
+			{
+		Uc_location::Context diagnostic_context(@$.loc());
+		cur_fun->push_scope();
+		}
 			expression ')' '{'
-			{ start_breakable(); } switch_case_list '}'
+			{
+		Uc_location::Context diagnostic_context(@$.loc());
+		start_breakable();
+		} switch_case_list '}'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (Class_unexpected_error($4)) {
 			$$ = nullptr;
 		} else {
@@ -2016,9 +2288,13 @@ switch_statement:
 
 switch_case_list:
 	switch_case_list switch_case
-		{ $$->push_back($2); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$->push_back($2);
+		}
 	| switch_case
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = new vector<Uc_statement*>;
 		$$->push_back($1);
 		}
@@ -2026,17 +2302,28 @@ switch_case_list:
 
 switch_case:
 	CASE int_literal ':' noncase_statement_list
-		{ $$ = new Uc_switch_expression_case_statement($2, $4); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_switch_expression_case_statement($2, $4);
+		}
 	| CASE string_literal ':' noncase_statement_list
-		{ $$ = new Uc_switch_expression_case_statement(
+		{
+		Uc_location::Context diagnostic_context(@$.loc()); $$ = new Uc_switch_expression_case_statement(
 				new Uc_string_expression(cur_fun->add_string($2)), $4); }
 	| DEFAULT ':' noncase_statement_list
-		{ $$ = new Uc_switch_default_case_statement($3); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_switch_default_case_statement($3);
+		}
 	;
 
 script_expr:
-	SCRIPT { start_script(); } item opt_script_delay script_command
+	SCRIPT {
+		Uc_location::Context diagnostic_context(@$.loc());
+		start_script();
+		} item opt_script_delay script_command
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		end_script();
 		auto* parms = new Uc_array_expression();
 		parms->add($3);    // Itemref.
@@ -2052,7 +2339,10 @@ script_expr:
 
 script_statement:			/* Yes, this could be an intrinsic. */
 	script_expr
-		{ $$ = new Uc_call_statement($1); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_call_statement($1);
+		}
 	;
 
 item:					/* Any object, NPC.	*/
@@ -2061,9 +2351,13 @@ item:					/* Any object, NPC.	*/
 
 script_command_list:
 	script_command_list script_command
-		{ $$->concat($2); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$->concat($2);
+		}
 	| script_command
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = new Uc_array_expression();
 		$$->concat($1);
 		}
@@ -2071,15 +2365,28 @@ script_command_list:
 
 script_command:
 	FINISH ';'
-		{ $$ = new Uc_int_expression(Ucscript::finish, UC_PUSHB); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_int_expression(Ucscript::finish, UC_PUSHB);
+		}
 	| RESURRECT ';'
-		{ $$ = new Uc_int_expression(Ucscript::resurrect, UC_PUSHB); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_int_expression(Ucscript::resurrect, UC_PUSHB);
+		}
 	| CONTINUE ';'			/* Continue script without painting. */
-		{ $$ = new Uc_int_expression(Ucscript::cont, UC_PUSHB); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_int_expression(Ucscript::cont, UC_PUSHB);
+		}
 	| RESET ';'			/* Go back to the beginning of the script */
-		{ $$ = new Uc_int_expression(Ucscript::reset, UC_PUSHB); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_int_expression(Ucscript::reset, UC_PUSHB);
+		}
 	| REPEAT repeat_count { repeat_nesting++; } script_command  ';'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		repeat_nesting--;
 		auto* result = new Uc_array_expression();
 		result->concat($4);    // Start with cmnds. to repeat.
@@ -2098,6 +2405,7 @@ script_command:
 	| REPEAT nonclass_expr ',' nonclass_expr { repeat_nesting++; }
 		script_command  ';'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		// Allow setting a different initial number of repeats.
 		repeat_nesting--;
 		auto* result = new Uc_array_expression();
@@ -2113,56 +2421,121 @@ script_command:
 	| RAW '(' int_literal ')' ';'
 		{ $$ = $3; }
 	| NOP  ';'
-		{ $$ = new Uc_int_expression(Ucscript::nop2, UC_PUSHB); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_int_expression(Ucscript::nop2, UC_PUSHB);
+		}
 	| NOP2 ';'
-		{ $$ = new Uc_int_expression(Ucscript::nop1, UC_PUSHB); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_int_expression(Ucscript::nop1, UC_PUSHB);
+		}
 	| NOHALT  ';'
-		{ $$ = new Uc_int_expression(Ucscript::dont_halt, UC_PUSHB); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_int_expression(Ucscript::dont_halt, UC_PUSHB);
+		}
 	| WAIT nonclass_expr  ';'		/* Ticks. */
-		{ $$ = Create_array(Ucscript::delay_ticks, $2); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = Create_array(Ucscript::delay_ticks, $2);
+		}
 	| WAIT nonclass_expr MINUTES  ';'	/* Game minutes. */
-		{ $$ = Create_array(Ucscript::delay_minutes, $2); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = Create_array(Ucscript::delay_minutes, $2);
+		}
 	| WAIT nonclass_expr HOURS  ';'	/* Game hours. */
-		{ $$ = Create_array(Ucscript::delay_hours, $2); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = Create_array(Ucscript::delay_hours, $2);
+		}
 	| WAIT WHILE NEAR nonclass_expr ';'	/* Wait while avatar is near. */
-		{ $$ = Create_array(Ucscript::wait_while_near, $4); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = Create_array(Ucscript::wait_while_near, $4);
+		}
 	| WAIT WHILE FAR nonclass_expr ';'	/* Wait while avatar is far. */
-		{ $$ = Create_array(Ucscript::wait_while_far, $4); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = Create_array(Ucscript::wait_while_far, $4);
+		}
 	| REMOVE ';'			/* Remove item. */
-		{ $$ = new Uc_int_expression(Ucscript::remove, UC_PUSHB); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_int_expression(Ucscript::remove, UC_PUSHB);
+		}
 	| RISE ';'			/* For flying barges. */
-		{ $$ = new Uc_int_expression(Ucscript::rise, UC_PUSHB); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_int_expression(Ucscript::rise, UC_PUSHB);
+		}
 	| DESCEND ';'
-		{ $$ = new Uc_int_expression(Ucscript::descend, UC_PUSHB); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_int_expression(Ucscript::descend, UC_PUSHB);
+		}
 	| FRAME nonclass_expr ';'
-		{ $$ = Create_array(Ucscript::frame, $2); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = Create_array(Ucscript::frame, $2);
+		}
 	| ACTOR FRAME nonclass_expr ';'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = new Uc_binary_expression(
 				UC_ADD, new Uc_int_expression(Ucscript::npc_frame),
 				new Uc_binary_expression(UC_MOD, $3, new Uc_int_expression(16)),
 				UC_PUSHB);    // Want byte.
 		}
 	| ACTOR FRAME actor_frames ';'
-		{ $$ = new Uc_int_expression(Ucscript::npc_frame + ($3 & 15), UC_PUSHB); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_int_expression(Ucscript::npc_frame + ($3 & 15), UC_PUSHB);
+		}
 	| HATCH ';'			/* Assumes item is an egg. */
-		{ $$ = new Uc_int_expression(Ucscript::egg, UC_PUSHB); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_int_expression(Ucscript::egg, UC_PUSHB);
+		}
 	| SETEGG nonclass_expr ',' nonclass_expr ';'
-		{ $$ = Create_array(Ucscript::set_egg, $2, $4); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = Create_array(Ucscript::set_egg, $2, $4);
+		}
 	| SETEGG egg_criteria ',' nonclass_expr ';'
-		{ $$ = Create_array(Ucscript::set_egg, new Uc_int_expression($2), $4); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = Create_array(Ucscript::set_egg, new Uc_int_expression($2), $4);
+		}
 	| NEXT FRAME ';'		/* Next, but stop at last. */
-		{ $$ = new Uc_int_expression(Ucscript::next_frame_max, UC_PUSHB); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_int_expression(Ucscript::next_frame_max, UC_PUSHB);
+		}
 	| NEXT FRAME CYCLE ';'		/* Next, or back to 0. */
-		{ $$ = new Uc_int_expression(Ucscript::next_frame, UC_PUSHB); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_int_expression(Ucscript::next_frame, UC_PUSHB);
+		}
 	| PREVIOUS FRAME ';'		/* Prev. but stop at 0. */
-		{ $$ = new Uc_int_expression(Ucscript::prev_frame_min, UC_PUSHB); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_int_expression(Ucscript::prev_frame_min, UC_PUSHB);
+		}
 	| PREVIOUS FRAME CYCLE ';'
-		{ $$ = new Uc_int_expression(Ucscript::prev_frame, UC_PUSHB); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_int_expression(Ucscript::prev_frame, UC_PUSHB);
+		}
 	| SAY nonclass_expr ';'
-		{ $$ = Create_array(Ucscript::say, $2); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = Create_array(Ucscript::say, $2);
+		}
 	| STEP nonclass_expr ';'		/* Step in given direction (0-7). */
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = Create_array(
 				Ucscript::step,
 				new Uc_binary_expression(
@@ -2171,6 +2544,7 @@ script_command:
 		}
 	| STEP nonclass_expr ',' nonclass_expr ';'	/* Step + dz. */
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = Create_array(
 				Ucscript::step,
 				new Uc_binary_expression(
@@ -2184,11 +2558,18 @@ script_command:
 						new Uc_int_expression(16)));    // Allow max |dz| == 15.
 		}
 	| STEP direction ';'
-		{ $$ = new Uc_int_expression(Ucscript::step_n + $2, UC_PUSHB); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_int_expression(Ucscript::step_n + $2, UC_PUSHB);
+		}
 	| MUSIC nonclass_expr ';'
-		{ $$ = Create_array(Ucscript::music, $2, new Uc_int_expression(0)); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = Create_array(Ucscript::music, $2, new Uc_int_expression(0));
+		}
 	| MUSIC nonclass_expr ',' nonclass_expr ';'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		// This is the 'repeat' flag.
 		Uc_expression* expr;
 		int            ival;
@@ -2201,6 +2582,7 @@ script_command:
 		}
 	| start_call ';'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		int ival;
 		if ($1->eval_const(ival) && ival >= 0 && ival < 0x100) {
 			// Matches original usecode.
@@ -2210,23 +2592,50 @@ script_command:
 		}
 		}
 	| start_call ',' nonclass_expr ';'
-		{ $$ = Create_array(Ucscript::usecode2, $1, $3); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = Create_array(Ucscript::usecode2, $1, $3);
+		}
 	| SPEECH nonclass_expr ';'
-		{ $$ = Create_array(Ucscript::speech, $2); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = Create_array(Ucscript::speech, $2);
+		}
 	| SFX nonclass_expr ';'
-		{ $$ = Create_array(Ucscript::sfx, $2); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = Create_array(Ucscript::sfx, $2);
+		}
 	| FACE nonclass_expr ';'
-		{ $$ = Create_array(Ucscript::face_dir, $2); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = Create_array(Ucscript::face_dir, $2);
+		}
 	| FACE direction ';'
-		{ $$ = Create_array(Ucscript::face_dir, new Uc_int_expression($2)); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = Create_array(Ucscript::face_dir, new Uc_int_expression($2));
+		}
 	| WEATHER nonclass_expr ';'
-		{ $$ = Create_array(Ucscript::weather, $2); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = Create_array(Ucscript::weather, $2);
+		}
 	| HIT nonclass_expr ',' nonclass_expr ';'
-		{ $$ = Create_array(Ucscript::hit, $2, $4); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = Create_array(Ucscript::hit, $2, $4);
+		}
 	| HIT nonclass_expr ',' dam_type ';'
-		{ $$ = Create_array(Ucscript::hit, $2, new Uc_int_expression($4)); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = Create_array(Ucscript::hit, $2, new Uc_int_expression($4));
+		}
 	| ATTACK ';'
-		{ $$ = new Uc_int_expression(Ucscript::attack, UC_PUSHB); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_int_expression(Ucscript::attack, UC_PUSHB);
+		}
 	| declared_var_value ';'
 	| '{' script_command_list '}'
 		{ $$ = $2; }
@@ -2235,6 +2644,7 @@ script_command:
 start_call:
 	CALL nonclass_expr
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (!$2) {
 			$$ = new Uc_int_expression(0);
 		} else {
@@ -2254,6 +2664,7 @@ repeat_count:
 	nonclass_expr
 	| FOREVER
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (repeat_nesting != 0) {
 			Uc_location::yyerror("'repeat forever' is not allowed for nested 'repeat' "
 					"commands");
@@ -2365,26 +2776,42 @@ opt_script_delay:
 
 break_statement:
 	BREAK ';'
-		{ $$ = new Uc_break_statement(); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_break_statement();
+		}
 	| BREAK IDENTIFIER ';'
-		{ $$ = new Uc_break_statement($2); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_break_statement($2);
+		}
 	;
 
 continue_statement:
 	CONTINUE ';'
-		{ $$ = new Uc_continue_statement(); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_continue_statement();
+		}
 	| CONTINUE IDENTIFIER ';'
-		{ $$ = new Uc_continue_statement($2); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_continue_statement($2);
+		}
 	;
 
 fallthrough_statement:
 	FALLTHROUGH ';'
-		{ $$ = new Uc_fallthrough_statement(); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_fallthrough_statement();
+		}
 	;
 
 label_statement:
 	IDENTIFIER ':'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (cur_fun->search_label($1)) {
 			Uc_location::yyerror("duplicate label: '%s'", $1);
 			$$ = nullptr;
@@ -2398,6 +2825,7 @@ label_statement:
 goto_statement:
 	GOTO IDENTIFIER
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (Uc_location::get_goto_warn()) {
 			@1.loc().warning("use of 'goto' statement [-Wgoto]");
 		}
@@ -2408,6 +2836,7 @@ goto_statement:
 delete_statement:
 	DELETE declared_var ';'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		auto* cls = dynamic_cast<Uc_class_inst_symbol*>($2->get_sym());
 		if (!cls) {
 			Uc_location::yyerror("'%s' is not a class", $2->get_name());
@@ -2421,11 +2850,13 @@ delete_statement:
 answer_statement:
 	ADD '(' nonclass_expr_list ')' ';'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = new Uc_call_statement(new Uc_call_expression(
 				Uc_function::get_add_answer(), $3, cur_fun));
 		}
 	| REMOVE '(' nonclass_expr_list ')' ';'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = new Uc_call_statement(new Uc_call_expression(
 				Uc_function::get_remove_answer(), $3, cur_fun));
 		}
@@ -2434,14 +2865,21 @@ answer_statement:
 opt_nonclass_expr_list:
 	nonclass_expr_list
 	| %empty
-		{ $$ = new Uc_array_expression(); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_array_expression();
+		}
 	;
 
 nonclass_expr_list:
 	nonclass_expr_list ',' nonclass_expr
-		{ $$->add($3); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$->add($3);
+		}
 	| nonclass_expr
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = new Uc_array_expression();
 		$$->add($1);
 		}
@@ -2450,6 +2888,7 @@ nonclass_expr_list:
 nonclass_expr:
 	expression
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (Class_unexpected_error($1)) {
 			$$ = nullptr;
 		} else {
@@ -2462,24 +2901,47 @@ expression:
 	primary
 		{ $$ = $1; }
 	| nonclass_expr '+' nonclass_expr
-		{ $$ = new Uc_binary_expression(UC_ADD, $1, $3); }
-	| nonclass_expr '-' nonclass_expr
-		{ $$ = new Uc_binary_expression(UC_SUB, $1, $3); }
-	| nonclass_expr '*' nonclass_expr
-		{ $$ = new Uc_binary_expression(UC_MUL, $1, $3); }
-	| nonclass_expr '/' nonclass_expr
-		{ $$ = new Uc_binary_expression(UC_DIV, $1, $3); }
-	| nonclass_expr '%' nonclass_expr
-		{ $$ = new Uc_binary_expression(UC_MOD, $1, $3); }
-	| nonclass_expr EQUALS nonclass_expr
-		{ $$ = new Uc_binary_expression(UC_CMPEQ, $1, $3); }
-	| NEW SCRIPT { start_script(); } script_command
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_binary_expression(UC_ADD, $1, $3);
+		}
+	| nonclass_expr '-' nonclass_expr
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_binary_expression(UC_SUB, $1, $3);
+		}
+	| nonclass_expr '*' nonclass_expr
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_binary_expression(UC_MUL, $1, $3);
+		}
+	| nonclass_expr '/' nonclass_expr
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_binary_expression(UC_DIV, $1, $3);
+		}
+	| nonclass_expr '%' nonclass_expr
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_binary_expression(UC_MOD, $1, $3);
+		}
+	| nonclass_expr EQUALS nonclass_expr
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_binary_expression(UC_CMPEQ, $1, $3);
+		}
+	| NEW SCRIPT {
+		Uc_location::Context diagnostic_context(@$.loc());
+		start_script();
+		} script_command
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = $4;
 		end_script();
 		}
 	| CHOICE
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (!converse) {
 			/* Only valid in converse blocks */
 			Uc_location::yyerror("'CHOICE' can only be used in a conversation block!");
@@ -2488,25 +2950,53 @@ expression:
 		$$ = new Uc_choice_expression();
 		}
 	| nonclass_expr NEQUALS nonclass_expr
-		{ $$ = new Uc_binary_expression(UC_CMPNE, $1, $3); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_binary_expression(UC_CMPNE, $1, $3);
+		}
 	| nonclass_expr '<' nonclass_expr
-		{ $$ = new Uc_binary_expression(UC_CMPLT, $1, $3); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_binary_expression(UC_CMPLT, $1, $3);
+		}
 	| nonclass_expr LTEQUALS nonclass_expr
-		{ $$ = new Uc_binary_expression(UC_CMPLE, $1, $3); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_binary_expression(UC_CMPLE, $1, $3);
+		}
 	| nonclass_expr '>' nonclass_expr
-		{ $$ = new Uc_binary_expression(UC_CMPGT, $1, $3); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_binary_expression(UC_CMPGT, $1, $3);
+		}
 	| nonclass_expr GTEQUALS nonclass_expr
-		{ $$ = new Uc_binary_expression(UC_CMPGE, $1, $3); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_binary_expression(UC_CMPGE, $1, $3);
+		}
 	| nonclass_expr AND nonclass_expr
-		{ $$ = new Uc_binary_expression(UC_AND, $1, $3); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_binary_expression(UC_AND, $1, $3);
+		}
 	| nonclass_expr OR nonclass_expr
-		{ $$ = new Uc_binary_expression(UC_OR, $1, $3); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_binary_expression(UC_OR, $1, $3);
+		}
 	| nonclass_expr UCC_IN nonclass_expr	/* Value in array. */
-		{ $$ = new Uc_binary_expression(UC_IN, $1, $3); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_binary_expression(UC_IN, $1, $3);
+		}
 	| nonclass_expr '&' nonclass_expr	/* append arrays */
-		{ $$ = new Uc_binary_expression(UC_ARRA, $1, $3); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_binary_expression(UC_ARRA, $1, $3);
+		}
 	| '+' primary %prec UPLUS
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (Class_unexpected_error($2)) {
 			$$ = nullptr;
 		} else {
@@ -2515,6 +3005,7 @@ expression:
 		}
 	| '-' primary %prec UMINUS
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if (Class_unexpected_error($2)) {
 			$$ = nullptr;
 		} else {
@@ -2523,18 +3014,28 @@ expression:
 		}
 	| addressof
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		int        funid = $1;
 		UsecodeOps op    = is_int_32bit(funid) ? UC_PUSHI32 : UC_PUSHI;
 		$$               = new Uc_int_expression(funid, op);
 		}
 	| NOT primary
-		{ $$ = new Uc_unary_expression(UC_NOT, $2); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_unary_expression(UC_NOT, $2);
+		}
 	| '[' opt_expression_list ']'	/* Concat. into an array. */
 		{ $$ = $2; }
 	| string_literal
-		{ $$ = new Uc_string_expression(cur_fun->add_string($1)); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_string_expression(cur_fun->add_string($1));
+		}
 	| string_prefix
-		{ $$ = new Uc_string_prefix_expression(cur_fun, $1); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_string_prefix_expression(cur_fun, $1);
+		}
 	| new_expr
 	| run_script_expression
 		{ $$ = $1; }
@@ -2543,6 +3044,7 @@ expression:
 addressof:
 	'&' IDENTIFIER %prec ADDRESSOF
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		// A way to retrieve the function's assigned
 		// usecode number
 		Uc_symbol* sym = cur_fun->search_up($2);
@@ -2563,6 +3065,7 @@ addressof:
 		}
 	| '&' STRUCT '<' defined_struct '>' UCC_SCOPE IDENTIFIER
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		auto* sym = $4;
 		if (sym) {
 			int value = sym->search($7);
@@ -2581,14 +3084,21 @@ addressof:
 opt_expression_list:
 	expression_list opt_comma
 	| %empty
-		{ $$ = new Uc_array_expression(); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_array_expression();
+		}
 	;
 
 expression_list:
 	expression_list ',' expression
-		{ $$->add($3); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$->add($3);
+		}
 	| expression
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = new Uc_array_expression();
 		$$->add($1);
 		}
@@ -2602,14 +3112,19 @@ int_cast:
 primary:
 	INT_LITERAL
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		const auto op = Integer_literal_opcode(
 				$1, !const_opcode.empty() ? const_opcode.back() : UC_PUSHI, @1.loc());
 		$$ = new Uc_int_expression($1, op);
 		}
 	| int_cast INT_LITERAL %prec UCC_CAST
-		{ $$ = new Uc_int_expression($2, static_cast<UsecodeOps>($1)); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_int_expression($2, static_cast<UsecodeOps>($1));
+		}
 	| member_selector
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		auto*             expr = dynamic_cast<Uc_var_expression*>($1->expr);
 		Uc_struct_symbol* base;
 		if (!expr || !(base = expr->get_struct())) {
@@ -2640,6 +3155,7 @@ primary:
 		{ $$ = $1; }
 	| declared_var '[' expression ']'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if ($1->get_cls()) {
 			Uc_location::yyerror(
 					"Can't convert class '%s' into non-class",
@@ -2654,9 +3170,13 @@ primary:
 		}
 		}
 	| FLAG '[' nonclass_expr ']'
-		{ $$ = new Uc_flag_expression($3); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_flag_expression($3);
+		}
 	| function_call
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if ($1) {
 			$$ = $1;
 		} else {
@@ -2664,13 +3184,25 @@ primary:
 		}
 		}
 	| UCTRUE
-		{ $$ = new Uc_bool_expression(true); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_bool_expression(true);
+		}
 	| UCFALSE
-		{ $$ = new Uc_bool_expression(false); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_bool_expression(false);
+		}
 	| EVENT
-		{ $$ = new Uc_event_expression(); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_event_expression();
+		}
 	| ITEM
-		{ $$ = new Uc_item_expression(); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_item_expression();
+		}
 	| '(' expression ')'
 		{ $$ = $2; }
 	;
@@ -2678,6 +3210,7 @@ primary:
 new_expr:
 	NEW defined_class '(' opt_nonclass_expr_list ')'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		if ($2) {
 			$$ = new Uc_new_expression(new Uc_class_inst_symbol("", $2, 0), $4);
 		} else {
@@ -2693,45 +3226,58 @@ hierarchy_tok:
 
 member_selector:
 	primary hierarchy_tok IDENTIFIER
-		{ $$ = new Member_selector($1, $3); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Member_selector($1, $3);
+		}
 	;
 
 opt_primary_expression:
 	primary hierarchy_tok
 		{ $$ = $1; }
 	| %empty
-		{ $$ = new Uc_item_expression(); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_item_expression();
+		}
 
 function_call:
 	member_selector opt_original '(' opt_expression_list ')'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = cls_function_call($1->expr, cur_class, $1->name, $2, $4);
 		delete $1;
 		}
 	| IDENTIFIER opt_original '(' opt_expression_list ')'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = cls_function_call(nullptr, cur_class, $1, $2, $4);
 		}
 	| primary hierarchy_tok defined_class UCC_SCOPE IDENTIFIER '(' opt_expression_list ')'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = cls_method_call($1, $1->get_cls(), $3, $5, $7);
 		}
 	| defined_class UCC_SCOPE IDENTIFIER '(' opt_expression_list ')'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = cls_method_call(nullptr, cur_class, $1, $3, $5);
 		}
 	| primary hierarchy_tok '(' '*' primary ')' '(' opt_expression_list ')'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = new Uc_call_expression($5, $8, cur_fun);
 		$$->set_itemref($1);
 		}
 	| '(' '*' primary ')' '(' opt_expression_list ')'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = new Uc_call_expression($3, $6, cur_fun);
 		$$->set_itemref(nullptr);
 		}
 	| primary hierarchy_tok '(' '@' int_literal ')' '(' opt_expression_list ')'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		int num;
 		if (!$5->eval_const(num)) {
 			Uc_location::yyerror("Failed to obtain value from integer constant");
@@ -2745,6 +3291,7 @@ function_call:
 		}
 	| '(' '@' int_literal ')' '(' opt_expression_list ')'
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		int num;
 		if (!$3->eval_const(num)) {
 			Uc_location::yyerror("Failed to obtain value from integer constant");
@@ -2772,9 +3319,13 @@ opt_param_list:
 
 param_list:
 	param_list ',' param
-		{ $1->push_back($3); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$1->push_back($3);
+		}
 	| param
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = new std::vector<Uc_var_symbol *>;
 		$$->push_back($1);
 		}
@@ -2782,13 +3333,25 @@ param_list:
 
 param:
 	IDENTIFIER
-		{ $$ = new Uc_var_symbol($1, 0); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_var_symbol($1, 0);
+		}
 	| VAR IDENTIFIER
-		{ $$ = new Uc_var_symbol($2, 0); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_var_symbol($2, 0);
+		}
 	| STRUCT '<' defined_struct '>' IDENTIFIER
-		{ $$ = new Uc_struct_var_symbol($5, $3, 0); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_struct_var_symbol($5, $3, 0);
+		}
 	| CLASS '<' defined_class '>' IDENTIFIER
-		{ $$ = new Uc_class_inst_symbol($5, $3, 0); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_class_inst_symbol($5, $3, 0);
+		}
 	;
 
 sign_int_literal:
@@ -2802,14 +3365,19 @@ sign_int_literal:
 int_literal:				/* A const. integer value.	*/
 	sign_int_literal
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		const auto op = Integer_literal_opcode(
 				$1, !const_opcode.empty() ? const_opcode.back() : UC_PUSHI, @1.loc());
 		$$ = new Uc_int_expression($1, op);
 		}
 	| int_cast sign_int_literal %prec UCC_CAST
-		{ $$ = new Uc_int_expression($2, static_cast<UsecodeOps>($1)); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_int_expression($2, static_cast<UsecodeOps>($1));
+		}
 	| declared_sym
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		auto* sym = dynamic_cast<Uc_const_int_symbol*>($1);
 		if (!sym) {
 			Uc_location::yyerror(
@@ -2821,15 +3389,22 @@ int_literal:				/* A const. integer value.	*/
 		}
 		}
 	| UCTRUE
-		{ $$ = new Uc_bool_expression(true); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_bool_expression(true);
+		}
 	| UCFALSE
-		{ $$ = new Uc_bool_expression(false); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = new Uc_bool_expression(false);
+		}
 	;
 
 opt_void:
 	VOID
 	| %empty
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		Uc_location::yywarning("You should prepend 'void' for functions that do"
 				  " not return a value.");
 		}
@@ -2847,6 +3422,7 @@ ret_type:
 declared_var_value:
 	declared_sym %prec UCC_SYM
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = $1->create_expression();
 		if (!$$) {
 			Uc_location::yyerror("Can't use '%s' here", $1->get_name());
@@ -2859,6 +3435,7 @@ declared_var_value:
 declared_var:
 	declared_sym %prec UCC_SYM
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		auto* var = dynamic_cast<Uc_var_symbol*>($1);
 		if (!var) {
 			Uc_location::yyerror("'%s' not a 'var'", $1->get_name());
@@ -2873,6 +3450,7 @@ declared_var:
 declared_sym:
 	IDENTIFIER
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		Uc_symbol* sym = cur_fun->search_up($1);
 		if (!sym) {
 			@1.loc().error("use of undeclared identifier '%s'", $1);
@@ -2884,12 +3462,16 @@ declared_sym:
 
 defined_class:
 	IDENTIFIER
-		{ $$ = Find_class($1, @1.loc()); }
+		{
+		Uc_location::Context diagnostic_context(@$.loc());
+		$$ = Find_class($1, @1.loc());
+		}
 	;
 
 defined_struct:
 	IDENTIFIER
 		{
+		Uc_location::Context diagnostic_context(@$.loc());
 		auto* sym = dynamic_cast<Uc_struct_symbol*>(
 				Uc_function::search_globals($1));
 		if (!sym) {

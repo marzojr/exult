@@ -37,7 +37,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <map>
 #include <string_view>
 
-using std::cout;
+using std::cerr;
 using std::endl;
 using std::strcmp;
 using std::strcpy;
@@ -45,18 +45,19 @@ using std::strlen;
 
 std::vector<char*> Uc_location::source_names;
 
-char* Uc_location::cur_source    = nullptr;
-int   Uc_location::cur_line      = 0;
-int   Uc_location::cur_column    = 1;
-int   Uc_location::cur_length    = 1;
-int   Uc_location::next_line     = 0;
-int   Uc_location::next_column   = 1;
-int   Uc_location::num_errors    = 0;
-bool  Uc_location::strict_mode   = false;
-bool  Uc_location::color_output  = false;
-bool  Uc_location::goto_warn     = true;
-bool  Uc_location::integer_warn  = true;
-bool  Uc_location::shapefun_warn = true;
+char*              Uc_location::cur_source         = nullptr;
+int                Uc_location::cur_line           = 0;
+int                Uc_location::cur_column         = 1;
+int                Uc_location::cur_length         = 1;
+int                Uc_location::next_line          = 0;
+int                Uc_location::next_column        = 1;
+const Uc_location* Uc_location::diagnostic_context = nullptr;
+int                Uc_location::num_errors         = 0;
+bool               Uc_location::strict_mode        = false;
+bool               Uc_location::color_output       = false;
+bool               Uc_location::goto_warn          = true;
+bool               Uc_location::integer_warn       = true;
+bool               Uc_location::shapefun_warn      = true;
 
 /*
  *  Set current source and line #.
@@ -130,10 +131,12 @@ Uc_location Uc_location::next_location() {
 	return loc;
 }
 
-void Uc_location::assemble_message(const char* msg, const char* source_file, int line_num, int column, int length, bool is_error) {
+void Uc_location::assemble_message(
+		const char* msg, const char* source_file, int line_num, int column, int length, Severity severity) {
 	if (!source_file) {
 		source_file = "<unknown>";
 	}
+	const bool is_error = severity == Severity::error;
 	// For colorization.
 	constexpr static const std::string_view error_prefix   = "\033[1;31merror:\033[0m ";
 	constexpr static const std::string_view warning_prefix = "\033[1;35mwarning:\033[0m ";
@@ -141,22 +144,26 @@ void Uc_location::assemble_message(const char* msg, const char* source_file, int
 	constexpr static const std::string_view line_prefix    = "\033[1;34m";
 	constexpr static const std::string_view reset_style    = "\033[0m";
 	if (color_output) {
-		cout << source_prefix << source_file << ":" << reset_style << line_prefix << line_num << ":" << column << ": "
+		cerr << source_prefix << source_file << ":" << reset_style << line_prefix << line_num << ":" << column << ": "
 			 << reset_style;
-		if (is_error) {
-			cout << error_prefix;
+		if (severity == Severity::note) {
+			cerr << "\033[1;36mnote:\033[0m ";
+		} else if (is_error) {
+			cerr << error_prefix;
 		} else {
-			cout << warning_prefix;
+			cerr << warning_prefix;
 		}
-		cout << msg << reset_style << endl;
+		cerr << msg << reset_style << endl;
 	} else {
-		cout << source_file << ':' << line_num << ':' << column << ": ";
-		if (is_error) {
-			cout << "error: ";
+		cerr << source_file << ':' << line_num << ':' << column << ": ";
+		if (severity == Severity::note) {
+			cerr << "note: ";
+		} else if (is_error) {
+			cerr << "error: ";
 		} else {
-			cout << "warning: ";
+			cerr << "warning: ";
 		}
-		cout << msg << endl;
+		cerr << msg << endl;
 	}
 	const auto file = source_lines.find(source_file ? source_file : "");
 	if (file == source_lines.end() || line_num < 1 || static_cast<size_t>(line_num) > file->second.size()) {
@@ -184,15 +191,15 @@ void Uc_location::assemble_message(const char* msg, const char* source_file, int
 		marker.append(static_cast<size_t>(column - 1) - text.size(), ' ');
 		marker += '^';
 	}
-	cout << "  " << expanded << '\n';
+	cerr << "  " << expanded << '\n';
 	if (color_output) {
-		cout << "\033[1;32m";
+		cerr << "\033[1;32m";
 	}
-	cout << "  " << marker;
+	cerr << "  " << marker;
 	if (color_output) {
-		cout << reset_style;
+		cerr << reset_style;
 	}
-	cout << endl;
+	cerr << endl;
 }
 
 /*
@@ -200,8 +207,9 @@ void Uc_location::assemble_message(const char* msg, const char* source_file, int
  */
 
 void Uc_location::yyerror(preformatted_t tag, const char* s) {
+	const Uc_location loc;
 	ignore_unused_variable_warning(tag);
-	assemble_message(s, cur_source, cur_line + 1, cur_column, cur_length, true);
+	assemble_message(s, loc.source, loc.line + 1, loc.column, loc.length, Severity::error);
 	num_errors++;
 }
 
@@ -210,22 +218,44 @@ void Uc_location::yyerror(preformatted_t tag, const char* s) {
  */
 
 void Uc_location::yywarning(preformatted_t tag, const char* s) {
+	const Uc_location loc;
 	ignore_unused_variable_warning(tag);
-	assemble_message(s, cur_source, cur_line + 1, cur_column, cur_length, false);
+	assemble_message(s, loc.source, loc.line + 1, loc.column, loc.length, Severity::warning);
 }
 
-constexpr const size_t BufferSize = 2048;
+namespace {
+	std::string format_message(const char* format, va_list args) {
+		va_list copy;
+		va_copy(copy, args);
+		const int size = vsnprintf(nullptr, 0, format, copy);
+		va_end(copy);
+		if (size < 0) {
+			return "unable to format diagnostic";
+		}
+		std::string message(static_cast<size_t>(size) + 1, '\0');
+		vsnprintf(message.data(), message.size(), format, args);
+		message.resize(size);
+		return message;
+	}
+}    // namespace
+
+void Uc_location::note(const char* format, ...) const {
+	va_list args;
+	va_start(args, format);
+	const auto message = format_message(format, args);
+	va_end(args);
+	assemble_message(message.c_str(), source, line + 1, column, length, Severity::note);
+}
 
 /*
  *  Print error for stored position.
  */
 
-void Uc_location::error(const char* format, ...) {
+void Uc_location::error(const char* format, ...) const {
 	va_list args;
 	va_start(args, format);
-	char s[BufferSize + 1]{};
-	vsnprintf(s, BufferSize, format, args);
-	assemble_message(s, source, line + 1, column, length, true);
+	const auto message = format_message(format, args);
+	assemble_message(message.c_str(), source, line + 1, column, length, Severity::error);
 	va_end(args);
 	num_errors++;
 }
@@ -234,12 +264,11 @@ void Uc_location::error(const char* format, ...) {
  *  Print warning for stored position.
  */
 
-void Uc_location::warning(const char* format, ...) {
+void Uc_location::warning(const char* format, ...) const {
 	va_list args;
 	va_start(args, format);
-	char s[BufferSize + 1]{};
-	vsnprintf(s, BufferSize, format, args);
-	assemble_message(s, source, line + 1, column, length, false);
+	const auto message = format_message(format, args);
+	assemble_message(message.c_str(), source, line + 1, column, length, Severity::warning);
 	va_end(args);
 }
 
@@ -248,11 +277,11 @@ void Uc_location::warning(const char* format, ...) {
  */
 
 void Uc_location::yyerror(const char* format, ...) {
-	va_list args;
+	const Uc_location loc;
+	va_list           args;
 	va_start(args, format);
-	char s[BufferSize + 1]{};
-	vsnprintf(s, BufferSize, format, args);
-	assemble_message(s, cur_source, cur_line + 1, cur_column, cur_length, true);
+	const auto message = format_message(format, args);
+	assemble_message(message.c_str(), loc.source, loc.line + 1, loc.column, loc.length, Severity::error);
 	va_end(args);
 	num_errors++;
 }
@@ -262,11 +291,11 @@ void Uc_location::yyerror(const char* format, ...) {
  */
 
 void Uc_location::yywarning(const char* format, ...) {
-	va_list args;
+	const Uc_location loc;
+	va_list           args;
 	va_start(args, format);
-	char s[BufferSize + 1]{};
-	vsnprintf(s, BufferSize, format, args);
-	assemble_message(s, cur_source, cur_line + 1, cur_column, cur_length, false);
+	const auto message = format_message(format, args);
+	assemble_message(message.c_str(), loc.source, loc.line + 1, loc.column, loc.length, Severity::warning);
 	va_end(args);
 }
 
@@ -274,11 +303,11 @@ void Uc_location::yywarning(const char* format, ...) {
  *  Print error for stored position.
  */
 
-void Uc_location::error(std::string& buffer, const char* format, ...) {
+void Uc_location::error(std::string& buffer, const char* format, ...) const {
 	va_list args;
 	va_start(args, format);
-	vsnprintf(buffer.data(), buffer.length(), format, args);
-	assemble_message(buffer.c_str(), source, line + 1, column, length, true);
+	buffer = format_message(format, args);
+	assemble_message(buffer.c_str(), source, line + 1, column, length, Severity::error);
 	va_end(args);
 	num_errors++;
 }
@@ -287,11 +316,11 @@ void Uc_location::error(std::string& buffer, const char* format, ...) {
  *  Print warning for stored position.
  */
 
-void Uc_location::warning(std::string& buffer, const char* format, ...) {
+void Uc_location::warning(std::string& buffer, const char* format, ...) const {
 	va_list args;
 	va_start(args, format);
-	vsnprintf(buffer.data(), buffer.length(), format, args);
-	assemble_message(buffer.c_str(), source, line + 1, column, length, false);
+	buffer = format_message(format, args);
+	assemble_message(buffer.c_str(), source, line + 1, column, length, Severity::warning);
 	va_end(args);
 }
 
@@ -300,10 +329,11 @@ void Uc_location::warning(std::string& buffer, const char* format, ...) {
  */
 
 void Uc_location::yyerror(std::string& buffer, const char* format, ...) {
-	va_list args;
+	const Uc_location loc;
+	va_list           args;
 	va_start(args, format);
-	vsnprintf(buffer.data(), buffer.length(), format, args);
-	assemble_message(buffer.c_str(), cur_source, cur_line + 1, cur_column, cur_length, true);
+	buffer = format_message(format, args);
+	assemble_message(buffer.c_str(), loc.source, loc.line + 1, loc.column, loc.length, Severity::error);
 	va_end(args);
 	num_errors++;
 }
@@ -313,9 +343,10 @@ void Uc_location::yyerror(std::string& buffer, const char* format, ...) {
  */
 
 void Uc_location::yywarning(std::string& buffer, const char* format, ...) {
-	va_list args;
+	const Uc_location loc;
+	va_list           args;
 	va_start(args, format);
-	vsnprintf(buffer.data(), buffer.length(), format, args);
-	assemble_message(buffer.c_str(), cur_source, cur_line + 1, cur_column, cur_length, false);
+	buffer = format_message(format, args);
+	assemble_message(buffer.c_str(), loc.source, loc.line + 1, loc.column, loc.length, Severity::warning);
 	va_end(args);
 }

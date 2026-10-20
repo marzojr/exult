@@ -200,7 +200,8 @@ Uc_expression* Uc_static_class_symbol::create_expression() {
 bool Uc_struct_symbol::is_dup(const char* nm) {
 	const int index = search(nm);
 	if (index >= 0) {    // Already declared?
-		Uc_location::yyerror("Symbol '%s' already declared", nm);
+		Uc_location::yyerror("redefinition of '%s'", nm);
+		member_locations.at(nm).note("previous declaration is here");
 		return true;
 	}
 	return false;
@@ -209,8 +210,13 @@ bool Uc_struct_symbol::is_dup(const char* nm) {
 Uc_struct_symbol::~Uc_struct_symbol() = default;
 
 void Uc_struct_symbol::merge_struct(Uc_struct_symbol* other) {
+	if (!other) {
+		return;    // The unknown struct type was already diagnosed.
+	}
 	for (auto& var : other->vars) {
-		add(var.first.c_str());
+		if (add(var.first.c_str())) {
+			member_locations[var.first] = other->member_locations.at(var.first);
+		}
 	}
 }
 
@@ -222,6 +228,7 @@ Uc_class_symbol* Uc_class_symbol::create(char* nm, Uc_class* c) {
 	Uc_symbol* sym = Uc_function::search_globals(nm);
 	if (sym) {
 		Uc_location::yyerror("Class name '%s' already exists.", nm);
+		sym->note("previous declaration is here");
 	}
 	auto* csym = new Uc_class_symbol(nm, c);
 	Uc_function::add_global_class_symbol(csym);
@@ -412,9 +419,11 @@ Uc_function_symbol* Uc_function_symbol::create(
 				break;
 			}
 			Uc_location::yyerror(Uc_location::preformatted, msg.c_str());
+			sym->note("previous declaration is here");
 		} else if (scope) {
 			if (!sym->is_inherited()) {
-				Uc_location::yyerror("Duplicate declaration of function '%s'.", nm);
+				Uc_location::yyerror("redefinition of function '%s'", nm);
+				sym->note("previous declaration is here");
 			}
 		} else if (sym->is_externed() || is_extern) {
 			if (sym->get_num_parms() == p.size()) {
@@ -429,7 +438,8 @@ Uc_function_symbol* Uc_function_symbol::create(
 				num = -1;
 			}
 		} else {
-			Uc_location::yyerror("Duplicate declaration of function '%s'.", nm);
+			Uc_location::yyerror("redefinition of function '%s'", nm);
+			sym->note("previous declaration is here");
 		}
 	}
 
@@ -689,7 +699,8 @@ int Uc_scope::add_function_symbol(Uc_function_symbol* fun, Uc_scope* parent) {
 bool Uc_scope::is_dup(const char* nm) {
 	Uc_symbol* sym = search(nm);
 	if (sym) {    // Already in scope?
-		Uc_location::yyerror("Symbol '%s' already declared", nm);
+		Uc_location::yyerror("redefinition of '%s'", nm);
+		sym->note("previous declaration is here");
 		return true;
 	}
 	return false;
