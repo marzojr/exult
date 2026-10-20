@@ -49,6 +49,41 @@ class Diagnostics(unittest.TestCase):
         self.assert_failed(result, "syntax error")
         self.assertNotIn("\033[", result.stdout)
 
+    def test_token_column_and_caret(self):
+        result = self.compile("void example 0x900 () {\n    var value = ;\n}\n")
+        self.assert_failed(result, "input.uc:2:17: error: syntax error, unexpected ';'")
+        self.assertIn("      var value = ;\n                  ^\n", result.stdout)
+
+    def test_tab_expansion(self):
+        result = self.compile("void example 0x900 () {\n\tvar value = ;\n}\n")
+        self.assert_failed(result, "input.uc:2:14: error:")
+        self.assertIn("          var value = ;\n                      ^\n", result.stdout)
+
+    def test_multiline_string_location(self):
+        result = self.compile('void example 0x900 () {\n say("first\nsecond");\n var value = ;\n}\n')
+        self.assert_failed(result, "input.uc:4:14: error:")
+
+    def test_multiline_comment_location(self):
+        result = self.compile("/* comment\n * continued\n */\nvoid example 0x900 () {\n var value = ;\n}\n")
+        self.assert_failed(result, "input.uc:5:14: error:")
+
+    def test_eof_location(self):
+        result = self.compile("void example 0x900 () {\n")
+        self.assert_failed(result, "input.uc:2:1: error: syntax error, unexpected end of file")
+
+    def test_include_excerpt_and_restore(self):
+        include = self.directory / "includes"
+        include.mkdir()
+        (include / "helper.uc").write_text("void helper 0x901 () { missing = 1; }\n", encoding="ascii")
+        result = self.compile('#include "helper.uc"\nvoid example 0x900 () {\n var value = ;\n}\n', "-I", str(include))
+        self.assert_failed(result, "helper.uc:1:32: error:")
+        self.assertIn("  void helper 0x901 () { missing = 1; }\n", result.stdout)
+        self.assertIn("input.uc:3:14: error:", result.stdout)
+
+    def test_line_directive(self):
+        result = self.compile('#line 42 "generated.uc"\nvoid example 0x900 () { var value = ; }\n')
+        self.assert_failed(result, "generated.uc:42:37: error:")
+
     def test_forced_color(self):
         for source in ("void example 0x900 () {}\n", "void\n"):
             with self.subTest(source=source):

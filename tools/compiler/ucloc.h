@@ -57,8 +57,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 class Uc_location {
 	static std::vector<char*> source_names;    // All filenames.
 
-	static char* cur_source;       // Source filename.
-	static int   cur_line;         // Line #.
+	static char* cur_source;    // Source filename.
+	static int   cur_line;      // Line #.
+	static int   cur_column;    // Byte column, 1-based.
+	static int   cur_length;    // Length of token on its first line.
+	static int   next_line;
+	static int   next_column;
 	static int   num_errors;       // Total #.
 	static bool  strict_mode;      // If all blocks are required to have braces
 	static bool  color_output;     // If output should be colorized.
@@ -68,8 +72,10 @@ class Uc_location {
 
 	char* source;
 	int   line;
+	int   column;
+	int   length;
 
-	static void assemble_message(const char* msg, const char* source_file, int line_num, bool is_error);
+	static void assemble_message(const char* msg, const char* source_file, int line_num, int column, int length, bool is_error);
 
 public:
 	struct preformatted_t {};
@@ -77,13 +83,14 @@ public:
 	constexpr static preformatted_t preformatted = {};
 
 	// Use current location.
-	Uc_location() : source(cur_source), line(cur_line) {}
+	Uc_location() : source(cur_source), line(cur_line), column(cur_column), length(cur_length) {}
 
-	static void set_cur(const char* s, int l);
+	static void set_cur(const char* s, int l, int c = 1);
 
-	static void increment_cur_line() {
-		cur_line++;
-	}
+	// Called once per lexer match, including whitespace and multiline strings.
+	static void        advance(const char* text, int size);
+	static Uc_location next_location();
+	static void        register_source(const char* name, const char* path);
 
 	static void set_strict_mode(bool tf) {
 		strict_mode = tf;
@@ -95,6 +102,10 @@ public:
 
 	int get_line() const {
 		return line;
+	}
+
+	int get_column() const {
+		return column;
 	}
 
 	const char* get_source() {

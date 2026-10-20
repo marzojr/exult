@@ -170,6 +170,7 @@ int main(int argc, char** argv) {
 			outname = strcpy(outbuf, "a.ucout");
 		}
 	}
+	Uc_location::register_source(src, src);
 	Uc_location::set_cur(src, 0);
 	Uc_function::set_intrinsic_type(ty);
 	const int parse_result = yyparse();
