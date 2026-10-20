@@ -184,7 +184,7 @@ static void Set_game(char* yytext    // Contains name.
 	char* ename;
 	char* name = Find_name(yytext, ename);
 	if (!name) {
-		Uc_location::yyerror("No name in #game");
+		Uc_location::yyerror("expected a quoted game name after #game");
 	} else if (strcmp(name, "blackgate") == 0) {
 		Uc_function::set_intrinsic_type(Uc_function::bg);
 	} else if (strcmp(name, "serpentisle") == 0) {
@@ -193,8 +193,7 @@ static void Set_game(char* yytext    // Contains name.
 		Uc_function::set_intrinsic_type(Uc_function::sib);
 	} else {
 		Uc_location::yyerror(
-				"Specify \"blackgate\", \"serpentisle\", or \"serpentbeta\" "
-				"with #game.");
+				"expected \"blackgate\", \"serpentisle\", or \"serpentbeta\" after #game");
 	}
 }
 
@@ -207,14 +206,14 @@ static void Set_strict_mode(char* yytext    // Contains name.
 	char* ename;
 	char* name = Find_name(yytext, ename);
 	if (!name) {
-		Uc_location::yyerror("No parameter in #strictbraces");
+		Uc_location::yyerror("expected a quoted Boolean value after #strictbraces");
 	} else if (strcmp(name, "true") == 0) {
 		Uc_location::set_strict_mode(true);
 	} else if (strcmp(name, "false") == 0) {
 		Uc_location::set_strict_mode(false);
 	} else {
 		Uc_location::yyerror(
-				"Specify \"true\", or \"false\" with #strictbraces.");
+				"expected \"true\" or \"false\" after #strictbraces");
 	}
 }
 
@@ -317,8 +316,7 @@ char* Handle_string(
 			if (*term != '}') {
 				// Just in case.
 				escape_location.error(
-						"Unterminated rune escape sequence in string. This is "
-						"probably a stray '\\{' which should be fixed.");
+						"unterminated rune escape sequence; expected '}' after '\\{'");
 				*to++ = '{';
 				break;
 			}
@@ -339,9 +337,7 @@ char* Handle_string(
 				{
 					// Just in case.
 					escape_location.error(
-							"Invalid rune escape sequence '\\{%s}'. "
-							"Valid escapes are: '\\{dot}', '\\{ea}', '\\{ee}', "
-							"'\\{ng}', '\\{st}', '\\{th}'",
+							"invalid rune escape sequence '\\{%s}'; expected dot, ea, ee, ng, st, or th",
 							escape.c_str());
 					*to++ = '{';
 					break;

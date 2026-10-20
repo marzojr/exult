@@ -127,16 +127,13 @@ int Uc_var_symbol::is_object_function(bool print_error) const {
 			}
 			break;
 		case 1:
-			Uc_location::yyerror(
-					"Var '%s' contains fun. not declared as 'shape#' or "
-					"'object#'",
-					name.c_str());
+			Uc_location::yyerror("variable '%s' holds a function not declared as 'shape#' or 'object#'", name.c_str());
 			break;
 		case 2:
-			Uc_location::yyerror("Var '%s' contains a negative number", name.c_str());
+			Uc_location::yyerror("variable '%s' holds a negative function ID", name.c_str());
 			break;
 		case 3:
-			Uc_location::yyerror("Return of intrinsics are generally not fun. IDs");
+			Uc_location::yyerror("intrinsic result is not a valid script function ID");
 			break;
 		}
 	}
@@ -227,7 +224,7 @@ void Uc_struct_symbol::merge_struct(Uc_struct_symbol* other) {
 Uc_class_symbol* Uc_class_symbol::create(char* nm, Uc_class* c) {
 	Uc_symbol* sym = Uc_function::search_globals(nm);
 	if (sym) {
-		Uc_location::yyerror("Class name '%s' already exists.", nm);
+		Uc_location::yyerror("redefinition of class '%s'", nm);
 		sym->note("previous declaration is here");
 	}
 	auto* csym = new Uc_class_symbol(nm, c);
@@ -352,6 +349,38 @@ Uc_function_symbol::Uc_function_symbol(
 	high_id = is_int_32bit(usecode_num);
 }
 
+bool Uc_function_symbol::check_return_type(Function_ret type, Uc_class* cls, Uc_struct_symbol* structure) {
+	if (return_declared
+		&& (type != ret_type || (type == class_ret && cls != ret_sym.cls) || (type == struct_ret && structure != ret_sym.str))) {
+		Uc_location::yyerror("conflicting return type for function '%s'", get_name());
+		note("previous declaration is here");
+		return false;
+	}
+	return_declared = true;
+	return true;
+}
+
+void Uc_function_symbol::set_ret_type(bool var) {
+	const auto type = var ? var_ret : no_ret;
+	if (check_return_type(type)) {
+		ret_type = type;
+	}
+}
+
+void Uc_function_symbol::set_ret_type(Uc_class* cls) {
+	if (cls && check_return_type(class_ret, cls)) {
+		ret_type    = class_ret;
+		ret_sym.cls = cls;
+	}
+}
+
+void Uc_function_symbol::set_ret_type(Uc_struct_symbol* structure) {
+	if (structure && check_return_type(struct_ret, nullptr, structure)) {
+		ret_type    = struct_ret;
+		ret_sym.str = structure;
+	}
+}
+
 /*
  *  Create new function symbol or return existing one (which could
  *  have been declared EXTERN).
@@ -367,7 +396,7 @@ Uc_function_symbol* Uc_function_symbol::create(
 		// Treat as autonumber request.
 		num = -1;
 		if (kind == shape_fun) {
-			Uc_location::yyerror("Shape number cannot be negative");
+			Uc_location::yyerror("shape number cannot be negative");
 		}
 	} else if (num < 0x400) {
 		if (kind == utility_fun) {
@@ -385,7 +414,12 @@ Uc_function_symbol* Uc_function_symbol::create(
 
 	const int shp = (kind == shape_fun) ? num : -1;
 	if (shp >= 0x400) {
-		num = new_auto_num ? -1 : 0xC00 + shp;
+		if (!new_auto_num && shp > INT32_MAX - 0xC00) {
+			Uc_location::yyerror("shape number %d is too large to map to a function ID", shp);
+			num = -1;
+		} else {
+			num = new_auto_num ? -1 : 0xC00 + shp;
+		}
 	} else if (shp != -1) {
 		num = shp;
 	}
@@ -394,33 +428,12 @@ Uc_function_symbol* Uc_function_symbol::create(
 	auto* sym = dynamic_cast<Uc_function_symbol*>(scope ? scope->search(nm) : Uc_function::search_globals(nm));
 	if (sym) {
 		if (sym->get_function_type() != kind) {
-			std::string msg = "Incompatible declarations of function '";
-			msg             = msg + nm + "': ";
-			switch (sym->get_function_type()) {
-			case utility_fun:
-				msg += "new decl. should not use ";
-				if (kind == shape_fun) {
-					msg += "'shape#'";
-				} else {
-					msg += "'object#'";
-				}
-				break;
-			case shape_fun:
-				if (kind == utility_fun) {
-					msg += "'shape#' missing in new decl.";
-				} else {
-					msg += "new decl. should use 'shape#' instead of 'object#'";
-				}
-				break;
-			case object_fun:
-				if (kind == utility_fun) {
-					msg += "'object#' missing in new decl.";
-				} else {
-					msg += "new decl. should use 'object#' instead of 'shape#'";
-				}
-				break;
-			}
-			Uc_location::yyerror(Uc_location::preformatted, msg.c_str());
+			const auto kind_name = [](Function_kind type) {
+				return type == utility_fun ? "utility" : type == shape_fun ? "shape#" : "object#";
+			};
+			Uc_location::yyerror(
+					"conflicting kind for function '%s': declared as '%s', previously '%s'", nm, kind_name(kind),
+					kind_name(sym->get_function_type()));
 			sym->note("previous declaration is here");
 		} else if (scope) {
 			if (!sym->is_inherited()) {
@@ -437,6 +450,10 @@ Uc_function_symbol* Uc_function_symbol::create(
 				}
 				num = sym->get_usecode_num();
 			} else {
+				Uc_location::yyerror(
+						"conflicting declaration of function '%s': expected %zu parameters, got %zu", nm, sym->get_num_parms(),
+						p.size());
+				sym->note("previous declaration is here");
 				num = -1;
 			}
 		} else {
@@ -453,6 +470,10 @@ Uc_function_symbol* Uc_function_symbol::create(
 				nm);
 	}
 
+	if (num < 0 && last_num == INT32_MAX) {
+		Uc_location::yyerror("automatic function ID exceeds the supported range");
+		num = INT32_MAX;
+	}
 	const int ucnum = num >= 0 ? num : (last_num + 1);
 	// Set last_num if the function doesn't
 	// have a number:
@@ -474,8 +495,9 @@ Uc_function_symbol* Uc_function_symbol::create(
 	sym = it->second;
 	if (sym->name != nm || sym->get_num_parms() != p.size()) {
 		Uc_location::yyerror(
-				"Function 0x%x already used for '%s' with %zu params.", static_cast<unsigned int>(ucnum), sym->get_name(),
-				sym->get_num_parms());
+				"usecode ID 0x%x is already assigned to function '%s' with %zu parameters", static_cast<unsigned int>(ucnum),
+				sym->get_name(), sym->get_num_parms());
+		sym->note("previous declaration is here");
 	} else {
 		auto get_param_type = [](const Uc_var_symbol* var) {
 			std::string type;
@@ -498,11 +520,9 @@ Uc_function_symbol* Uc_function_symbol::create(
 				|| (p[i]->get_sym_type() == Uc_symbol::Class && p[i]->get_cls() != parms[i]->get_cls())
 				|| p[i]->get_struct() != parms[i]->get_struct()) {
 				Uc_location::yyerror(
-						"Mismatch between function '%s' and previous "
-						"declaration: parameter %zu is of different type: "
-						"type of '%s' is '%s' != type of '%s' is '%s'",
-						nm, i, p[i]->get_name(), get_param_type(p[i]).c_str(), parms[i]->get_name(),
-						get_param_type(parms[i]).c_str());
+						"conflicting type for parameter %zu of function '%s': expected '%s', got '%s'", i + 1, nm,
+						get_param_type(parms[i]).c_str(), get_param_type(p[i]).c_str());
+				parms[i]->note("previous parameter declaration is here");
 			}
 		}
 		if (!is_extern) {
@@ -538,11 +558,13 @@ int Uc_function_symbol::gen_call(
 	size_t parmcnt = aparms->gen_values(out);    // Want to push parm. values.
 	parmcnt += (method_num >= 0);                // Count 'this'.
 	if (parmcnt != parms.size()) {
-		Uc_location::yyerror("# parms. passed (%zu) doesn't match '%s' count (%zu)", parmcnt, get_name(), parms.size());
+		Uc_location::yyerror("argument count mismatch for '%s': got %zu, expected %zu", get_name(), parmcnt, parms.size());
+		note("function declared here");
 	}
 	// See if expecting a return value from a function that has none.
 	if (retvalue && !has_ret()) {
-		Uc_location::yyerror("Function '%s' does not have a return value", get_name());
+		Uc_location::yyerror("void function '%s' does not return a value", get_name());
+		note("function declared here");
 	}
 	if (orig) {
 		if (!itemref) {
@@ -562,7 +584,7 @@ int Uc_function_symbol::gen_call(
 			}
 		}
 		if (!itemref) {
-			Uc_location::yyerror("Class method '%s' requires a 'this'.", get_name());
+			Uc_location::yyerror("member function '%s' requires a class instance", get_name());
 		} else {
 			itemref->gen_value(out);
 		}
@@ -652,8 +674,9 @@ Uc_symbol* Uc_scope::search_up(const char* nm) {
  */
 
 int Uc_scope::add_function_symbol(Uc_function_symbol* fun, Uc_scope* parent) {
-	const char* nm = fun->get_name();
-	Uc_symbol*  found;    // Already here?
+	Uc_location::Context diagnostic_context(*fun);
+	const char*          nm = fun->get_name();
+	Uc_symbol*           found;    // Already here?
 	if (parent) {
 		found = parent->search(nm);
 	} else {
@@ -671,15 +694,12 @@ int Uc_scope::add_function_symbol(Uc_function_symbol* fun, Uc_scope* parent) {
 	if (fun2 == fun) {    // The case for an EXTERN.
 		return 1;
 	} else if (!fun2) {    // Non-function name.
-		Uc_location::yyerror("'%s' already declared", nm);
+		Uc_location::yyerror("redefinition of '%s'", nm);
 	} else if (fun->get_num_parms() != fun2->get_num_parms()) {
 		if (fun2->is_inherited()) {
-			Uc_location::yyerror(
-					"Decl. of virtual member function '%s' doesn't match decl. "
-					"from base class",
-					nm);
+			Uc_location::yyerror("declaration of member function '%s' conflicts with its base-class declaration", nm);
 		} else {
-			Uc_location::yyerror("Decl. of '%s' doesn't match previous decl", nm);
+			Uc_location::yyerror("conflicting declaration of '%s'", nm);
 		}
 	} else if (fun->usecode_num != fun2->usecode_num) {
 		if (fun2->externed || fun->externed || fun2->is_inherited()) {
@@ -687,9 +707,10 @@ int Uc_scope::add_function_symbol(Uc_function_symbol* fun, Uc_scope* parent) {
 				--Uc_function_symbol::last_num;
 			}
 		} else {
-			Uc_location::yyerror("Decl. of '%s' has different usecode #.", nm);
+			Uc_location::yyerror("declaration of '%s' has a different usecode ID", nm);
 		}
 	}
+	found->note("previous declaration is here");
 	return 0;
 }
 

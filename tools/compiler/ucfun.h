@@ -51,10 +51,11 @@ class Uc_function : public Uc_design_unit {
 	int                 num_locals;     // Counts locals.
 	int                 num_statics;    // Counts local statics.
 	// Links to called functions:
-	std::vector<Uc_function_symbol*> links;
-	std::set<std::string>            labels;
-	char*                            text_data;    // All strings.
-	int                              text_data_size;
+	std::vector<Uc_function_symbol*>   links;
+	std::set<std::string>              labels;
+	std::map<std::string, Uc_location> label_locations;
+	char*                              text_data;    // All strings.
+	int                                text_data_size;
 	// Map string to its offset.
 	std::map<std::string, int> text_map;
 	Uc_statement*              statement;    // Statement(s) in function.
@@ -89,6 +90,10 @@ public:
 
 	void set_statement(Uc_statement* s) {
 		statement = s;
+	}
+
+	const Uc_location& declaration_location() const {
+		return *proto;
 	}
 
 	const char* get_name() {
@@ -251,6 +256,11 @@ public:
 	// Start/end loop.
 	void add_label(char* nm) {
 		labels.insert(nm);
+		label_locations.emplace(nm, Uc_location());
+	}
+
+	const Uc_location& label_location(const char* nm) const {
+		return label_locations.at(nm);
 	}
 
 	bool search_label(char* nm) {
