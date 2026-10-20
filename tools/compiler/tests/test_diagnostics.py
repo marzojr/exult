@@ -2,6 +2,7 @@
 """Run with: python3 tools/compiler/tests/test_diagnostics.py /path/to/ucc"""
 
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -127,7 +128,7 @@ class Diagnostics(unittest.TestCase):
                 self.assert_failed(result, "syntax error")
                 self.assertIn("'break' statement not allowed", result.stdout)
                 self.assertIn("'continue' statement not allowed", result.stdout)
-                self.assertIn("'CHOICE' can only be used", result.stdout)
+                self.assertIn("'user_choice' is only valid", result.stdout)
                 self.assertIn("input.uc:8:", result.stdout)
                 self.assertIn("input.uc:10:", result.stdout)
                 self.assertNotIn("undeclared identifier 'repeat'", result.stdout)
@@ -300,13 +301,13 @@ void following 0x900 () { var broken = ; }
 
     def test_codegen_location_and_no_output(self):
         result = self.compile('void helper 0x900 () {}\nvoid example 0x901 () {\n var value = helper();\n}\n')
-        self.assert_failed(result, "input.uc:3:14: error: Function 'helper' does not have a return value")
+        self.assert_failed(result, "input.uc:3:14: error: void function 'helper' does not return a value")
 
     def test_preserve_previous_output_on_codegen_error(self):
         self.output.write_bytes(b"previous successful build")
         result = self.compile("void example 0x900 () { goto missing; }\n")
         self.assertNotEqual(result.returncode, 0, result.stdout)
-        self.assertIn("Undeclared label", result.stdout)
+        self.assertIn("undeclared label", result.stdout)
         self.assertEqual(self.output.read_bytes(), b"previous successful build")
 
     def test_untruncated_diagnostic(self):
@@ -427,12 +428,99 @@ void example 0x901 () { var callback = &helper; script item call callback; }
         result = self.compile(source, "-Werror", "-Wno-error=goto")
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertIn("[-Wgoto]", result.stdout)
+
         result = self.compile(source, "-u")
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertNotIn("warning:", result.stdout)
         result = self.compile(source, "-u", "-Wall")
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertIn("[-Wgoto]", result.stdout)
+
+    def test_argument_count_and_declaration_note(self):
+        result = self.compile('void helper 0x900 (value) {}\nvoid example 0x901 () { helper(); }\n')
+        self.assert_failed(result, "too few arguments to 'helper': expected 1, got 0")
+        self.assertIn("input.uc:1:6: note: function declared here", result.stdout)
+
+    def test_method_argument_index_and_parameter_note(self):
+        # Use a complete declared type, then pass a non-class first argument.
+        source = ('class Other {}\nclass Widget { void method(class<Other> value) {} }\n'
+                  + 'void example 0x900 () { class<Widget> obj = new Widget(); obj->method(1); }\n')
+        result = self.compile(source)
+        self.assert_failed(result, "argument 1 to 'method' requires class 'Other'")
+        self.assertIn("passing argument to parameter 'value' here", result.stdout)
+
+    def test_conflicting_return_types(self):
+        for first, second in (("var", "void"), ("void", "var"),
+                              ("class<Widget>", "struct<Record>")):
+            with self.subTest(first=first, second=second):
+                result = self.compile('class Widget {} struct Record { var field; }\n'
+                                      + 'extern ' + first + ' helper 0x900 ();\n'
+                                      + 'extern ' + second + ' helper 0x900 ();\n')
+                self.assert_failed(result, "conflicting return type for function 'helper'")
+                self.assertIn("input.uc:2:", result.stdout)
+                self.assertIn("note: previous declaration is here", result.stdout)
+
+    def test_conflicting_parameter_type(self):
+        result = self.compile('class Widget {}\nextern void helper 0x900 (var value);\n'
+                              + 'extern void helper 0x900 (class<Widget> value);\n')
+        self.assert_failed(result, "conflicting type for parameter 1")
+        self.assertIn("previous parameter declaration is here", result.stdout)
+
+    def test_duplicate_label_and_default_notes(self):
+        for body, message, note in (
+            ("label: ; label: ;", "redefinition of label 'label'", "previous label is here"),
+            ("switch (event) { default: break; default: break; }",
+             "multiple default labels", "previous default label is here"),
+        ):
+            with self.subTest(body=body):
+                result = self.compile('void example 0x900 () { ' + body + '\n var following = ; }\n')
+                self.assert_failed(result, message)
+                self.assertIn(note, result.stdout)
+                self.assertIn("input.uc:2:", result.stdout)
+
+    def test_constant_division_errors(self):
+        for expression in ("1 / 0", "1 % 0", "0x80000000 / -1", "0x80000000 % -1"):
+            with self.subTest(expression=expression):
+                for prefix in ("const long value = ", "void example 0x900 () { var value = "):
+                    with self.subTest(prefix=prefix):
+                        source = prefix + expression + (";\n" if prefix.startswith("const") else "; }\n")
+                        result = self.compile(source)
+                        self.assert_failed(result, "constant")
+                        self.assertEqual(result.returncode, 1, result.stdout)
+
+    def test_syntax_error_includes_spelling(self):
+        result = self.compile("void example 0x900 () { var x unexpected; }\n")
+        self.assert_failed(result, "unexpected identifier 'unexpected'")
+
+    def test_malformed_token_corpus_does_not_crash_or_hang(self):
+        source = '''#game "blackgate"
+#autonumber 0x900
+class Widget { var field; void method(var value) { field = value; } }
+struct Record { var field; }
+var helper(var value) { return value + 1; }
+void example(var condition) {
+ var value = helper(1);
+ if (condition) { value = 2; } else { value = 3; }
+ while (condition) { if (value) { break; } value -= 1; }
+ try { throw value; } catch (exception) { say("text"); }
+ converse (0) { case "topic": break; }
+ script item { repeat 2 { call 0x100; wait 1; }; }
+}
+'''
+        baseline = self.compile(source)
+        self.assertEqual(baseline.returncode, 0, baseline.stdout)
+        tokens = list(re.finditer(r'"[^"\n]*"|\w+|[^\s\w]', source))
+        # Mutate each token in the complete language sample, alternating
+        # deletion and replacement so lexer and semantic recovery both run.
+        for index, token in enumerate(tokens):
+            with self.subTest(token=token.group(), index=index):
+                if self.output.exists():
+                    self.output.unlink()
+                replacement = "@" if index % 2 else ""
+                mutated = source[:token.start()] + replacement + source[token.end():]
+                result = self.compile(mutated)
+                self.assertIn(result.returncode, (0, 1), result.stdout)
+                self.assertEqual(self.output.exists(), result.returncode == 0, result.stdout)
 
 
 if __name__ == "__main__":

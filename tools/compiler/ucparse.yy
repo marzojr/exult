@@ -150,8 +150,9 @@ struct Fun_id_info {
 struct Member_selector {
 	Uc_expression* expr;
 	char*          name;
+	Uc_location location;
 
-	Member_selector(Uc_expression* e, char* n) : expr(e), name(n) {}
+	Member_selector(Uc_expression* e, char* n, Uc_location loc) : expr(e), name(n), location(loc) {}
 };
 
 struct Loop_Init {
@@ -615,6 +616,8 @@ method:
 			funsym->set_ret_type(class_type);
 		} else if (struct_type) {
 			funsym->set_ret_type(struct_type);
+		} else {
+			funsym->set_ret_type(false);
 		}
 		has_ret     = false;
 		class_type  = nullptr;
@@ -698,8 +701,7 @@ opt_trailing_label:
 		Uc_location::Context diagnostic_context(@$.loc());
 		if (cur_fun->has_ret()) {
 			Uc_location::yyerror(
-					"Trailing label '%s' in non-void function '%s' is not "
-					"allowed",
+					"label '%s' at the end of value-returning function '%s' needs a following statement",
 					$1->get_label().c_str(), cur_fun->get_name());
 			$$ = nullptr;
 		}
@@ -731,13 +733,13 @@ function_proto:
 		if ($4->kind != Uc_function_symbol::utility_fun) {
 			if (has_ret || struct_type) {
 				Uc_location::yyerror(
-					"Functions declared with '%s#' cannot return a value",
+					"functions declared with '%s#' cannot return a value",
 					$4->kind == Uc_function_symbol::shape_fun ? "shape"
 																  : "object");
 			}
 			if (!$6->empty()) {
 				Uc_location::yyerror(
-						"Functions declared with '%s#' cannot have arguments",
+						"functions declared with '%s#' cannot have parameters",
 						$4->kind == Uc_function_symbol::shape_fun ? "shape"
 																  : "object");
 			}
@@ -748,6 +750,8 @@ function_proto:
 			$$->set_ret_type(true);
 		} else if (struct_type) {
 			$$->set_ret_type(struct_type);
+		} else {
+			$$->set_ret_type(false);
 		}
 		delete $6;    // A copy was made.
 		delete $4;
@@ -771,7 +775,7 @@ opt_funid:
 		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = new Fun_id_info(Uc_function_symbol::shape_fun, $3 < 0 ? -1 : $3);
 		if ($3 < 0) {
-			Uc_location::yyerror("Shape number cannot be negative");
+			Uc_location::yyerror("shape number cannot be negative");
 		}
 		}
 	| OBJECTNUM '(' opt_const_int_expr ')'
@@ -800,16 +804,19 @@ opt_const_int_expr:
 const_int_expr:
 	const_int_val
 	| const_int_expr '+' const_int_expr
-		{ $$ = $1 + $3; }
+		{ $$ = usecode_int32(static_cast<uint32_t>($1) + static_cast<uint32_t>($3)); }
 	| const_int_expr '-' const_int_expr
-		{ $$ = $1 - $3; }
+		{ $$ = usecode_int32(static_cast<uint32_t>($1) - static_cast<uint32_t>($3)); }
 	| const_int_expr '*' const_int_expr
-		{ $$ = $1 * $3; }
+		{ $$ = usecode_int32(static_cast<uint32_t>($1) * static_cast<uint32_t>($3)); }
 	| const_int_expr '/' const_int_expr
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
 		if ($3 == 0) {
-			Uc_location::yyerror("Division by 0");
+			@3.loc().error("division by zero in constant expression");
+			$$ = -1;
+		} else if ($1 == INT32_MIN && $3 == -1) {
+			Uc_location::yyerror("integer overflow in constant division");
 			$$ = -1;
 		} else {
 			$$ = $1 / $3;
@@ -819,7 +826,10 @@ const_int_expr:
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
 		if ($3 == 0) {
-			Uc_location::yyerror("Division by 0");
+			@3.loc().error("division by zero in constant expression");
+			$$ = -1;
+		} else if ($1 == INT32_MIN && $3 == -1) {
+			Uc_location::yyerror("integer overflow in constant remainder");
 			$$ = -1;
 		} else {
 			$$ = $1 % $3;
@@ -1107,7 +1117,7 @@ stmt_declaration:
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
 		if (!$8->get_cls()) {
-			Uc_location::yyerror("Can't convert non-class into class.");
+			Uc_location::yyerror("cannot convert a 'var' value to a class type");
 		} else if (!Incompatible_classes_error($8->get_cls(), $3)) {
 			// Alias may be of different (compatible) class.
 			cur_fun->add_alias($6, $8, $3);
@@ -1206,7 +1216,7 @@ enum_item:
 	| IDENTIFIER
 		{
 		Uc_location::Context diagnostic_context(@$.loc());			/* Increment last value.	*/
-		++enum_val;
+		enum_val = usecode_int32(static_cast<uint32_t>(enum_val) + 1);
 		int op = const_opcode.back();
 		if (cur_fun) {
 			cur_fun->add_int_const_symbol($1, enum_val, op);
@@ -1274,8 +1284,7 @@ var_decl:
 		Uc_location::Context diagnostic_context(@$.loc());
 		if (cur_class && !cur_fun) {
 			Uc_location::yyerror(
-					"Initialization of class member var '%s' must be done "
-					"through constructor",
+					"class member '%s' must be initialized through the constructor",
 					$1);
 			$$ = nullptr;
 		} else {
@@ -1291,8 +1300,7 @@ var_decl:
 		Uc_location::Context diagnostic_context(@$.loc());
 		if (cur_class && !cur_fun) {
 			Uc_location::yyerror(
-					"Initialization of class member var '%s' must be done "
-					"through constructor",
+					"class member '%s' must be initialized through the constructor",
 					$1);
 			$$ = nullptr;
 		} else {
@@ -1396,8 +1404,7 @@ struct_decl:
 		Uc_location::Context diagnostic_context(@$.loc());
 		if (cur_class && !cur_fun) {
 			Uc_location::yyerror(
-					"Initialization of class member struct '%s' must be done "
-					"through constructor",
+					"class member '%s' must be initialized through the constructor",
 					$1);
 			$$ = nullptr;
 		} else {
@@ -1419,11 +1426,11 @@ class_expr:
 		Uc_location::Context diagnostic_context(@$.loc());
 		Uc_symbol* sym = cur_fun->search_up($1);
 		if (!sym) {
-			Uc_location::yyerror("'%s' not declared", $1);
+			Uc_location::yyerror("use of undeclared identifier '%s'", $1);
 			cur_fun->add_symbol($1, false);
 			YYERROR;
 		} else if (sym->get_sym_type() != Uc_symbol::Class) {
-			Uc_location::yyerror("'%s' not a class", $1);
+			Uc_location::yyerror("'%s' is not a class instance", $1);
 			YYERROR;
 		} else {
 			// Tests above guarantee this will always work.
@@ -1668,7 +1675,7 @@ scoped_statement:
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
 		if (Uc_location::get_strict_mode()) {
-			Uc_location::yyerror("A Statements must be surrounded by braces in strict mode");
+			Uc_location::yyerror("expected '{' before statement in strict-braces mode");
 		}
 		cur_fun->pop_scope();
 		nested_if.pop_back();
@@ -1682,7 +1689,7 @@ scoped_statement:
 		Uc_location::Context diagnostic_context(@$.loc());
 		nested_if.pop_back();
 		if (Uc_location::get_strict_mode() && (nested_if.empty() || !nested_if.back())) {
-			Uc_location::yyerror("B Statements must be surrounded by braces in strict mode");
+			Uc_location::yyerror("expected '{' before statement in strict-braces mode");
 		}
 		cur_fun->pop_scope();
 		$$ = $2;
@@ -1748,7 +1755,7 @@ trycatch_statement:
 		Uc_location::Context diagnostic_context(@$.loc());
 		auto* stmt = dynamic_cast<Uc_trycatch_statement*>($1);
 		if (!stmt) {
-			Uc_location::yyerror("try/catch statement is not a try/catch statement");
+			Uc_location::yyerror("internal compiler error: invalid try/catch statement");
 		} else {
 			stmt->set_catch_statement($3);
 		}
@@ -1963,7 +1970,7 @@ start_array_loop:
 		Uc_location::Context diagnostic_context(@$.loc());
 		if ($4->get_cls()) {
 			Uc_location::yyerror(
-					"Can't convert class '%s' into non-class",
+					"class instance '%s' cannot be used as an array",
 					$4->get_name());
 		}
 		$$ = new Loop_Init($2, $4);
@@ -2043,7 +2050,7 @@ return_statement:
 		Uc_location::Context diagnostic_context(@$.loc());
 		if (!cur_fun->has_ret()) {
 			Uc_location::yyerror(
-					"Function '%s' can't return a value",
+					"void function '%s' cannot return a value",
 					cur_fun->get_name());
 			$$ = nullptr;
 		} else {
@@ -2056,12 +2063,11 @@ return_statement:
 				if (trg && $2->eval_const(ival) && ival == 0) {
 					$$ = new Uc_return_statement($2);
 				} else {
-					Uc_location::yyerror(
-							"Function '%s' expects a return of %s '%s' but "
-							"supplied value is %s'%s'",
-							cur_fun->get_name(), trg ? "class" : "type",
-							trg ? trg->get_name() : "var", src ? "class " : "",
-							src ? src->get_name() : "var");
+					const std::string actual = src ? "class<" + std::string(src->get_name()) + ">" : "var";
+					const std::string expected = trg ? "class<" + std::string(trg->get_name()) + ">" : "var";
+					$2->error("cannot return value of type '%s' from function '%s' returning '%s'",
+							actual.c_str(), cur_fun->get_name(), expected.c_str());
+					cur_fun->declaration_location().note("function declared here");
 					$$ = nullptr;
 				}
 			} else if (Incompatible_classes_error(src, trg)) {
@@ -2077,7 +2083,7 @@ return_statement:
 		if (cur_fun->has_ret()) {
 			Uc_class* cls = cur_fun->get_cls();
 			Uc_location::yyerror(
-					"Function '%s' must return a '%s'",
+					"function '%s' must return a value of type '%s'",
 					cur_fun->get_name(), cls ? cls->get_name() : "var");
 			$$ = nullptr;
 		} else {
@@ -2218,7 +2224,7 @@ opt_int_value:
 		Uc_location::Context diagnostic_context(@$.loc());
 		int ival;
 		if (!$2->eval_const(ival)) {
-			Uc_location::yyerror("Failed to obtain value from integer constant");
+			Uc_location::yyerror("expected an integer constant expression");
 		}
 		$$ = ival;
 		}
@@ -2721,8 +2727,7 @@ repeat_count:
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
 		if (repeat_nesting != 0) {
-			Uc_location::yyerror("'repeat forever' is not allowed for nested 'repeat' "
-					"commands");
+			Uc_location::yyerror("'repeat forever' cannot be nested inside another 'repeat' command");
 		}
 		$$ = new Uc_int_expression(255);
 		}
@@ -2868,8 +2873,9 @@ label_statement:
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
 		if (cur_fun->search_label($1)) {
-			Uc_location::yyerror("duplicate label: '%s'", $1);
-			$$ = nullptr;
+			Uc_location::yyerror("redefinition of label '%s'", $1);
+			cur_fun->label_location($1).note("previous label is here");
+			$$ = new Uc_label_statement($1);
 		} else {
 			cur_fun->add_label($1);
 			$$ = new Uc_label_statement($1);
@@ -2894,7 +2900,7 @@ delete_statement:
 		Uc_location::Context diagnostic_context(@$.loc());
 		auto* cls = dynamic_cast<Uc_class_inst_symbol*>($2->get_sym());
 		if (!cls) {
-			Uc_location::yyerror("'%s' is not a class", $2->get_name());
+			Uc_location::yyerror("'%s' is not a class instance", $2->get_name());
 			$$ = nullptr;
 		} else {
 			$$ = new Uc_delete_statement(new Uc_del_expression(cls));
@@ -2999,7 +3005,7 @@ expression:
 		Uc_location::Context diagnostic_context(@$.loc());
 		if (!converse) {
 			/* Only valid in converse blocks */
-			Uc_location::yyerror("'CHOICE' can only be used in a conversation block!");
+			Uc_location::yyerror("'user_choice' is only valid inside a 'converse' block");
 			$$ = nullptr;
 		}
 		$$ = new Uc_choice_expression();
@@ -3105,7 +3111,7 @@ addressof:
 		Uc_symbol* sym = cur_fun->search_up($2);
 		if (!sym) {
 			/* See if the symbol is defined */
-			Uc_location::yyerror("'%s' not declared", $2);
+			Uc_location::yyerror("use of undeclared identifier '%s'", $2);
 			$$ = -1;
 		}
 		auto* fun = dynamic_cast<Uc_function_symbol*>(sym);
@@ -3126,7 +3132,7 @@ addressof:
 			int value = sym->search($7);
 			if (value < 0) {
 				Uc_location::yyerror(
-						"'struct<%s>::%s' is not a valid structure member",
+						"struct '%s' has no member named '%s'",
 						$4->get_name(), $7);
 			}
 			$$ = value;
@@ -3183,13 +3189,13 @@ primary:
 		auto*             expr = dynamic_cast<Uc_var_expression*>($1->expr);
 		Uc_struct_symbol* base;
 		if (!expr || !(base = expr->get_struct())) {
-			Uc_location::yyerror("Expression is not a 'struct'");
+			Uc_location::yyerror("member access requires a struct value");
 			$$ = new Uc_int_expression(0);
 		} else {
 			int offset = base->search($1->name);
 			if (offset < 0) {
-				Uc_location::yyerror(
-						"'%s' does not belong to struct '%s'",
+				$1->location.error(
+						"no member named '%s' in struct '%s'",
 						$1->name, base->get_name());
 				$$ = new Uc_int_expression(0);
 			} else {
@@ -3213,7 +3219,7 @@ primary:
 		Uc_location::Context diagnostic_context(@$.loc());
 		if ($1->get_cls()) {
 			Uc_location::yyerror(
-					"Can't convert class '%s' into non-class",
+					"class instance '%s' cannot be used as an array",
 					$1->get_name());
 			$$ = new Uc_arrayelem_expression($1, $3);
 		} else if ($1->is_static()) {
@@ -3283,7 +3289,7 @@ member_selector:
 	primary hierarchy_tok IDENTIFIER
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
-		$$ = new Member_selector($1, $3);
+		$$ = new Member_selector($1, $3, @3.loc());
 		}
 	;
 
@@ -3299,7 +3305,7 @@ opt_primary_expression:
 function_call:
 	member_selector opt_original '(' opt_expression_list ')'
 		{
-		Uc_location::Context diagnostic_context(@$.loc());
+		Uc_location::Context diagnostic_context($1->location);
 		$$ = cls_function_call($1->expr, cur_class, $1->name, $2, $4);
 		delete $1;
 		if (!$$) { YYERROR; }
@@ -3341,7 +3347,7 @@ function_call:
 		Uc_location::Context diagnostic_context(@$.loc());
 		int num;
 		if (!$5->eval_const(num)) {
-			Uc_location::yyerror("Failed to obtain value from integer constant");
+			Uc_location::yyerror("expected an integer constant expression");
 			$$ = nullptr;
 		} else {
 			auto* intrinsic = Uc_function::get_intrinsic(num);
@@ -3361,7 +3367,7 @@ function_call:
 		Uc_location::Context diagnostic_context(@$.loc());
 		int num;
 		if (!$3->eval_const(num)) {
-			Uc_location::yyerror("Failed to obtain value from integer constant");
+			Uc_location::yyerror("expected an integer constant expression");
 			$$ = nullptr;
 		} else {
 			auto* intrinsic = Uc_function::get_intrinsic(num);
@@ -3430,7 +3436,7 @@ param:
 sign_int_literal:
 	INT_LITERAL
 	| '-' INT_LITERAL %prec UMINUS
-		{ $$ = -$2; }
+		{ $$ = usecode_int32(0u - static_cast<uint32_t>($2)); }
 	| '+' INT_LITERAL %prec UPLUS
 		{ $$ = $2; }
 	;
@@ -3454,7 +3460,7 @@ int_literal:				/* A const. integer value.	*/
 		auto* sym = dynamic_cast<Uc_const_int_symbol*>($1);
 		if (!sym) {
 			Uc_location::yyerror(
-					"'%s' is not a const int",
+					"'%s' is not an integer constant",
 					$1->get_name());
 			$$ = nullptr;
 		} else {
@@ -3497,7 +3503,7 @@ declared_var_value:
 		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = $1->create_expression();
 		if (!$$) {
-			Uc_location::yyerror("Can't use '%s' here", $1->get_name());
+			Uc_location::yyerror("'%s' cannot be used as a value here", $1->get_name());
 			$$ = new Uc_int_expression(0);
 		}
 		static_cast<Uc_location&>(*$$) = @1.loc();
@@ -3510,7 +3516,7 @@ declared_var:
 		Uc_location::Context diagnostic_context(@$.loc());
 		auto* var = dynamic_cast<Uc_var_symbol*>($1);
 		if (!var) {
-			Uc_location::yyerror("'%s' not a 'var'", $1->get_name());
+			Uc_location::yyerror("'%s' is not a variable", $1->get_name());
 			std::string buf($1->get_name());
 			buf += "_needvar";
 			var = cur_fun->add_symbol(buf.c_str(), false);
@@ -3560,6 +3566,24 @@ defined_struct:
 #ifdef __GNUC__
 #	pragma GCC diagnostic pop
 #endif    // __GNUC__
+
+void yyerror(const char* s) {
+	extern char* yytext;
+	extern int   yyleng;
+	std::string  message(s);
+	for (const auto description : {"unexpected identifier", "unexpected integer literal"}) {
+		const auto position = message.find(description);
+		if (position != std::string::npos && yyleng > 0) {
+			message.insert(position + strlen(description), " '" + std::string(yytext, yyleng) + "'");
+			break;
+		}
+	}
+	const auto invalid = message.find("unexpected invalid token");
+	if (invalid != std::string::npos && yyleng == 1) {
+		message.replace(invalid, strlen("unexpected invalid token"), "unexpected character '" + std::string(yytext, 1) + "'");
+	}
+	yylloc.loc().error("%s", message.c_str());
+}
 
 // Warning switches must never affect the width of the emitted operand.
 static UsecodeOps Integer_literal_opcode(int value, UsecodeOps opcode, Uc_location loc) {
@@ -3625,7 +3649,7 @@ static Uc_class* Find_class(const char* nm, Uc_location loc) {
 
 static bool Class_unexpected_error(Uc_expression* expr) {
 	if (expr->is_class()) {
-		Uc_location::yyerror("Can't convert class into non-class");
+		Uc_location::yyerror("cannot convert a class value to 'var'");
 		return true;
 	}
 	return false;
@@ -3633,7 +3657,7 @@ static bool Class_unexpected_error(Uc_expression* expr) {
 
 static bool Nonclass_unexpected_error(Uc_expression* expr) {
 	if (!expr->is_class()) {
-		Uc_location::yyerror("Can't convert non-class into class.");
+		Uc_location::yyerror("cannot convert a 'var' value to a class type");
 		return true;
 	}
 	return false;
@@ -3645,7 +3669,7 @@ static bool Incompatible_classes_error(Uc_class* src, Uc_class* trg) {
 	}
 	if (!src->is_class_compatible(trg->get_name())) {
 		Uc_location::yyerror(
-				"Class '%s' can't be converted into class '%s'",
+				"cannot convert class '%s' to class '%s'",
 				src->get_name(), trg->get_name());
 		return true;
 	}
@@ -3659,7 +3683,7 @@ static Uc_call_expression* cls_method_call(
 		return nullptr;
 	}
 	if (!curcls) {
-		Uc_location::yyerror("'%s' requires a class object", nm);
+		Uc_location::yyerror("member function '%s' requires a class instance", nm);
 		return nullptr;
 	}
 
@@ -3669,7 +3693,7 @@ static Uc_call_expression* cls_method_call(
 
 	Uc_symbol* sym = clsscope->get_scope()->search(nm);
 	if (!sym) {
-		Uc_location::yyerror("Function '%s' is not declared in class '%s'",
+		Uc_location::yyerror("no member function named '%s' in class '%s'",
 				nm, clsscope->get_name());
 		return nullptr;
 	}
@@ -3699,7 +3723,7 @@ static bool Uc_is_valid_calle(
 
 	if (fun->get_function_type() == Uc_function_symbol::utility_fun) {
 		if (ths && !ths->is_class()) {
-			Uc_location::yyerror("'%s' is not an object or shape function", nm);
+			Uc_location::yyerror("function '%s' must be declared with 'shape#' or 'object#' for a call with an item reference", nm);
 			return false;
 		} else if (ths) {
 			Uc_location::yyerror("'%s' is not a member of class '%s'", nm,
@@ -3768,7 +3792,7 @@ static Uc_call_expression* cls_function_call(
 	}
 
 	if (!sym) {
-		Uc_location::yyerror("'%s' not declared", nm);
+		Uc_location::yyerror("use of undeclared identifier '%s'", nm);
 		return nullptr;
 	} else {
 		auto* ret = new Uc_call_expression(sym, parms, cur_fun, original);

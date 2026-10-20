@@ -57,7 +57,7 @@ int Uc_expression::gen_values(Basic_block* out) {
 
 void Uc_expression::gen_assign(Basic_block* out) {
 	ignore_unused_variable_warning(out);
-	error("Can't assign to this expression");
+	error("expression is not assignable");
 }
 
 /*
@@ -105,7 +105,7 @@ bool Uc_expression::eval_const(
 
 void Uc_var_expression::gen_value(Basic_block* out) {
 	if (!var->gen_value(out)) {
-		error("Can't use value of '%s'", var->get_name());
+		error("'%s' cannot be used as a value", var->get_name());
 	}
 }
 
@@ -115,7 +115,7 @@ void Uc_var_expression::gen_value(Basic_block* out) {
 
 void Uc_var_expression::gen_assign(Basic_block* out) {
 	if (!var->gen_assign(out)) {
-		error("Can't assign to '%s'", var->get_name());
+		error("cannot assign to '%s'", var->get_name());
 	}
 }
 
@@ -129,7 +129,7 @@ int Uc_fun_name_expression::is_object_function(bool error) const {
 		return 0;
 	}
 	if (error) {
-		Uc_location::error("'%s' must be 'shape#' or 'object#'", fun->get_name());
+		Uc_location::error("function '%s' must be declared with 'shape#' or 'object#' for a script call", fun->get_name());
 	}
 	return 1;
 }
@@ -332,24 +332,32 @@ bool Uc_binary_expression::eval_const(
 	}
 	switch (opcode) {
 	case UC_ADD:
-		val = val1 + val2;
+		val = usecode_int32(static_cast<uint32_t>(val1) + static_cast<uint32_t>(val2));
 		return true;
 	case UC_SUB:
-		val = val1 - val2;
+		val = usecode_int32(static_cast<uint32_t>(val1) - static_cast<uint32_t>(val2));
 		return true;
 	case UC_MUL:
-		val = val1 * val2;
+		val = usecode_int32(static_cast<uint32_t>(val1) * static_cast<uint32_t>(val2));
 		return true;
 	case UC_DIV:
 		if (!val2) {
-			error("Division by 0");
+			right->error("division by zero in constant expression");
+			return false;
+		}
+		if (val1 == INT32_MIN && val2 == -1) {
+			error("integer overflow in constant division");
 			return false;
 		}
 		val = val1 / val2;
 		return true;
 	case UC_MOD:
 		if (!val2) {
-			error("Division by 0");
+			right->error("division by zero in constant expression");
+			return false;
+		}
+		if (val1 == INT32_MIN && val2 == -1) {
+			error("integer overflow in constant remainder");
 			return false;
 		}
 		val = val1 % val2;
@@ -383,7 +391,7 @@ bool Uc_binary_expression::eval_const(
 		return false;
 	default:
 		val = 0;
-		error("This operation not supported for integer constants");
+		error("operator is not supported in an integer constant expression");
 		return false;
 	}
 }
@@ -424,7 +432,7 @@ bool Uc_unary_expression::eval_const(
 		return true;
 	default:
 		val = 0;
-		error("This operation not supported for integer constants");
+		error("operator is not supported in an integer constant expression");
 		return false;
 	}
 }
@@ -452,7 +460,7 @@ void Uc_int_expression::gen_value(Basic_block* out) {
 int Uc_int_expression::is_object_function(bool error) const {
 	if (value < 0) {
 		if (error) {
-			Uc_location::error("Invalid fun. ID (%d): can't call negative function", value);
+			Uc_location::error("function ID %d is negative; script calls require a nonnegative ID", value);
 		}
 		return 2;
 	} else if (value < 0x800) {
@@ -464,7 +472,8 @@ int Uc_int_expression::is_object_function(bool error) const {
 		return -1;    // Can't determine.
 	} else if (sym->get_function_type() == Uc_function_symbol::utility_fun) {
 		if (error) {
-			Uc_location::error("'%s' (fun. ID %d)  must be 'shape#' or 'object#'", sym->get_name(), value);
+			Uc_location::error(
+					"function '%s' (ID %d) must be declared with 'shape#' or 'object#' for a script call", sym->get_name(), value);
 		}
 		return 1;
 	}
@@ -671,7 +680,7 @@ int Uc_call_expression::is_object_function(bool error) const {
 	}
 	// For now, no other intrinsics return a valid fun ID.
 	if (error) {
-		Uc_location::error("Return of intrinsic '%s' is not fun. ID", fun->get_name());
+		Uc_location::error("result of intrinsic '%s' cannot be used as a script function ID", fun->get_name());
 	}
 	return 3;
 }
@@ -687,39 +696,41 @@ void Uc_call_expression::check_params() {
 		// Intrinsics; do nothing for now.
 		return;
 	}
-	const vector<Uc_var_symbol*>& protoparms  = fun->get_parms();
-	const vector<Uc_expression*>& callparms   = parms->get_exprs();
-	const unsigned long           ignore_this = fun->get_method_num() >= 0 ? 1 : 0;
-	const unsigned long           parmscnt    = callparms.size() + ignore_this;
-	if (parmscnt != protoparms.size()) {
-		const unsigned long protoparmcnt = protoparms.size() - ignore_this;
-		Uc_location::error(
-				"# parms. passed (%lu) doesn't match '%s' count (%lu)", parmscnt - ignore_this, sym->get_name(), protoparmcnt);
+	const auto&  protoparms  = fun->get_parms();
+	const auto&  callparms   = parms->get_exprs();
+	const size_t ignore_this = fun->get_method_num() >= 0 ? 1 : 0;
+	const size_t expected    = protoparms.size() - ignore_this;
+	if (callparms.size() != expected) {
+		error("%s arguments to '%s': expected %zu, got %zu", callparms.size() > expected ? "too many" : "too few", sym->get_name(),
+			  expected, callparms.size());
+		fun->note("function declared here");
 		return;
 	}
-	for (unsigned long i = ignore_this; i < parmscnt; i++) {
-		Uc_expression* expr = callparms[i - ignore_this];
-		Uc_var_symbol* var  = protoparms[i];
-		auto*          cls  = dynamic_cast<Uc_class_inst_symbol*>(var);
+	for (size_t i = 0; i < expected; ++i) {
+		Uc_expression* expr     = callparms[i];
+		Uc_var_symbol* var      = protoparms[i + ignore_this];
+		auto*          cls      = dynamic_cast<Uc_class_inst_symbol*>(var);
+		bool           mismatch = false;
 		if (expr->is_class()) {
 			if (!cls) {
-				Uc_location::error(
-						"Error in parm. #%lu: cannot convert class to "
-						"non-class",
-						i + 1);
+				expr->error(
+						"argument %zu to '%s' requires 'var', but has class type '%s'", i + 1, sym->get_name(),
+						expr->get_cls()->get_name());
+				mismatch = true;
 			} else if (!expr->get_cls()->is_class_compatible(cls->get_cls()->get_name())) {
-				Uc_location::error(
-						"Error in parm. #%lu: class '%s' cannot be converted "
-						"into class '%s'",
-						i + 1, expr->get_cls()->get_name(), cls->get_cls()->get_name());
+				expr->error(
+						"argument %zu to '%s' requires class '%s', but has class type '%s'", i + 1, sym->get_name(),
+						cls->get_cls()->get_name(), expr->get_cls()->get_name());
+				mismatch = true;
 			}
-		} else {
-			if (cls) {
-				Uc_location::error(
-						"Error in parm. #%lu: cannot convert non-class into "
-						"class",
-						i + 1);
-			}
+		} else if (cls) {
+			expr->error(
+					"argument %zu to '%s' requires class '%s', but has type 'var'", i + 1, sym->get_name(),
+					cls->get_cls()->get_name());
+			mismatch = true;
+		}
+		if (mismatch) {
+			var->note("passing argument to parameter '%s' here", var->get_name());
 		}
 	}
 }
@@ -751,14 +762,14 @@ void Uc_call_expression::gen_value(Basic_block* out) {
 		return;    // Already failed once.
 	}
 	if (!sym->gen_call(out, function, original, itemref, parms, return_value, meth_scope)) {
-		error("'%s' isn't a function or intrinsic", sym->get_name());
+		error("called object '%s' is not a function or intrinsic", sym->get_name());
 		sym = nullptr;    // Avoid repeating error if in loop.
 	}
 }
 
 void Uc_class_expression::gen_value(Basic_block* out) {
 	if (!var->gen_value(out)) {
-		error("Can't assign to '%s'", var->get_name());
+		error("cannot assign to '%s'", var->get_name());
 	}
 }
 
@@ -772,7 +783,7 @@ inline Uc_class* Uc_new_expression::get_cls() const {
 
 void Uc_class_expression::gen_assign(Basic_block* out) {
 	if (!var->gen_assign(out)) {
-		error("Can't assign to '%s'", var->get_name());
+		error("cannot assign to '%s'", var->get_name());
 	}
 }
 
@@ -788,7 +799,8 @@ Uc_new_expression::Uc_new_expression(Uc_var_symbol* v, Uc_array_expression* p) :
 				"%d constructor argument%s missing for class '%s'; initializing remaining members to zero", missing,
 				(missing > 1) ? "s" : "", cls->get_name());
 	} else if (cls->get_num_vars() < pushed_parms) {
-		error("Too many arguments in constructor of class '%s'", cls->get_name());
+		error("too many constructor arguments for class '%s': expected %d, got %d", cls->get_name(), cls->get_num_vars(),
+			  pushed_parms);
 	}
 	// Ensure that all data members get initialized.
 	for (int i = pushed_parms; i < cls->get_num_vars(); i++) {

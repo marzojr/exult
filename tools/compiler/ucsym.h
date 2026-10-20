@@ -33,6 +33,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "opcodes.h"
 #include "ucloc.h"
 
+#include <cstdint>
 #include <iostream>
 #include <map>
 #include <string>
@@ -46,6 +47,12 @@ class Uc_class;
 class Uc_struct_symbol;
 class Uc_scope;
 class Basic_block;
+
+// Usecode arithmetic wraps at 32 bits. Do not rely on signed host overflow
+// while folding constants (or on implementation-defined unsigned casts).
+inline int usecode_int32(uint32_t value) {
+	return value <= INT32_MAX ? static_cast<int>(value) : static_cast<int>(static_cast<int64_t>(value) - (INT64_C(1) << 32));
+}
 
 inline bool is_int_32bit(int val) {
 	const int high = val >> 16;
@@ -597,6 +604,7 @@ private:
 	bool                        externed;
 	bool                        inherited;
 	Function_ret                ret_type;
+	bool                        return_declared = false;
 	Ret_symbol                  ret_sym;
 	bool                        high_id;
 	Function_kind               type;
@@ -684,19 +692,10 @@ public:
 		return ret_type;
 	}
 
-	virtual void set_ret_type(bool var) {
-		ret_type = var ? var_ret : no_ret;
-	}
-
-	virtual void set_ret_type(Uc_class* c) {
-		ret_type    = class_ret;
-		ret_sym.cls = c;
-	}
-
-	virtual void set_ret_type(Uc_struct_symbol* s) {
-		ret_type    = struct_ret;
-		ret_sym.str = s;
-	}
+	virtual void set_ret_type(bool var);
+	virtual void set_ret_type(Uc_class* c);
+	virtual void set_ret_type(Uc_struct_symbol* s);
+	bool         check_return_type(Function_ret type, Uc_class* cls = nullptr, Uc_struct_symbol* structure = nullptr);
 
 	Uc_class* get_cls() const override {
 		return ret_type == class_ret ? ret_sym.cls : nullptr;

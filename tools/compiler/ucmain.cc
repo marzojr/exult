@@ -213,9 +213,6 @@ int main(int argc, char** argv) {
 /*
  *  Report error.
  */
-void yyerror(const char* s) {
-	Uc_location::yyerror(Uc_location::preformatted, s);
-}
 
 /*
  *  Report warning.

@@ -193,6 +193,7 @@ Uc_var_symbol* Uc_function::add_symbol(const char* nm, Uc_struct_symbol* s, bool
  */
 
 Uc_var_symbol* Uc_function::add_symbol(Uc_var_symbol* var) {
+	Uc_location::Context diagnostic_context(*var);
 	if (cur_scope->is_dup(var->get_name())) {
 		return nullptr;
 	}
