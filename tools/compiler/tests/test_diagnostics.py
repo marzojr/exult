@@ -159,6 +159,36 @@ void following_function 0x901 () { var another = ; }
         self.assert_failed(result, "input.uc:3:2: error: use of undeclared identifier 'missing'")
         self.assertIn("   missing = 1;\n   ^~~~~~~\n", result.stdout)
 
+    def test_previous_declaration_note(self):
+        result = self.compile("void example 0x900 () {\n var value;\n var value;\n}\n")
+        self.assert_failed(result, "input.uc:3:6: error: redefinition of 'value'")
+        self.assertIn("input.uc:2:6: note: previous declaration is here", result.stdout)
+
+    def test_codegen_location_and_no_output(self):
+        result = self.compile('void helper 0x900 () {}\nvoid example 0x901 () {\n var value = helper();\n}\n')
+        self.assert_failed(result, "input.uc:3:14: error: Function 'helper' does not have a return value")
+
+    def test_preserve_previous_output_on_codegen_error(self):
+        self.output.write_bytes(b"previous successful build")
+        result = self.compile("void example 0x900 () { goto missing; }\n")
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("Undeclared label", result.stdout)
+        self.assertEqual(self.output.read_bytes(), b"previous successful build")
+
+    def test_untruncated_diagnostic(self):
+        name = "unknown_" + "x" * 3000
+        result = self.compile("void example 0x900 () { " + name + " = 1; }\n")
+        self.assert_failed(result, "use of undeclared identifier '" + name + "'")
+
+    def test_diagnostics_use_stderr(self):
+        result = subprocess.run([UCC, "-c", "never", "-o", str(self.output)],
+                                input="void example 0x900 () { var value = ; }\n",
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                universal_newlines=True, timeout=15)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("error:", result.stderr)
+        self.assertNotIn("error:", result.stdout)
+
     def test_goto_warning_control(self):
         source = "void example 0x900 () { goto target; target: return; }\n"
         enabled = self.compile(source)

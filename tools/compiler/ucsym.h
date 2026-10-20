@@ -31,6 +31,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "ignore_unused_variable_warning.h"
 #include "opcodes.h"
+#include "ucloc.h"
 
 #include <iostream>
 #include <map>
@@ -66,7 +67,7 @@ public:
 /*
  *  A formal parameter or local symbol within a function.
  */
-class Uc_symbol {
+class Uc_symbol : public Uc_location {
 protected:
 	std::string name;    // This will be the key.
 public:
@@ -396,8 +397,9 @@ public:
  */
 class Uc_struct_symbol : public Uc_symbol {
 	using Var_map = std::map<std::string, int>;
-	Var_map vars;
-	int     num_vars;    // # member variables.
+	Var_map                            vars;
+	std::map<std::string, Uc_location> member_locations;
+	int                                num_vars;    // # member variables.
 public:
 	Uc_struct_symbol(const char* nm) : Uc_symbol(nm), num_vars(0) {}
 
@@ -409,6 +411,7 @@ public:
 		}
 		// Add struct variable.
 		vars[nm] = ++num_vars;
+		member_locations.emplace(nm, Uc_location());
 		return num_vars;
 	}
 

@@ -57,33 +57,45 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 class Uc_location {
 	static std::vector<char*> source_names;    // All filenames.
 
-	static char* cur_source;    // Source filename.
-	static int   cur_line;      // Line #.
-	static int   cur_column;    // Byte column, 1-based.
-	static int   cur_length;    // Length of token on its first line.
-	static int   next_line;
-	static int   next_column;
-	static int   num_errors;       // Total #.
-	static bool  strict_mode;      // If all blocks are required to have braces
-	static bool  color_output;     // If output should be colorized.
-	static bool  goto_warn;        // If should warn about goto
-	static bool  integer_warn;     // If should warn about coercing to negatives
-	static bool  shapefun_warn;    // If should warn about shape as function ID
+	static char*              cur_source;    // Source filename.
+	static int                cur_line;      // Line #.
+	static int                cur_column;    // Byte column, 1-based.
+	static int                cur_length;    // Length of token on its first line.
+	static int                next_line;
+	static int                next_column;
+	static const Uc_location* diagnostic_context;
+	static int                num_errors;       // Total #.
+	static bool               strict_mode;      // If all blocks are required to have braces
+	static bool               color_output;     // If output should be colorized.
+	static bool               goto_warn;        // If should warn about goto
+	static bool               integer_warn;     // If should warn about coercing to negatives
+	static bool               shapefun_warn;    // If should warn about shape as function ID
 
 	const char* source;
 	int         line;
 	int         column;
 	int         length;
 
-	static void assemble_message(const char* msg, const char* source_file, int line_num, int column, int length, bool is_error);
+	enum class Severity {
+		error,
+		warning,
+		note
+	};
+	static void assemble_message(const char* msg, const char* source_file, int line_num, int column, int length, Severity severity);
 
 public:
+	class Context;
+
 	struct preformatted_t {};
 
 	constexpr static preformatted_t preformatted = {};
 
 	// Use current location.
-	Uc_location() : source(cur_source), line(cur_line), column(cur_column), length(cur_length) {}
+	Uc_location() : source(cur_source), line(cur_line), column(cur_column), length(cur_length) {
+		if (diagnostic_context) {
+			*this = *diagnostic_context;
+		}
+	}
 
 	Uc_location(const char* s, int l, int c, int n) : source(s), line(l), column(c), length(n) {}
 
@@ -114,7 +126,7 @@ public:
 		return length;
 	}
 
-	const char* get_source() {
+	const char* get_source() const {
 		return source;
 	}
 
@@ -156,9 +168,11 @@ public:
 	// Variadic versions.
 	// On stack, fixed buffer.
 	PRINTF_FORMAT(2, 3)
-	void error(FORMAT_STRING(const char* format), ...);
+	void error(FORMAT_STRING(const char* format), ...) const;
 	PRINTF_FORMAT(2, 3)
-	void warning(FORMAT_STRING(const char* format), ...);
+	void warning(FORMAT_STRING(const char* format), ...) const;
+	PRINTF_FORMAT(2, 3)
+	void note(FORMAT_STRING(const char* format), ...) const;
 	PRINTF_FORMAT(1, 2)
 	static void yyerror(FORMAT_STRING(const char* format), ...);
 	PRINTF_FORMAT(1, 2)
@@ -166,9 +180,9 @@ public:
 
 	// On heap, user-specified buffer.
 	PRINTF_FORMAT(3, 4)
-	void error(std::string& buffer, FORMAT_STRING(const char* format), ...);
+	void error(std::string& buffer, FORMAT_STRING(const char* format), ...) const;
 	PRINTF_FORMAT(3, 4)
-	void warning(std::string& buffer, FORMAT_STRING(const char* format), ...);
+	void warning(std::string& buffer, FORMAT_STRING(const char* format), ...) const;
 	PRINTF_FORMAT(2, 3)
 	static void yyerror(std::string& buffer, FORMAT_STRING(const char* format), ...);
 	PRINTF_FORMAT(2, 3)
@@ -177,6 +191,25 @@ public:
 	static int get_num_errors() {
 		return num_errors;
 	}
+};
+
+// Semantic checks must not change the scanner's physical cursor. A context
+// redirects diagnostics and default AST/symbol locations for its lifetime.
+class Uc_location::Context {
+	Uc_location        location;
+	const Uc_location* previous;
+
+public:
+	explicit Context(Uc_location loc) : location(loc), previous(diagnostic_context) {
+		diagnostic_context = &location;
+	}
+
+	~Context() {
+		diagnostic_context = previous;
+	}
+
+	Context(const Context&)            = delete;
+	Context& operator=(const Context&) = delete;
 };
 
 #undef FORMAT_STRING

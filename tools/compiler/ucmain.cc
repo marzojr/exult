@@ -39,6 +39,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <cstring>
 #include <fstream>
 #include <iosfwd>
+#include <sstream>
 #include <string_view>
 #include <vector>
 
@@ -182,12 +183,9 @@ int main(int argc, char** argv) {
 		compilation_status("Usecode compilation failed!", false);
 		return EXIT_FAILURE;
 	}
-	// Open output.
-	std::ofstream out(outname, ios::binary | ios::out);
-	if (!out.good()) {
-		std::cout << "Could not open output file '" << outname << "'!" << std::endl;
-		return 1;
-	}
+	// Code generation can diagnose errors too. Do not truncate an existing
+	// output or leave a partial binary when one of those checks fails.
+	std::ostringstream out(ios::binary | ios::out);
 	if (want_sym_table) {
 		little_endian::Write4(out, UCSYMTBL_MAGIC0);    // Start with symbol table.
 		little_endian::Write4(out, UCSYMTBL_MAGIC1);
@@ -202,19 +200,26 @@ int main(int argc, char** argv) {
 		unit->gen(out);    // Generate function.
 	}
 
-	if (out.fail()) {
-		std::cerr << "Error: Failed to write output file '" << outname << "'.\n";
+	const int final_errs = Uc_location::get_num_errors();
+	if (final_errs != 0 || out.fail()) {
 		compilation_status("Usecode compilation failed!", false);
 		return EXIT_FAILURE;
 	}
-
-	const int final_errs = Uc_location::get_num_errors();
-	if (final_errs == 0) {
-		compilation_status(std::string("Usecode successfully compiled to ") + outname + "!", true);
-	} else {
-		compilation_status("Usecode compilation failed!", false);
+	std::ofstream output(outname, ios::binary | ios::out);
+	if (!output) {
+		std::cerr << "error: cannot open output file '" << outname << "': " << strerror(errno) << '\n';
+		return EXIT_FAILURE;
 	}
-	return final_errs == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+	const auto bytecode = out.str();
+	output.write(bytecode.data(), bytecode.size());
+	output.close();
+	if (output.fail()) {
+		std::cerr << "error: failed to write output file '" << outname << "'\n";
+		compilation_status("Usecode compilation failed!", false);
+		return EXIT_FAILURE;
+	}
+	compilation_status(std::string("Usecode successfully compiled to ") + outname + "!", true);
+	return EXIT_SUCCESS;
 }
 
 /*
