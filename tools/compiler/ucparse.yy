@@ -62,9 +62,10 @@ extern void                 end_fun_id();
 extern bool                 can_break();
 extern bool                 can_continue();
 static Uc_var_symbol*       Get_variable(const char*);
+static UsecodeOps Integer_literal_opcode(int value, UsecodeOps opcode, Uc_location loc);
 static Uc_array_expression* Create_array(int, Uc_expression*);
 static Uc_array_expression* Create_array(int, Uc_expression*, Uc_expression*);
-static Uc_class*            Find_class(const char* nm);
+static Uc_class*            Find_class(const char* nm, Uc_location loc);
 static bool                 Class_unexpected_error(Uc_expression* expr);
 static bool                 Nonclass_unexpected_error(Uc_expression* expr);
 static bool Incompatible_classes_error(Uc_class* src, Uc_class* trg);
@@ -170,6 +171,38 @@ struct Loop_Vars {
 
 %define parse.lac full
 %define parse.error detailed
+%locations
+%define api.location.type {Uc_parser_location}
+
+%code requires {
+#include "ucloc.h"
+#include <type_traits>
+
+// Use Bison's conventional fields for initialization and debug printing. The
+// extra filename follows tokens through includes. Trivial copying allows the
+// C parser skeleton to grow its stacks when compiling deeply nested input.
+struct Uc_parser_location {
+	int first_line, first_column, last_line, last_column;
+	const char* source = nullptr;
+
+	static Uc_parser_location current() {
+		Uc_location loc;
+		return {loc.get_line() + 1, loc.get_column(), loc.get_line() + 1,
+				loc.get_column() + loc.get_length(), loc.get_source()};
+	}
+
+	Uc_location loc() const {
+		return Uc_location(source, first_line - 1, first_column, last_column - first_column);
+	}
+};
+static_assert(std::is_trivially_copyable<Uc_parser_location>::value);
+#define YYLTYPE_IS_TRIVIAL 1
+
+// A production inherits its first token's source location. Keep filenames in
+// the location too, since one parse can span several included files.
+#define YYLLOC_DEFAULT(Current, Rhs, N) \
+	do { (Current) = YYRHSLOC(Rhs, (N) ? 1 : 0); } while (false)
+}
 
 %union {
 	class Uc_symbol *sym;
@@ -736,10 +769,10 @@ const_int_val:
 		Uc_symbol*           sym = Uc_function::search_globals($1);
 		Uc_const_int_symbol* var;
 		if (!sym) {
-			Uc_location::yyerror("'%s' not declared", $1);
+			@1.loc().error("use of undeclared identifier '%s'", $1);
 			$$ = -1;
 		} else if ((var = dynamic_cast<Uc_const_int_symbol*>(sym)) == nullptr) {
-			Uc_location::yyerror("'%s' is not a constant integer", $1);
+			@1.loc().error("'%s' is not an integer constant", $1);
 			$$ = -1;
 		} else {
 			$$ = var->get_value();
@@ -2210,7 +2243,7 @@ start_call:
 				// Don't know.
 				Uc_location::yywarning(
 						"Please ensure that 'call' uses a function declared "
-						"with 'shape#' or 'object#'");
+						"with 'shape#' or 'object#' [-Wshape-to-function]");
 			}
 			$$ = $2;
 		}
@@ -2366,7 +2399,7 @@ goto_statement:
 	GOTO IDENTIFIER
 		{
 		if (Uc_location::get_goto_warn()) {
-			Uc_location::yywarning("You *really* shouldn't use goto statements...");
+			@1.loc().warning("use of 'goto' statement [-Wgoto]");
 		}
 		$$ = new Uc_goto_statement($2);
 		}
@@ -2569,22 +2602,8 @@ int_cast:
 primary:
 	INT_LITERAL
 		{
-		UsecodeOps op = !const_opcode.empty() ? const_opcode.back() : UC_PUSHI;
-		if (is_sint_32bit($1) && op != UC_PUSHI32 && Uc_location::get_integer_warn()) {
-			if (is_int_32bit($1)) {
-				Uc_location::yywarning(
-						"Literal integer '%d' cannot be represented as 16-bit "
-						"integer. Assuming '(long)' cast.",
-						$1);
-				op = UC_PUSHI32;
-			} else {
-				Uc_location::yywarning(
-						"Interpreting integer '%d' as the signed 16-bit "
-						"integer '%d'. If this is incorrect, use '(long)' "
-						"cast.",
-						$1, static_cast<short>($1));
-			}
-		}
+		const auto op = Integer_literal_opcode(
+				$1, !const_opcode.empty() ? const_opcode.back() : UC_PUSHI, @1.loc());
 		$$ = new Uc_int_expression($1, op);
 		}
 	| int_cast INT_LITERAL %prec UCC_CAST
@@ -2783,22 +2802,8 @@ sign_int_literal:
 int_literal:				/* A const. integer value.	*/
 	sign_int_literal
 		{
-		UsecodeOps op = !const_opcode.empty() ? const_opcode.back() : UC_PUSHI;
-		if (is_sint_32bit($1) && op != UC_PUSHI32) {
-			if (is_int_32bit($1)) {
-				Uc_location::yywarning(
-						"Literal integer '%d' cannot be represented as 16-bit "
-						"integer. Assuming '(long)' cast.",
-						$1);
-				op = UC_PUSHI32;
-			} else {
-				Uc_location::yywarning(
-						"Interpreting integer '%d' as the signed 16-bit "
-						"integer '%d'. If this is incorrect, use '(long)' "
-						"cast.",
-						$1, static_cast<short>($1));
-			}
-		}
+		const auto op = Integer_literal_opcode(
+				$1, !const_opcode.empty() ? const_opcode.back() : UC_PUSHI, @1.loc());
 		$$ = new Uc_int_expression($1, op);
 		}
 	| int_cast sign_int_literal %prec UCC_CAST
@@ -2847,6 +2852,7 @@ declared_var_value:
 			Uc_location::yyerror("Can't use '%s' here", $1->get_name());
 			$$ = new Uc_int_expression(0);
 		}
+		static_cast<Uc_location&>(*$$) = @1.loc();
 		}
 	;
 
@@ -2869,7 +2875,7 @@ declared_sym:
 		{
 		Uc_symbol* sym = cur_fun->search_up($1);
 		if (!sym) {
-			Uc_location::yyerror("'%s' not declared", $1);
+			@1.loc().error("use of undeclared identifier '%s'", $1);
 			sym = cur_fun->add_symbol($1, false);
 		}
 		$$ = sym;
@@ -2878,7 +2884,7 @@ declared_sym:
 
 defined_class:
 	IDENTIFIER
-		{ $$ = Find_class($1); }
+		{ $$ = Find_class($1, @1.loc()); }
 	;
 
 defined_struct:
@@ -2887,7 +2893,7 @@ defined_struct:
 		auto* sym = dynamic_cast<Uc_struct_symbol*>(
 				Uc_function::search_globals($1));
 		if (!sym) {
-			Uc_location::yyerror("'%s' not found, or is not a struct.", $1);
+			@1.loc().error("'%s' does not name a struct type", $1);
 			$$ = nullptr;
 		} else {
 			$$ = sym;
@@ -2900,6 +2906,29 @@ defined_struct:
 #ifdef __GNUC__
 #	pragma GCC diagnostic pop
 #endif    // __GNUC__
+
+// Warning switches must never affect the width of the emitted operand.
+static UsecodeOps Integer_literal_opcode(int value, UsecodeOps opcode, Uc_location loc) {
+	if (opcode == UC_PUSHI32 || !is_sint_32bit(value)) {
+		return opcode;
+	}
+	const bool promote = is_int_32bit(value);
+	if (Uc_location::get_integer_warn()) {
+		if (promote) {
+			loc.warning(
+					"Literal integer '%d' cannot be represented as 16-bit "
+					"integer. Assuming '(long)' cast. [-Winteger-coercion]",
+					value);
+		} else {
+			loc.warning(
+					"Interpreting integer '%d' as the signed 16-bit "
+					"integer '%d'. If this is incorrect, use '(long)' "
+					"cast. [-Winteger-coercion]",
+					value, static_cast<short>(value));
+		}
+	}
+	return promote ? UC_PUSHI32 : opcode;
+}
 
 static Uc_var_symbol* Get_variable(const char* ident) {
 	Uc_symbol* sym = cur_fun->search_up(ident);
@@ -2930,11 +2959,11 @@ static Uc_array_expression* Create_array(
 	return arr;
 }
 
-static Uc_class* Find_class(const char* nm) {
+static Uc_class* Find_class(const char* nm, Uc_location loc) {
 	auto* csym
 			= dynamic_cast<Uc_class_symbol*>(Uc_function::search_globals(nm));
 	if (!csym) {
-		Uc_location::yyerror("'%s' not found, or is not a class.", nm);
+		loc.error("'%s' does not name a class type", nm);
 		return nullptr;
 	}
 	return csym->get_cls();

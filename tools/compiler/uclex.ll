@@ -49,7 +49,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #pragma GCC diagnostic pop
 #endif    // __GNUC__
 
-#define YY_USER_ACTION Uc_location::advance(yytext, yyleng);
+#define YY_USER_ACTION Uc_location::advance(yytext, yyleng); yylloc = Uc_parser_location::current();
 
 using std::string;
 
@@ -615,6 +615,7 @@ sonic_damage	return SONIC_DAMAGE;
 			if (locstack.empty()) {
 				auto loc = Uc_location::next_location();
 				Uc_location::set_cur(loc.get_source(), loc.get_line(), loc.get_column());
+				yylloc = Uc_parser_location::current();
 				yyterminate();
 			} else {
 				// Restore buffer and location.

@@ -71,12 +71,18 @@ class Diagnostics(unittest.TestCase):
         result = self.compile("void example 0x900 () {\n")
         self.assert_failed(result, "input.uc:2:1: error: syntax error, unexpected end of file")
 
+    def test_parser_stack_growth(self):
+        source = 'void example 0x900 () { var value = ' + '(' * 300 + '1' + ')' * 300 + '; }\n'
+        result = self.compile(source)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertTrue(self.output.exists())
+
     def test_include_excerpt_and_restore(self):
         include = self.directory / "includes"
         include.mkdir()
         (include / "helper.uc").write_text("void helper 0x901 () { missing = 1; }\n", encoding="ascii")
         result = self.compile('#include "helper.uc"\nvoid example 0x900 () {\n var value = ;\n}\n', "-I", str(include))
-        self.assert_failed(result, "helper.uc:1:32: error:")
+        self.assert_failed(result, "helper.uc:1:24: error: use of undeclared identifier 'missing'")
         self.assertIn("  void helper 0x901 () { missing = 1; }\n", result.stdout)
         self.assertIn("input.uc:3:14: error:", result.stdout)
 
@@ -88,7 +94,7 @@ class Diagnostics(unittest.TestCase):
         result = self.compile("void example 0x900 () {\n var a = ;\n var b = ;\n missing = 1;\n}\n")
         self.assert_failed(result, "input.uc:2:10: error:")
         self.assertIn("input.uc:3:10: error:", result.stdout)
-        self.assertIn("'missing' not declared", result.stdout)
+        self.assertIn("use of undeclared identifier 'missing'", result.stdout)
         self.assertEqual(result.stdout.count("error:"), 3, result.stdout)
 
     def test_recover_at_closing_brace(self):
@@ -124,7 +130,7 @@ class Diagnostics(unittest.TestCase):
                 self.assertIn("'CHOICE' can only be used", result.stdout)
                 self.assertIn("input.uc:8:", result.stdout)
                 self.assertIn("input.uc:10:", result.stdout)
-                self.assertNotIn("'repeat' not declared", result.stdout)
+                self.assertNotIn("undeclared identifier 'repeat'", result.stdout)
 
     def test_recover_inside_scopes(self):
         source = '''#game "blackgate"
@@ -146,7 +152,51 @@ void following_function 0x901 () { var another = ; }
         self.assert_failed(result, "syntax error")
         self.assertEqual(result.stdout.count("syntax error"), 6, result.stdout)
         self.assertEqual(result.stdout.count("'break' statement not allowed"), 1, result.stdout)
-        self.assertNotIn("'outer' not declared", result.stdout)
+        self.assertNotIn("undeclared identifier 'outer'", result.stdout)
+
+    def test_identifier_location(self):
+        result = self.compile('#game "blackgate"\nvoid example 0x900 () {\n missing = 1;\n}\n')
+        self.assert_failed(result, "input.uc:3:2: error: use of undeclared identifier 'missing'")
+        self.assertIn("   missing = 1;\n   ^~~~~~~\n", result.stdout)
+
+    def test_goto_warning_control(self):
+        source = "void example 0x900 () { goto target; target: return; }\n"
+        enabled = self.compile(source)
+        self.assertEqual(enabled.returncode, 0, enabled.stdout)
+        self.assertIn("input.uc:1:25: warning: use of 'goto' statement [-Wgoto]", enabled.stdout)
+        expected = self.output.read_bytes()
+        disabled = self.compile(source, "-Wno-goto")
+        self.assertEqual(disabled.returncode, 0, disabled.stdout)
+        self.assertNotIn("[-Wgoto]", disabled.stdout)
+        self.assertEqual(self.output.read_bytes(), expected)
+
+    def test_integer_warning_control_preserves_bytecode(self):
+        source = '''#game "blackgate"
+void example 0x900 () {
+ var value = 70000, coerced = 65535;
+ switch (value) { case 70000: break; case 65535: break; }
+}
+'''
+        enabled = self.compile(source)
+        self.assertEqual(enabled.returncode, 0, enabled.stdout)
+        self.assertEqual(enabled.stdout.count("[-Winteger-coercion]"), 4, enabled.stdout)
+        expected = self.output.read_bytes()
+        for options in (("-Wno-integer-coercion",), ("-u",)):
+            with self.subTest(options=options):
+                disabled = self.compile(source, *options)
+                self.assertEqual(disabled.returncode, 0, disabled.stdout)
+                self.assertNotIn("warning:", disabled.stdout)
+                self.assertEqual(self.output.read_bytes(), expected)
+
+    def test_shape_warning_control_keeps_errors(self):
+        source = '''#game "blackgate"
+void helper 0x900 () {}
+void example 0x901 () { var callback = &helper; script item call callback; }
+'''
+        for options in ((), ("-Wno-shape-to-function",), ("-u",)):
+            with self.subTest(options=options):
+                result = self.compile(source, *options)
+                self.assert_failed(result, "not declared as 'shape#' or 'object#'")
 
     def test_forced_color(self):
         for source in ("void example 0x900 () {}\n", "void\n"):
