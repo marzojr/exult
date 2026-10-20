@@ -639,6 +639,25 @@ sonic_damage	return SONIC_DAMAGE;
 #pragma GCC diagnostic pop
 #endif    // __GNUC__
 
+// Preserve the complete stack: nested scripts, loops, and conversations can
+// change both the current mode and the modes below it during a statement.
+std::vector<int> save_lex_state() {
+	std::vector<int> states;
+	for (int i = 0; i < yy_start_stack_ptr; ++i) {
+		states.push_back(yy_start_stack[i]);
+	}
+	states.push_back(YYSTATE);
+	return states;
+}
+
+void restore_lex_state(const std::vector<int>& states) {
+	yy_start_stack_ptr = 0;
+	BEGIN(states.front());
+	for (size_t i = 1; i < states.size(); ++i) {
+		yy_push_state(states[i]);
+	}
+}
+
 /*
  *	Start/end 'script' mode.
  */

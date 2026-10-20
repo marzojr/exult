@@ -151,6 +151,15 @@ public:
 		cur_scope = cur_scope->get_parent();
 	}
 
+	Uc_scope* get_scope() const {
+		return cur_scope;
+	}
+
+	// Restore a checkpoint after discarding an incomplete statement.
+	void restore_scope(Uc_scope* scope) {
+		cur_scope = scope;
+	}
+
 	Uc_symbol* search(const char* nm);
 	Uc_symbol* search_up(const char* nm);
 

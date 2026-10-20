@@ -92,6 +92,39 @@ static std::vector<UsecodeOps> const_opcode;
 static std::vector<bool>       nested_if;
 static int converse = 0;    // If we are in a converse block.
 
+extern std::vector<int> save_lex_state();
+extern void restore_lex_state(const std::vector<int>&);
+
+// Each statement list is a recovery boundary. Save the enclosing context so
+// that discarding a partial statement also discards its unfinished scopes,
+// lexer modes, constant types, and conversation/script nesting.
+class Uc_recovery_block : public Uc_block_statement {
+	Uc_scope* scope = cur_fun->get_scope();
+	std::vector<int> lex_state = save_lex_state();
+	std::vector<UsecodeOps> saved_const_opcode = const_opcode;
+	std::vector<bool> saved_nested_if = nested_if;
+	Uc_class* saved_class_type = class_type;
+	Uc_struct_symbol* saved_struct_type = struct_type;
+	bool saved_has_ret = has_ret;
+	bool saved_is_extern = is_extern;
+	int saved_repeat_nesting = repeat_nesting;
+	int saved_converse = converse;
+
+public:
+	void recover() const {
+		cur_fun->restore_scope(scope);
+		restore_lex_state(lex_state);
+		const_opcode = saved_const_opcode;
+		nested_if = saved_nested_if;
+		class_type = saved_class_type;
+		struct_type = saved_struct_type;
+		has_ret = saved_has_ret;
+		is_extern = saved_is_extern;
+		repeat_nesting = saved_repeat_nesting;
+		converse = saved_converse;
+	}
+};
+
 struct Fun_id_info {
 	Uc_function_symbol::Function_kind kind;
 	int                               id;
@@ -149,6 +182,7 @@ struct Loop_Vars {
 	class Uc_statement *stmt;
 	class std::vector<Uc_var_symbol *> *varvec;
 	class Uc_block_statement *block;
+	class Uc_recovery_block *recovery;
 	class Uc_array_expression *exprlist;
 	class Uc_label_statement *label;
 	class std::vector<int> *intlist;
@@ -397,7 +431,8 @@ struct Loop_Vars {
 %type <stmt> continue_statement response_case fallthrough_statement
 %type <stmt> scoped_statement converse_case_attend
 %type <stmt> array_enum_statement opt_trailing_label
-%type <block> statement_list noncase_statement_list
+%type <recovery> statement_list noncase_statement_list recovered_statement_list recovered_noncase_statement_list
+%type <block> terminated_statement_list
 %type <label> label_statement
 %type <loopvars> start_array_variables
 %type <loopinit> start_array_loop
@@ -570,11 +605,8 @@ opt_trailing_label:
 	;
 
 function_body:
-	'{' statement_list opt_trailing_label '}'
+	'{' terminated_statement_list
 		{
-		if ($3 != nullptr) {
-			$2->add($3);
-		}
 		cur_fun->set_statement($2);
 		}
 	;
@@ -716,11 +748,8 @@ const_int_val:
 	;
 
 statement_block:
-	statement_block_start statement_list opt_trailing_label '}'
+	statement_block_start terminated_statement_list
 		{	// Block ends in label.
-		if ($3 != nullptr) {
-			$2->add($3);
-		}
 		$$ = $2;
 		nested_if.pop_back();
 		cur_fun->pop_scope();
@@ -754,8 +783,29 @@ statement_list:
 			$$->add($2);
 		}
 		}
+	| recovered_statement_list ';'
+		{ $$ = $1; yyerrok; }
 	| %empty
-		{ $$ = new Uc_block_statement(); }
+		{ $$ = new Uc_recovery_block(); }
+	;
+
+recovered_statement_list:
+	statement_list error
+		{ $1->recover(); $$ = $1; }
+	;
+
+// Keep the closing brace as a synchronization point, so an error just before
+// it does not eat the following function while looking for a semicolon.
+terminated_statement_list:
+	statement_list opt_trailing_label '}'
+		{
+		if ($2) {
+			$1->add($2);
+		}
+		$$ = $1;
+		}
+	| recovered_statement_list '}'
+		{ $$ = $1; yyerrok; }
 	;
 
 noncase_statement_list:
@@ -765,8 +815,15 @@ noncase_statement_list:
 			$$->add($2);
 		}
 		}
+	| recovered_noncase_statement_list ';'
+		{ $$ = $1; yyerrok; }
 	| %empty
-		{ $$ = new Uc_block_statement(); }
+		{ $$ = new Uc_recovery_block(); }
+	;
+
+recovered_noncase_statement_list:
+	noncase_statement_list error
+		{ $1->recover(); $$ = $1; }
 	;
 
 simple_or_if_statement:
@@ -1371,11 +1428,8 @@ appended_element:
 	;
 
 scoped_statement:
-	statement_block_start statement_list opt_trailing_label '}'
+	statement_block_start terminated_statement_list
 		{
-		if ($3 != nullptr) {
-			$2->add($3);
-		}
 		cur_fun->pop_scope();
 		nested_if.pop_back();
 		$$ = $2;
@@ -1449,11 +1503,8 @@ if_statement:
 	;
 
 trycatch_statement:
-	trystart_statement '{' statement_list opt_trailing_label '}'
+	trystart_statement '{' terminated_statement_list
 		{
-		if ($4 != nullptr) {
-			$3->add($4);
-		}
 		auto* stmt = dynamic_cast<Uc_trycatch_statement*>($1);
 		if (!stmt) {
 			Uc_location::yyerror("try/catch statement is not a try/catch statement");
@@ -1466,24 +1517,18 @@ trycatch_statement:
 	;
 
 trystart_statement:
-	try_statement statement_list opt_trailing_label '}' CATCH '(' ')'
+	try_statement terminated_statement_list CATCH '(' ')'
 		{
-		if ($3 != nullptr) {
-			$2->add($3);
-		}
 		cur_fun->pop_scope();
 		cur_fun->push_scope();
 		$$ = new Uc_trycatch_statement($2);
 		}
-	| try_statement statement_list opt_trailing_label '}' CATCH '(' IDENTIFIER ')'
+	| try_statement terminated_statement_list CATCH '(' IDENTIFIER ')'
 		{
-		if ($3 != nullptr) {
-			$2->add($3);
-		}
 		cur_fun->pop_scope();
 		cur_fun->push_scope();
 		auto* stmt = new Uc_trycatch_statement($2);
-		stmt->set_catch_variable(cur_fun->add_symbol($7, true));
+		stmt->set_catch_variable(cur_fun->add_symbol($5, true));
 		$$ = stmt;
 		}
 	;
