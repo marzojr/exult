@@ -38,7 +38,7 @@ AI assistance is welcome under the same guidelines, including the source restric
 
 ## Sending a pull request
 
-Keep changes focused and explain the problem, your approach, and the result. For behavior changes, include the evidence and source disclosures described above, and explain how you developed the fix and tests.
+Try to keep each pull request focused on a small set of related changes. Separate pull requests for different features or unrelated fixes are usually easier to review and accept. Explain the problem, your approach, and the result. For behavior changes, include the evidence and source disclosures described above, and explain how you developed the fix and tests.
 
 - Follow the surrounding code and [.clang-format](.clang-format), avoiding unrelated formatting changes.
 - Use [INSTALL](INSTALL), [README.windows](README.windows), or [README.macOS](README.macOS) for build guidance.
