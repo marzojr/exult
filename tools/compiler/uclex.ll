@@ -59,6 +59,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 using std::string;
 
 static bool finish_include();
+static void end_location();
 static Uc_location comment_start;
 
 extern std::vector<char*> include_dirs;    // -I directories.
@@ -169,9 +170,9 @@ static void Include(char* yytext    // ->text containing name.
 	yyin = include_file;
 	// Add file to list of included files.
 	inclfiles.insert(name);
-	Uc_location::register_source(name, source_path.c_str());
+	Uc_location::register_source(source_path.c_str(), source_path.c_str());
 	// Set location to new file.
-	Uc_location::set_cur(name, 0);
+	Uc_location::set_cur(source_path.c_str(), 0);
 	yy_switch_to_buffer(yy_create_buffer(yyin, YY_BUF_SIZE));
 }
 
@@ -251,7 +252,7 @@ static void Set_directive(char* text) {
 	else if (directive == "game") { Set_game(end); }
 	else if (directive == "autonumber") { Set_autonum(end); }
 	else if (directive == "strictbraces") { Set_strict_mode(end); }
-	else { Uc_location::yywarning(Uc_location::Warning::unknown_directives, "unknown directive '#%s' ignored", directive.c_str()); }
+	else if (!directive.empty()) { Uc_location::yywarning(Uc_location::Warning::unknown_directives, "unknown directive '#%s' ignored", directive.c_str()); }
 }
 
 static int Integer_literal(const char* text, int base) {
@@ -347,11 +348,14 @@ char* Handle_string(
 			break;
 		}
 		default: {
-			escape_location.warning(Uc_location::Warning::unknown_escape_sequence,
-					"Unknown escape sequence '\\%c'. If you are trying "
-					"to insert a literal backslash ('\\') into text, "
-					"write it as '\\\\'.",
-					*from);
+			const unsigned byte = static_cast<unsigned char>(*from);
+			if (byte < 32 || byte >= 127) {
+				escape_location.warning(Uc_location::Warning::unknown_escape_sequence,
+						"unknown escape sequence '\\x%02X'; use '\\\\' for a literal backslash", byte);
+			} else {
+				escape_location.warning(Uc_location::Warning::unknown_escape_sequence,
+						"unknown escape sequence '\\%c'; use '\\\\' for a literal backslash", *from);
+			}
 			*to++ = '\\';
 			*to++ = *from;
 			break;
@@ -618,7 +622,11 @@ sonic_damage	return SONIC_DAMAGE;
 "%="			{ return MOD_EQ; }
 "&="			{ return AND_EQ; }
 
-\#[^\n]*\n?	{ Set_directive(yytext); }
+\#[^\n]*\n?	{
+			const auto* nul = static_cast<const char*>(memchr(yytext, 0, yyleng));
+			if (nul) { Uc_location().at_offset(yytext, nul - yytext).error("NUL byte in directive"); }
+			else { Set_directive(yytext); }
+		}
 
 [ \t\r]+					/* Ignore spaces. */
 "//"[^\n]*					/* Comments. */
@@ -634,15 +642,13 @@ sonic_damage	return SONIC_DAMAGE;
 <comment><<EOF>>			{
 			comment_start.error("unterminated block comment; expected '*/'");
 			yy_pop_state();
-			if (!finish_include()) { yyterminate(); }
+			if (!finish_include()) { end_location(); yyterminate(); }
 		}
 \n			/* Newline. */
 .			return *yytext;
 <<EOF>>			{
 			if (!finish_include()) {
-				auto loc = Uc_location::next_location();
-				Uc_location::set_cur(loc.get_source(), loc.get_line(), loc.get_column());
-				yylloc = Uc_parser_location::current();
+				end_location();
 				yyterminate();
 			}
 		}
@@ -653,6 +659,12 @@ sonic_damage	return SONIC_DAMAGE;
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif    // __GNUC__
+
+static void end_location() {
+	auto loc = Uc_location::next_location();
+	Uc_location::set_cur(loc.get_source(), loc.get_line(), loc.get_column());
+	yylloc = Uc_parser_location::current();
+}
 
 static bool finish_include() {
 	if (locstack.empty()) { return false; }

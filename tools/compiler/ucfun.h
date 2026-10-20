@@ -57,8 +57,9 @@ class Uc_function : public Uc_design_unit {
 	char*                              text_data;    // All strings.
 	int                                text_data_size;
 	// Map string to its offset.
-	std::map<std::string, int> text_map;
-	Uc_statement*              statement;    // Statement(s) in function.
+	std::map<std::string, int>         text_map;
+	std::map<std::string, Uc_location> string_locations;
+	Uc_statement*                      statement;    // Statement(s) in function.
 public:
 	enum Intrinsic_type {
 		unset,
@@ -124,6 +125,10 @@ public:
 		return proto->get_method_num();
 	}
 
+	bool has_valid_return_type() const {
+		return proto->has_valid_return_type();
+	}
+
 	bool has_ret() const {
 		return proto->has_ret();
 	}
@@ -167,6 +172,7 @@ public:
 
 	Uc_symbol* search(const char* nm);
 	Uc_symbol* search_up(const char* nm);
+	Uc_symbol* suggest_symbol(const char* nm) const;
 
 	static Uc_symbol* search_globals(const char* nm) {
 		return globals.search(nm);

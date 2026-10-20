@@ -1427,7 +1427,8 @@ class_expr:
 		Uc_symbol* sym = cur_fun->search_up($1);
 		if (!sym) {
 			Uc_location::yyerror("use of undeclared identifier '%s'", $1);
-			cur_fun->add_symbol($1, false);
+			auto* placeholder = cur_fun->add_symbol($1, false);
+			placeholder->error_placeholder = true;
 			YYERROR;
 		} else if (sym->get_sym_type() != Uc_symbol::Class) {
 			Uc_location::yyerror("'%s' is not a class instance", $1);
@@ -2048,7 +2049,9 @@ return_statement:
 	RETURN expression ';'
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
-		if (!cur_fun->has_ret()) {
+		if (!cur_fun->has_valid_return_type()) {
+			$$ = new Uc_return_statement($2);
+		} else if (!cur_fun->has_ret()) {
 			Uc_location::yyerror(
 					"void function '%s' cannot return a value",
 					cur_fun->get_name());
@@ -2080,7 +2083,9 @@ return_statement:
 	| RETURN ';'
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
-		if (cur_fun->has_ret()) {
+		if (!cur_fun->has_valid_return_type()) {
+			$$ = new Uc_return_statement();
+		} else if (cur_fun->has_ret()) {
 			Uc_class* cls = cur_fun->get_cls();
 			Uc_location::yyerror(
 					"function '%s' must return a value of type '%s'",
@@ -2713,8 +2718,7 @@ start_call:
 			if ($2->is_object_function() == -1 && Uc_location::get_shapefun_warn()) {
 				// Don't know.
 				Uc_location::yywarning(Uc_location::Warning::shape_to_function,
-						"Please ensure that 'call' uses a function declared "
-						"with 'shape#' or 'object#'");
+						"script call target cannot be verified as a 'shape#' or 'object#' function");
 			}
 			$$ = $2;
 		}
@@ -3517,9 +3521,8 @@ declared_var:
 		auto* var = dynamic_cast<Uc_var_symbol*>($1);
 		if (!var) {
 			Uc_location::yyerror("'%s' is not a variable", $1->get_name());
-			std::string buf($1->get_name());
-			buf += "_needvar";
-			var = cur_fun->add_symbol(buf.c_str(), false);
+			$1->note("declared here");
+			YYERROR;
 		}
 		$$ = var;
 		}
@@ -3531,8 +3534,12 @@ declared_sym:
 		Uc_location::Context diagnostic_context(@$.loc());
 		Uc_symbol* sym = cur_fun->search_up($1);
 		if (!sym) {
-			@1.loc().error("use of undeclared identifier '%s'", $1);
+			if (auto* suggestion = cur_fun->suggest_symbol($1)) {
+				@1.loc().error("use of undeclared identifier '%s'; did you mean '%s'?", $1, suggestion->get_name());
+				suggestion->note("'%s' declared here", suggestion->get_name());
+			} else { @1.loc().error("use of undeclared identifier '%s'", $1); }
 			sym = cur_fun->add_symbol($1, false);
+			sym->error_placeholder = true;
 		}
 		$$ = sym;
 		}
@@ -3594,14 +3601,11 @@ static UsecodeOps Integer_literal_opcode(int value, UsecodeOps opcode, Uc_locati
 	if (Uc_location::get_integer_warn()) {
 		if (promote) {
 			loc.warning(Uc_location::Warning::integer_coercion,
-					"Literal integer '%d' cannot be represented as 16-bit "
-					"integer. Assuming '(long)' cast.",
+					"integer literal %d is outside the 16-bit range; treating it as '(long)'",
 					value);
 		} else {
 			loc.warning(Uc_location::Warning::integer_coercion,
-					"Interpreting integer '%d' as the signed 16-bit "
-					"integer '%d'. If this is incorrect, use '(long)' "
-					"cast.",
+					"integer literal %d is interpreted as signed 16-bit value %d; use '(long)' to preserve its value",
 					value, static_cast<short>(value));
 		}
 	}
@@ -3792,7 +3796,10 @@ static Uc_call_expression* cls_function_call(
 	}
 
 	if (!sym) {
-		Uc_location::yyerror("use of undeclared identifier '%s'", nm);
+		if (auto* suggestion = cur_fun->suggest_symbol(nm)) {
+			Uc_location::yyerror("use of undeclared identifier '%s'; did you mean '%s'?", nm, suggestion->get_name());
+			suggestion->note("'%s' declared here", suggestion->get_name());
+		} else { Uc_location::yyerror("use of undeclared identifier '%s'", nm); }
 		return nullptr;
 	} else {
 		auto* ret = new Uc_call_expression(sym, parms, cur_fun, original);

@@ -78,6 +78,8 @@ class Uc_symbol : public Uc_location {
 protected:
 	std::string name;    // This will be the key.
 public:
+	bool error_placeholder = false;    // Do not suggest names created for recovery.
+
 	enum Sym_types {
 		Generic = 0,
 		Constant,
@@ -604,7 +606,8 @@ private:
 	bool                        externed;
 	bool                        inherited;
 	Function_ret                ret_type;
-	bool                        return_declared = false;
+	bool                        return_declared   = false;
+	bool                        return_type_valid = true;
 	Ret_symbol                  ret_sym;
 	bool                        high_id;
 	Function_kind               type;
@@ -697,6 +700,10 @@ public:
 	virtual void set_ret_type(Uc_struct_symbol* s);
 	bool         check_return_type(Function_ret type, Uc_class* cls = nullptr, Uc_struct_symbol* structure = nullptr);
 
+	bool has_valid_return_type() const {
+		return return_type_valid;
+	}
+
 	Uc_class* get_cls() const override {
 		return ret_type == class_ret ? ret_sym.cls : nullptr;
 	}
@@ -739,6 +746,7 @@ public:
 
 	// Search upwards through scopes.
 	Uc_symbol* search_up(const char* nm);
+	Uc_symbol* find_similar(const char* nm, unsigned& distance) const;
 
 	void add(Uc_symbol* sym) {    // Add (does NOT check for dups.)
 		symbols[sym->name.c_str()] = sym;

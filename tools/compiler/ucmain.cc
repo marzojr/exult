@@ -37,16 +37,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <exception>
 #include <fstream>
 #include <iosfwd>
+#include <new>
 #include <sstream>
 #include <string_view>
 #include <vector>
 
 using std::ios;
-using std::strcpy;
-using std::strlen;
-using std::strrchr;
 using std::string_view_literals::operator""sv;
 
 // THIS is what the parser produces.
@@ -69,12 +68,12 @@ static void compilation_status(const std::string& message, bool success) {
  *  MAIN.
  */
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv) try {
 	extern int                  yyparse();
 	extern FILE*                yyin;
 	const char*                 src;
-	char                        outbuf[256];
-	char*                       outname        = nullptr;
+	std::string                 outbuf;
+	const char*                 outname        = nullptr;
 	bool                        want_sym_table = true;
 	static const char*          optstring      = "o:I:sbc:uW:";
 	Uc_function::Intrinsic_type ty             = Uc_function::unset;
@@ -97,7 +96,7 @@ int main(int argc, char** argv) {
 			} else if (optarg == "auto"sv) {
 				Uc_location::set_color_output(isatty(fileno(stderr)));
 			} else {
-				std::cout << "Invalid argument to -c: '" << optarg << "' expected one of 'always', 'never', or 'auto'" << std::endl;
+				std::cerr << "error: invalid color mode '" << optarg << "'; expected 'always', 'never', or 'auto'\n";
 				return 1;
 			}
 			break;
@@ -121,7 +120,15 @@ int main(int argc, char** argv) {
 			if (option && option[1] == ':') {
 				std::cerr << "error: missing argument to '-" << static_cast<char>(optopt) << "'\n";
 			} else {
-				std::cerr << "error: unknown option '-" << static_cast<char>(optopt) << "'\n";
+				const char* argument = optind < argc ? argv[optind] : argv[optind - 1];
+				if (strncmp(argument, "--", 2) != 0) {
+					argument = argv[optind - 1];
+				}
+				if (strncmp(argument, "--", 2) == 0) {
+					std::cerr << "error: unknown option '" << argument << "'\n";
+				} else {
+					std::cerr << "error: unknown option '-" << static_cast<char>(optopt) << "'\n";
+				}
 			}
 			return EXIT_FAILURE;
 		}
@@ -139,24 +146,26 @@ int main(int argc, char** argv) {
 		src  = argv[optind];
 		yyin = fopen(argv[optind], "r");
 		if (!yyin) {
-			std::cerr << "Error: Cannot open input file '" << src << "': " << strerror(errno) << "\n";
+			std::cerr << "error: cannot open input file '" << src << "': " << strerror(errno) << "\n";
 			return 1;
 		}
 		if (!outname) {    // No -o option?
 			// Set up output name.
-			outname                    = strncpy(outbuf, src, sizeof(outbuf) - 5);
-			outbuf[sizeof(outbuf) - 5] = 0;
-			char* dot                  = strrchr(outname, '.');
-			if (!dot) {
-				dot = outname + strlen(outname);
+			outbuf               = src;
+			const auto separator = outbuf.find_last_of("/\\");
+			const auto basename  = separator == std::string::npos ? 0 : separator + 1;
+			const auto extension = outbuf.find_last_of('.');
+			if (extension != std::string::npos && extension > basename) {
+				outbuf.resize(extension);
 			}
-			strcpy(dot, ".uco");
+			outbuf += ".uco";
+			outname = outbuf.c_str();
 		}
 	} else {
 		src  = "<stdin>";
 		yyin = stdin;
 		if (!outname) {
-			outname = strcpy(outbuf, "a.ucout");
+			outname = "a.ucout";
 		}
 	}
 	Uc_location::register_source(src, src);
@@ -193,12 +202,12 @@ int main(int argc, char** argv) {
 		compilation_status("Usecode compilation failed!", false);
 		return EXIT_FAILURE;
 	}
+	const auto    bytecode = out.str();
 	std::ofstream output(outname, ios::binary | ios::out);
 	if (!output) {
 		std::cerr << "error: cannot open output file '" << outname << "': " << strerror(errno) << '\n';
 		return EXIT_FAILURE;
 	}
-	const auto bytecode = out.str();
 	output.write(bytecode.data(), bytecode.size());
 	output.close();
 	if (output.fail()) {
@@ -208,15 +217,10 @@ int main(int argc, char** argv) {
 	}
 	compilation_status(std::string("Usecode successfully compiled to ") + outname + "!", true);
 	return EXIT_SUCCESS;
-}
-
-/*
- *  Report error.
- */
-
-/*
- *  Report warning.
- */
-void yywarning(const char* s) {
-	Uc_location::yywarning(Uc_location::preformatted, s);
+} catch (const std::bad_alloc&) {
+	std::cerr << "error: memory exhausted\n";
+	return EXIT_FAILURE;
+} catch (const std::exception& error) {
+	std::cerr << "error: internal compiler error: " << error.what() << '\n';
+	return EXIT_FAILURE;
 }

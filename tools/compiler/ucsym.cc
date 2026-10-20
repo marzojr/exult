@@ -35,6 +35,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "ucexpr.h"
 #include "ucfun.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 
@@ -353,6 +354,7 @@ bool Uc_function_symbol::check_return_type(Function_ret type, Uc_class* cls, Uc_
 	if (return_declared
 		&& (type != ret_type || (type == class_ret && cls != ret_sym.cls) || (type == struct_ret && structure != ret_sym.str))) {
 		Uc_location::yyerror("conflicting return type for function '%s'", get_name());
+		return_type_valid = false;
 		note("previous declaration is here");
 		return false;
 	}
@@ -401,13 +403,15 @@ Uc_function_symbol* Uc_function_symbol::create(
 	} else if (num < 0x400) {
 		if (kind == utility_fun) {
 			Uc_location::yywarning(
-					Uc_location::Warning::implicit_function_kind, "Treating function '%s' as being a 'shape#()' function.", nm);
+					Uc_location::Warning::implicit_function_kind,
+					"treating function '%s' as 'shape#' because its ID is below 0x400", nm);
 			kind = shape_fun;
 		}
 	} else if (num < 0x800) {
 		if (kind == utility_fun) {
 			Uc_location::yywarning(
-					Uc_location::Warning::implicit_function_kind, "Treating function '%s' as being an 'object#()' function.", nm);
+					Uc_location::Warning::implicit_function_kind,
+					"treating function '%s' as 'object#' because its ID is between 0x400 and 0x7ff", nm);
 			kind = object_fun;
 		}
 	}
@@ -464,10 +468,7 @@ Uc_function_symbol* Uc_function_symbol::create(
 
 	if (num < 0 && !new_auto_num) {
 		Uc_location::yywarning(
-				Uc_location::Warning::autonumber,
-				"Auto-numbering function '%s', but '#autonumber' directive not "
-				"used.",
-				nm);
+				Uc_location::Warning::autonumber, "function '%s' is automatically numbered without a #autonumber directive", nm);
 	}
 
 	if (num < 0 && last_num == INT32_MAX) {
@@ -712,6 +713,52 @@ int Uc_scope::add_function_symbol(Uc_function_symbol* fun, Uc_scope* parent) {
 	}
 	found->note("previous declaration is here");
 	return 0;
+}
+
+// Bounded adjacent-transposition distance for diagnostic suggestions. Avoid
+// quadratic work on arbitrarily long malformed identifiers.
+Uc_symbol* Uc_scope::find_similar(const char* nm, unsigned& distance) const {
+	const std::string name(nm);
+	const unsigned    limit = name.size() < 3 ? 0 : name.size() < 6 ? 1 : 2;
+	distance                = limit + 1;
+	if (!limit || name.size() > 64) {
+		return nullptr;
+	}
+	Uc_symbol* best      = nullptr;
+	bool       ambiguous = false;
+	for (const Uc_scope* scope = this; scope; scope = scope->parent) {
+		for (const auto& entry : scope->symbols) {
+			auto*       symbol    = entry.second;
+			const auto& candidate = symbol->name;
+			if (symbol->error_placeholder || candidate.size() > name.size() + limit || name.size() > candidate.size() + limit) {
+				continue;
+			}
+			std::vector<std::vector<unsigned>> d(name.size() + 1, std::vector<unsigned>(candidate.size() + 1));
+			for (size_t i = 0; i <= name.size(); ++i) {
+				d[i][0] = i;
+			}
+			for (size_t j = 0; j <= candidate.size(); ++j) {
+				d[0][j] = j;
+			}
+			for (size_t i = 1; i <= name.size(); ++i) {
+				for (size_t j = 1; j <= candidate.size(); ++j) {
+					d[i][j] = std::min({d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (name[i - 1] != candidate[j - 1])});
+					if (i > 1 && j > 1 && name[i - 1] == candidate[j - 2] && name[i - 2] == candidate[j - 1]) {
+						d[i][j] = std::min(d[i][j], d[i - 2][j - 2] + 1);
+					}
+				}
+			}
+			const unsigned score = d.back().back();
+			if (score < distance) {
+				distance  = score;
+				best      = symbol;
+				ambiguous = false;
+			} else if (score == distance && best && candidate != best->name) {
+				ambiguous = true;
+			}
+		}
+	}
+	return ambiguous ? nullptr : best;
 }
 
 /*
