@@ -70,10 +70,10 @@ class Uc_location {
 	static bool  integer_warn;     // If should warn about coercing to negatives
 	static bool  shapefun_warn;    // If should warn about shape as function ID
 
-	char* source;
-	int   line;
-	int   column;
-	int   length;
+	const char* source;
+	int         line;
+	int         column;
+	int         length;
 
 	static void assemble_message(const char* msg, const char* source_file, int line_num, int column, int length, bool is_error);
 
@@ -84,6 +84,8 @@ public:
 
 	// Use current location.
 	Uc_location() : source(cur_source), line(cur_line), column(cur_column), length(cur_length) {}
+
+	Uc_location(const char* s, int l, int c, int n) : source(s), line(l), column(c), length(n) {}
 
 	static void set_cur(const char* s, int l, int c = 1);
 
@@ -106,6 +108,10 @@ public:
 
 	int get_column() const {
 		return column;
+	}
+
+	int get_length() const {
+		return length;
 	}
 
 	const char* get_source() {

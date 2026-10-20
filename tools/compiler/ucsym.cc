@@ -117,11 +117,14 @@ int Uc_var_symbol::gen_value(Basic_block* out) {
 }
 
 int Uc_var_symbol::is_object_function(bool print_error) const {
-	if (print_error && Uc_location::get_shapefun_warn()) {
+	if (print_error) {
 		switch (is_obj_fun) {
 		case -2:
-			Uc_location::yywarning("Shape # is equal to fun. ID only for shapes < 0x400; use "
-								   "UI_get_usecode_fun instead");
+			if (Uc_location::get_shapefun_warn()) {
+				Uc_location::yywarning(
+						"Shape # is equal to fun. ID only for shapes < 0x400; use "
+						"UI_get_usecode_fun instead [-Wshape-to-function]");
+			}
 			break;
 		case 1:
 			Uc_location::yyerror(
