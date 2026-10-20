@@ -464,7 +464,7 @@ static_assert(std::is_trivially_copyable<Uc_parser_location>::value);
 %type <stmt> continue_statement response_case fallthrough_statement
 %type <stmt> scoped_statement converse_case_attend
 %type <stmt> array_enum_statement opt_trailing_label
-%type <recovery> statement_list noncase_statement_list recovered_statement_list recovered_noncase_statement_list
+%type <recovery> statement_list noncase_statement_list statement_recovery
 %type <block> terminated_statement_list
 %type <label> label_statement
 %type <loopvars> start_array_variables
@@ -864,7 +864,7 @@ statement_list:
 			$$->add($2);
 		}
 		}
-	| recovered_statement_list ';'
+	| statement_list statement_recovery ';'
 		{ $$ = $1; yyerrok; }
 	| %empty
 		{
@@ -873,11 +873,13 @@ statement_list:
 		}
 	;
 
-recovered_statement_list:
-	statement_list error
+// Keep the list on the parser stack while searching for a delimiter. Otherwise
+// discarding the first non-delimiter also discards the only recovery boundary.
+statement_recovery:
+	error
 		{
-		Uc_location::Context diagnostic_context(@$.loc());
-		$1->recover(); $$ = $1;
+		$<recovery>0->recover();
+		$$ = $<recovery>0;
 		}
 	;
 
@@ -892,7 +894,7 @@ terminated_statement_list:
 		}
 		$$ = $1;
 		}
-	| recovered_statement_list '}'
+	| statement_list statement_recovery '}'
 		{ $$ = $1; yyerrok; }
 	;
 
@@ -904,20 +906,12 @@ noncase_statement_list:
 			$$->add($2);
 		}
 		}
-	| recovered_noncase_statement_list ';'
+	| noncase_statement_list statement_recovery ';'
 		{ $$ = $1; yyerrok; }
 	| %empty
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = new Uc_recovery_block();
-		}
-	;
-
-recovered_noncase_statement_list:
-	noncase_statement_list error
-		{
-		Uc_location::Context diagnostic_context(@$.loc());
-		$1->recover(); $$ = $1;
 		}
 	;
 
@@ -1238,6 +1232,7 @@ var_decl:
 		} else {
 			auto* var = cur_fun ? cur_fun->add_symbol($1, true)
 								: cur_class->add_symbol($1);
+			if (!var) { YYERROR; }
 			var->set_is_obj_fun($3->is_object_function(false));
 			$$ = new Uc_assignment_statement(new Uc_var_expression(var), $3);
 		}
@@ -1254,6 +1249,7 @@ var_decl:
 		} else {
 			auto* var = cur_fun ? cur_fun->add_symbol($1, true)
 								: cur_class->add_symbol($1);
+			if (!var) { YYERROR; }
 			$$ = new Uc_assignment_statement(new Uc_var_expression(var), $3);
 		}
 		}
@@ -1304,6 +1300,7 @@ class_decl:
 				$$ = nullptr;
 			} else {
 				auto* v = cur_fun->add_symbol($1, class_type, true);
+				if (!v) { YYERROR; }
 				$$      = new Uc_assignment_statement(
 				                        new Uc_class_expression(v), $3);
 			}
@@ -1357,6 +1354,7 @@ struct_decl:
 		} else {
 			auto* var = cur_fun ? cur_fun->add_symbol($1, struct_type, true)
 								: cur_class->add_symbol($1, struct_type);
+			if (!var) { YYERROR; }
 			var->set_is_obj_fun($3->is_object_function(false));
 			$$ = new Uc_assignment_statement(new Uc_var_expression(var), $3);
 		}
@@ -1374,10 +1372,10 @@ class_expr:
 		if (!sym) {
 			Uc_location::yyerror("'%s' not declared", $1);
 			cur_fun->add_symbol($1, false);
-			$$ = nullptr;
+			YYERROR;
 		} else if (sym->get_sym_type() != Uc_symbol::Class) {
 			Uc_location::yyerror("'%s' not a class", $1);
-			$$ = nullptr;
+			YYERROR;
 		} else {
 			// Tests above guarantee this will always work.
 			auto* cls = dynamic_cast<Uc_class_inst_symbol*>(sym->get_sym());
@@ -1927,7 +1925,7 @@ function_call_statement:
 	function_call ';'
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
-		$$ = new Uc_call_statement($1); 
+		$$ = new Uc_call_statement($1);
 		}
 	;
 
@@ -2890,7 +2888,7 @@ nonclass_expr:
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
 		if (Class_unexpected_error($1)) {
-			$$ = nullptr;
+			YYERROR;
 		} else {
 			$$ = $1;
 		}
@@ -3247,33 +3245,39 @@ function_call:
 		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = cls_function_call($1->expr, cur_class, $1->name, $2, $4);
 		delete $1;
+		if (!$$) { YYERROR; }
 		}
 	| IDENTIFIER opt_original '(' opt_expression_list ')'
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = cls_function_call(nullptr, cur_class, $1, $2, $4);
+		if (!$$) { YYERROR; }
 		}
 	| primary hierarchy_tok defined_class UCC_SCOPE IDENTIFIER '(' opt_expression_list ')'
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = cls_method_call($1, $1->get_cls(), $3, $5, $7);
+		if (!$$) { YYERROR; }
 		}
 	| defined_class UCC_SCOPE IDENTIFIER '(' opt_expression_list ')'
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = cls_method_call(nullptr, cur_class, $1, $3, $5);
+		if (!$$) { YYERROR; }
 		}
 	| primary hierarchy_tok '(' '*' primary ')' '(' opt_expression_list ')'
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = new Uc_call_expression($5, $8, cur_fun);
 		$$->set_itemref($1);
+		if (!$$) { YYERROR; }
 		}
 	| '(' '*' primary ')' '(' opt_expression_list ')'
 		{
 		Uc_location::Context diagnostic_context(@$.loc());
 		$$ = new Uc_call_expression($3, $6, cur_fun);
 		$$->set_itemref(nullptr);
+		if (!$$) { YYERROR; }
 		}
 	| primary hierarchy_tok '(' '@' int_literal ')' '(' opt_expression_list ')'
 		{
@@ -3283,11 +3287,17 @@ function_call:
 			Uc_location::yyerror("Failed to obtain value from integer constant");
 			$$ = nullptr;
 		} else {
+			auto* intrinsic = Uc_function::get_intrinsic(num);
+			if (!intrinsic) {
+				Uc_location::yyerror("intrinsic index %d is out of range", num);
+				YYERROR;
+			}
 			$$ = new Uc_call_expression(
-					Uc_function::get_intrinsic(num), $8, cur_fun);
+					intrinsic, $8, cur_fun);
 			$$->set_itemref($1);
 			$$->check_params();
 		}
+		if (!$$) { YYERROR; }
 		}
 	| '(' '@' int_literal ')' '(' opt_expression_list ')'
 		{
@@ -3297,10 +3307,16 @@ function_call:
 			Uc_location::yyerror("Failed to obtain value from integer constant");
 			$$ = nullptr;
 		} else {
+			auto* intrinsic = Uc_function::get_intrinsic(num);
+			if (!intrinsic) {
+				Uc_location::yyerror("intrinsic index %d is out of range", num);
+				YYERROR;
+			}
 			$$ = new Uc_call_expression(
-					Uc_function::get_intrinsic(num), $6, cur_fun);
+					intrinsic, $6, cur_fun);
 			$$->check_params();
 		}
+		if (!$$) { YYERROR; }
 		}
 	;
 
@@ -3568,6 +3584,9 @@ static bool Nonclass_unexpected_error(Uc_expression* expr) {
 }
 
 static bool Incompatible_classes_error(Uc_class* src, Uc_class* trg) {
+	if (!src || !trg) {
+		return true; // An unknown class was already diagnosed.
+	}
 	if (!src->is_class_compatible(trg->get_name())) {
 		Uc_location::yyerror(
 				"Class '%s' can't be converted into class '%s'",
@@ -3580,6 +3599,9 @@ static bool Incompatible_classes_error(Uc_class* src, Uc_class* trg) {
 static Uc_call_expression* cls_method_call(
 		Uc_expression* ths, Uc_class* curcls, Uc_class* clsscope, char* nm,
 		Uc_array_expression* parms) {
+	if (!clsscope) {
+		return nullptr;
+	}
 	if (!curcls) {
 		Uc_location::yyerror("'%s' requires a class object", nm);
 		return nullptr;

@@ -164,6 +164,31 @@ void following_function 0x901 () { var another = ; }
         self.assert_failed(result, "input.uc:3:6: error: redefinition of 'value'")
         self.assertIn("input.uc:2:6: note: previous declaration is here", result.stdout)
 
+    def test_semantic_errors_recover_without_crashing(self):
+        for invalid in (
+            "var duplicate = 1; var duplicate = 2;",
+            "struct<Record> duplicate = 1; struct<Record> duplicate = 2;",
+            "class<Widget> duplicate = new Widget(); class<Widget> duplicate = new Widget();",
+            "var value = -new Widget();",
+            "class<Widget> value = unknown();",
+            "var value = new Widget()->Unknown::method();",
+            "(@65535)();",
+            "item->(@65535)();",
+            "struct<Unknown>;",
+        ):
+            with self.subTest(invalid=invalid):
+                source = ('#game "blackgate"\nclass Widget {} struct Record { var field; }\n'
+                          + 'void example 0x900 () {\n ' + invalid
+                          + '\n var following = ;\n}\n')
+                result = self.compile(source)
+                self.assert_failed(result, "error:")
+                self.assertIn("input.uc:5:", result.stdout)
+                self.assertEqual(result.returncode, 1, result.stdout)
+
+    def test_indirect_call_has_untyped_result(self):
+        result = self.compile('#game "blackgate"\nvoid example 0x900 (callback) { var value = (*callback)(); }\n')
+        self.assertEqual(result.returncode, 0, result.stdout)
+
     def test_codegen_location_and_no_output(self):
         result = self.compile('void helper 0x900 () {}\nvoid example 0x901 () {\n var value = helper();\n}\n')
         self.assert_failed(result, "input.uc:3:14: error: Function 'helper' does not have a return value")
