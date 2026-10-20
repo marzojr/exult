@@ -39,22 +39,18 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 using std::cerr;
 using std::endl;
-using std::strcmp;
-using std::strcpy;
-using std::strlen;
+std::set<std::string> Uc_location::source_names;
 
-std::vector<char*> Uc_location::source_names;
-
-char*              Uc_location::cur_source         = nullptr;
-int                Uc_location::cur_line           = 0;
-int                Uc_location::cur_column         = 1;
-int                Uc_location::cur_length         = 1;
-int                Uc_location::next_line          = 0;
-int                Uc_location::next_column        = 1;
-const Uc_location* Uc_location::diagnostic_context = nullptr;
-int                Uc_location::num_errors         = 0;
-bool               Uc_location::strict_mode        = false;
-bool               Uc_location::color_output       = false;
+const char*              Uc_location::cur_source  = nullptr;
+int                      Uc_location::cur_line    = 0;
+int                      Uc_location::cur_column  = 1;
+int                      Uc_location::cur_length  = 1;
+int                      Uc_location::next_line   = 0;
+int                      Uc_location::next_column = 1;
+std::vector<Uc_location> Uc_location::diagnostic_context;
+int                      Uc_location::num_errors   = 0;
+bool                     Uc_location::strict_mode  = false;
+bool                     Uc_location::color_output = false;
 
 namespace {
 	constexpr std::array<std::string_view, static_cast<size_t>(Uc_location::Warning::count)> warning_names
@@ -146,19 +142,7 @@ void Uc_location::set_cur(const char* s, int l, int c) {
 	cur_line = next_line = l;
 	cur_column = next_column = c;
 	cur_length               = 1;
-	cur_source               = nullptr;    // See if already here.
-	for (auto* name : source_names) {
-		if (strcmp(s, name) == 0) {
-			cur_source = name;
-			break;
-		}
-	}
-	if (!cur_source) {    // 1st time.
-		const int len = strlen(s);
-		cur_source    = new char[len + 1];
-		strcpy(cur_source, s);
-		source_names.push_back(cur_source);
-	}
+	cur_source               = source_names.emplace(s).first->c_str();
 }
 
 namespace {
