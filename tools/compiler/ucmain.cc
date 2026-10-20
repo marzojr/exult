@@ -53,6 +53,17 @@ extern std::vector<Uc_design_unit*> units;
 
 std::vector<char*> include_dirs;    // -I directories.
 
+static void compilation_status(const std::string& message, bool success) {
+	if (Uc_location::get_color_output()) {
+		std::cout << (success ? "\033[1;32m" : "\033[1;31m");
+	}
+	std::cout << message;
+	if (Uc_location::get_color_output()) {
+		std::cout << "\033[0m";
+	}
+	std::cout << '\n';
+}
+
 /*
  *  MAIN.
  */
@@ -108,6 +119,7 @@ int main(int argc, char** argv) {
 							 "'integer-coercion', 'no-integer-coercion', "
 							 "'shape-to-function', or 'no-shape-to-function'"
 						  << std::endl;
+				return EXIT_FAILURE;
 			}
 			break;
 		case 'u':
@@ -115,7 +127,20 @@ int main(int argc, char** argv) {
 			Uc_location::set_integer_warn(false);
 			Uc_location::set_shapefun_warn(false);
 			break;
+		case '?': {
+			const char* option = optopt ? strchr(optstring, optopt) : nullptr;
+			if (option && option[1] == ':') {
+				std::cerr << "error: missing argument to '-" << static_cast<char>(optopt) << "'\n";
+			} else {
+				std::cerr << "error: unknown option '-" << static_cast<char>(optopt) << "'\n";
+			}
+			return EXIT_FAILURE;
 		}
+		}
+	}
+	if (argc - optind > 1) {
+		std::cerr << "error: expected a single input file\n";
+		return EXIT_FAILURE;
 	}
 	char* env = getenv("UCC_INCLUDE");
 	if (env) {
@@ -147,14 +172,14 @@ int main(int argc, char** argv) {
 	}
 	Uc_location::set_cur(src, 0);
 	Uc_function::set_intrinsic_type(ty);
-	yyparse();
+	const int parse_result = yyparse();
 	if (yyin != stdin) {
 		fclose(yyin);
 	}
 	const int errs = Uc_location::get_num_errors();
-	if (errs > 0) {    // Check for errors.
-		std::cout << "\033[1;31mUsecode compilation failed!\033[0m\n";
-		return errs;
+	if (parse_result != 0 || errs > 0) {    // Check for errors.
+		compilation_status("Usecode compilation failed!", false);
+		return EXIT_FAILURE;
 	}
 	// Open output.
 	std::ofstream out(outname, ios::binary | ios::out);
@@ -178,17 +203,17 @@ int main(int argc, char** argv) {
 
 	if (out.fail()) {
 		std::cerr << "Error: Failed to write output file '" << outname << "'.\n";
-		std::cout << "\033[1;31mUsecode compilation failed!\033[0m\n";
-		return 1;
+		compilation_status("Usecode compilation failed!", false);
+		return EXIT_FAILURE;
 	}
 
 	const int final_errs = Uc_location::get_num_errors();
 	if (final_errs == 0) {
-		std::cout << "\033[1;32mUsecode successfully compiled to " << outname << "!\033[0m\n";
+		compilation_status(std::string("Usecode successfully compiled to ") + outname + "!", true);
 	} else {
-		std::cout << "\033[1;31mUsecode compilation failed!\033[0m\n";
+		compilation_status("Usecode compilation failed!", false);
 	}
-	return final_errs;
+	return final_errs == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 /*
