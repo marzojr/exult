@@ -659,6 +659,11 @@ void restore_lex_state(const std::vector<int>& states) {
 	}
 }
 
+void reset_lex_state() {
+	yy_start_stack_ptr = 0;
+	BEGIN(INITIAL);
+}
+
 /*
  *	Start/end 'script' mode.
  */
