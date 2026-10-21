@@ -325,9 +325,6 @@ void ConfigSetting_widget::onselection(Gump_widget* sender) {
 	if (index == children.size()) {
 		return;
 	}
-	// decrement index
-	index--;
-
 	gwin->set_all_dirty();
 }
 
