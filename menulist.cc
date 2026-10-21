@@ -79,7 +79,7 @@ bool MenuEntry::handle_event(SDL_Event& event) {
 
 // MenuTextEntry: a selectable menu entry (a button)
 MenuTextEntry::MenuTextEntry(std::shared_ptr<Font> fnton, std::shared_ptr<Font> fnt, const char* txt, int xpos, int ypos)
-		: MenuTextObject(fnt, fnton, txt), enabled(true) {
+		: MenuTextObject(std::move(fnt), std::move(fnton), txt), enabled(true) {
 	const int max_width  = font->get_text_width(text.c_str());
 	const int max_height = font->get_text_height();
 	x                    = xpos;
@@ -116,7 +116,7 @@ bool MenuTextEntry::handle_event(SDL_Event& event) {
 // MenuGameEntry: a selectable menu entry (a button)
 MenuGameEntry::MenuGameEntry(
 		std::shared_ptr<Font> fnton, std::shared_ptr<Font> fnt, const char* txt, Shape_frame* sfx, int xpos, int ypos)
-		: MenuTextEntry(fnton, fnt, txt, xpos, ypos) {
+		: MenuTextEntry(std::move(fnton), std::move(fnt), txt, xpos, ypos) {
 	sfxicon       = sfx;
 	int max_width = 0;
 	int width;
@@ -182,7 +182,7 @@ bool MenuGameEntry::handle_event(SDL_Event& event) {
 
 // MenuTextChoice: a multiple-choice menu entry
 MenuTextChoice::MenuTextChoice(std::shared_ptr<Font> fnton, std::shared_ptr<Font> fnt, const char* txt, int xpos, int ypos)
-		: MenuTextObject(fnt, fnton, txt) {
+		: MenuTextObject(std::move(fnt), std::move(fnton), txt) {
 	const int max_width  = font->get_text_width(text.c_str());
 	const int max_height = font->get_text_height();
 	x                    = xpos;

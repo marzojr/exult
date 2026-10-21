@@ -21,6 +21,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #ifdef __GNUC__
@@ -106,7 +107,7 @@ public:
 	std::string           text;
 
 	MenuTextObject(std::shared_ptr<Font> fnt, std::shared_ptr<Font> fnton, std::string txt)
-			: font(fnt), font_on(fnton), text(std::move(txt)) {}
+			: font(std::move(fnt)), font_on(std::move(fnton)), text(std::move(txt)) {}
 
 	virtual int get_height() {
 		return y2 - y1;
