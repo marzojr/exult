@@ -86,7 +86,9 @@ void ucxtInit::init(const Configuration& config, const UCOptions& options) {
 }
 
 string ucxtInit::get_datadir(const Configuration& config, const UCOptions& options) {
-	string datadir;
+	// In no-config mode, read tables from the working directory on every platform.
+	// An unqualified filename is otherwise treated as a CONFIG path on Windows.
+	string datadir(options.noconf ? "./" : "");
 
 	// just to handle if people are going to compile with makefile.unix,
 	// unsupported, but occasionally useful

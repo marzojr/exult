@@ -50,6 +50,7 @@
 #include <cstring>
 #include <iomanip>
 #include <map>
+#include <memory>
 #include <stack>
 #include <string>
 #include <vector>
@@ -103,15 +104,11 @@ int main(int argc, char** argv) {
 	ucxtInit init;
 	init.init(*config, uc.options);
 
-	// ICK! Don't try this at home kids...
-	// done because for some reason it started crashing upon piping or
-	// redirection to file... wierd. yes, it's a hack to fix an eldritch bug I
-	// could't find... it seems appropriate
-	// FIXME: Problem nolonger exists. Probably should put some 'nice' code in
-	// it's place.
+	// Keep the redirected stream alive until cout's original buffer is restored.
+	std::unique_ptr<std::ostream> pOutputstream;
 	std::streambuf* coutbuf = nullptr;
 	if (!uc.output_redirect().empty()) {
-		auto pOutputstream = U7open_out(uc.output_redirect().c_str(), false);
+		pOutputstream = U7open_out(uc.output_redirect().c_str(), false);
 		if (!pOutputstream) {
 			cout << "error. failed to open " << uc.output_redirect() << " for writing. exiting." << endl;
 			exit(1);
@@ -124,7 +121,6 @@ int main(int argc, char** argv) {
 		coutbuf = cout.rdbuf();
 		cout.rdbuf(outputstream.rdbuf());
 	}
-	// you may now uncover your eyes <grin>
 
 	open_usecode_file(uc, *config);
 
@@ -138,7 +134,6 @@ int main(int argc, char** argv) {
 		usage();
 	}
 
-	// now we clean up the <ick>y ness from before
 	if (!uc.output_redirect().empty()) {
 		cout.rdbuf(coutbuf);
 	}
