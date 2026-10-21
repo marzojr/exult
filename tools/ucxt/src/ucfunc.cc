@@ -197,9 +197,17 @@ bool UCFunc::output_ucs(
 ostream& UCFunc::output_ucs_funcname(
 		ostream& o, const FuncMap& funcmap, unsigned int funcid, unsigned int numargs, Usecode_symbol_table* symtbl) {
 	ignore_unused_variable_warning(symtbl);
-	auto fmp = funcmap.find(funcid);
+	const auto fmp = funcmap.find(funcid);
+	// Missing metadata still has a usable numeric ID and argument count.
+	// Keep the existing void/name fallbacks without dereferencing end().
+	std::map<unsigned int, std::string> unnamed_vars;
+	const auto                          kind = funcid < 0x400   ? Usecode_symbol::shape_fun
+											   : funcid < 0x800 ? Usecode_symbol::object_fun
+																: Usecode_symbol::fun_defined;
+	const UCFuncSet                     fallback(funcid, numargs, false, false, false, "", kind, unnamed_vars);
+	const auto&                         function = fmp != funcmap.cend() ? fmp->second : fallback;
 	// do we return a variable
-	if (fmp != funcmap.cend() && fmp->second.return_var) {
+	if (function.return_var) {
 		o << VARNAME << ' ';
 	} else {
 		o << NORETURN << ' ';
@@ -209,11 +217,11 @@ ostream& UCFunc::output_ucs_funcname(
 	// TODO: Probably want to grab this from a file in the future...
 	// o << demunge_ocstring(*this, funcmap, "%f1", intrinsics, ucc, true,
 	// symtbl)
-	if (!fmp->second.funcname.empty()) {
-		if (fmp->second.funcname[0] == '&') {
-			o << fmp->second.funcname.substr(1, fmp->second.funcname.size() - 1);
+	if (!function.funcname.empty()) {
+		if (function.funcname[0] == '&') {
+			o << function.funcname.substr(1, function.funcname.size() - 1);
 		} else {
-			o << fmp->second.funcname;
+			o << function.funcname;
 		}
 	} else {
 		o << "Func" << std::setw(4) << funcid;
@@ -221,9 +229,9 @@ ostream& UCFunc::output_ucs_funcname(
 
 	// output the "function number"
 	o << " ";
-	if (fmp->second.kind == Usecode_symbol::shape_fun) {
+	if (function.kind == Usecode_symbol::shape_fun) {
 		o << SHAPENUM;
-	} else if (fmp->second.kind == Usecode_symbol::object_fun) {
+	} else if (function.kind == Usecode_symbol::object_fun) {
 		o << OBJECTNUM;
 	}
 	o << "0x" << funcid;
@@ -233,10 +241,10 @@ ostream& UCFunc::output_ucs_funcname(
 	// output ObCurly braces
 	o << " (";
 
-	for (unsigned int i = (fmp->second.class_fun ? 1 : 0); i < numargs; i++) {
+	for (unsigned int i = (function.class_fun ? 1 : 0); i < numargs; i++) {
 		o << VARNAME << ' ';
-		auto it = fmp->second.varmap.find(numargs - i - 1);
-		if (it != fmp->second.varmap.end()) {
+		auto it = function.varmap.find(numargs - i - 1);
+		if (it != function.varmap.end()) {
 			o << it->second;
 		} else {
 			o << VARPREFIX << std::setw(4) << i;
