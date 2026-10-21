@@ -224,6 +224,7 @@ int main(int argc, char* argv[]) {
 	uint32      i;
 	uint32      j;
 	uint32      patch_num;
+	int         exit_status = 0;
 	std::size_t num_to_write;
 
 	char              name[11];
@@ -304,7 +305,11 @@ int main(int argc, char* argv[]) {
 			// Now do each timbre and patch
 			for (i = 0; i < num_timbres; i++) {
 				ds.read(sysex_buffer + 8, timbre_mem_size);
-				patch_num = ds.read1() - 1;    // Patch is 1-128 when we want 0-127
+				patch_num = ds.read1();
+				if (patch_num < 1 || patch_num > 128) {
+					throw exult_exception("Patch number must be between 1 and 128. Wont convert.");
+				}
+				--patch_num;    // Patch is 1-128 when we want 0-127.
 
 				std::memcpy(name, sysex_buffer + 8, 10);
 				name[10] = 0;
@@ -395,10 +400,11 @@ int main(int argc, char* argv[]) {
 
 		} catch (exult_exception& e) {
 			std::cerr << "Something went wrong: " << e.what() << std::endl;
+			exit_status = 1;
 		}
 	}
 
 	std::cout << "Finished!" << std::endl;
 
-	return 0;
+	return exit_status;
 }
