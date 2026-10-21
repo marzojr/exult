@@ -51,26 +51,22 @@ struct u7shape {
 };
 
 unsigned int read1(FILE* f) {
-	unsigned char b0;
-	b0 = fgetc(f);
-	return b0;
+	const int byte = fgetc(f);
+	if (byte == EOF) {
+		cerr << (ferror(f) ? "Error reading shape file" : "Unexpected end of shape file") << endl;
+		exit(EXIT_FAILURE);
+	}
+	return static_cast<unsigned int>(byte);
 }
 
 unsigned int read2(FILE* f) {
-	unsigned char b0;
-	unsigned char b1;
-	b0 = fgetc(f);
-	b1 = fgetc(f);
-	return b0 + (b1 << 8);
+	const unsigned int b0 = read1(f);
+	const unsigned int b1 = read1(f);
+	return b0 | (b1 << 8);
 }
 
 signed int read2signed(FILE* f) {
-	unsigned char b0;
-	unsigned char b1;
-	signed int    i0;
-	b0 = fgetc(f);
-	b1 = fgetc(f);
-	i0 = b0 + (b1 << 8);
+	signed int i0 = static_cast<signed int>(read2(f));
 	if (i0 >= 32768) {
 		i0 -= 65536;
 	}
@@ -78,15 +74,11 @@ signed int read2signed(FILE* f) {
 }
 
 unsigned int read4(FILE* f) {
-	unsigned char b0;
-	unsigned char b1;
-	unsigned char b2;
-	unsigned char b3;
-	b0 = fgetc(f);
-	b1 = fgetc(f);
-	b2 = fgetc(f);
-	b3 = fgetc(f);
-	return b0 + (b1 << 8) + (b2 << 16) + (b3 << 24);
+	const unsigned int b0 = read1(f);
+	const unsigned int b1 = read1(f);
+	const unsigned int b2 = read1(f);
+	const unsigned int b3 = read1(f);
+	return b0 | (b1 << 8) | (b2 << 16) | (b3 << 24);
 }
 
 void write4(FILE* f, unsigned int b) {
