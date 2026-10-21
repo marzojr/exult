@@ -41,16 +41,22 @@ using std::cerr;
 using std::endl;
 std::set<std::string> Uc_location::source_names;
 
-const char*              Uc_location::cur_source  = nullptr;
-int                      Uc_location::cur_line    = 0;
-int                      Uc_location::cur_column  = 1;
-int                      Uc_location::cur_length  = 1;
-int                      Uc_location::next_line   = 0;
-int                      Uc_location::next_column = 1;
-std::vector<Uc_location> Uc_location::diagnostic_context;
-int                      Uc_location::num_errors   = 0;
-bool                     Uc_location::strict_mode  = false;
-bool                     Uc_location::color_output = false;
+const char* Uc_location::cur_source   = nullptr;
+int         Uc_location::cur_line     = 0;
+int         Uc_location::cur_column   = 1;
+int         Uc_location::cur_length   = 1;
+int         Uc_location::next_line    = 0;
+int         Uc_location::next_column  = 1;
+int         Uc_location::num_errors   = 0;
+bool        Uc_location::strict_mode  = false;
+bool        Uc_location::color_output = false;
+
+// Locations can be constructed by globals in other translation units (for
+// example, the scanner's comment_start). Initialize their context on first use.
+std::vector<Uc_location>& Uc_location::diagnostic_context() {
+	static std::vector<Uc_location> context;
+	return context;
+}
 
 namespace {
 	constexpr std::array<std::string_view, static_cast<size_t>(Uc_location::Warning::count)> warning_names
@@ -242,7 +248,7 @@ void Uc_location::assemble_message(
 		}
 		cerr << msg << endl;
 	}
-	const auto file = source_lines.find(source_file ? source_file : "");
+	const auto file = source_lines.find(source_file);
 	if (file == source_lines.end() || line_num < 1 || static_cast<size_t>(line_num) > file->second.size()) {
 		return;
 	}

@@ -48,6 +48,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <limits>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #ifdef __GNUC__
@@ -155,7 +156,7 @@ static void Include(char* yytext    // ->text containing name.
 			path += name;
 			include_file = fopen(path.c_str(), "r");
 			if (include_file != nullptr) {
-				source_path = path;
+				source_path = std::move(path);
 				break;
 			}
 		}

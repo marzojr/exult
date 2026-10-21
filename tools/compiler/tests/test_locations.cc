@@ -5,6 +5,10 @@
 #include <stdexcept>
 #include <string>
 
+// Exercise location construction before main, from a separate translation unit
+// from ucloc.cc, just like the scanner's global comment_start location.
+static const Uc_location startup_location;
+
 static void check_nested_contexts(int depth, bool unwind) {
 	const Uc_location before;
 	{
@@ -26,6 +30,8 @@ static void check_nested_contexts(int depth, bool unwind) {
 }
 
 int main() {
+	assert(startup_location.get_source() == nullptr);
+	assert(startup_location.get_line() == 0);
 	Uc_location::set_cur("physical.uc", 17, 5);
 	const Uc_location physical;
 	check_nested_contexts(256, false);    // Grow and relocate the context vector.

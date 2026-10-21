@@ -84,16 +84,16 @@ private:
 	static bool                                                  warnings_as_errors;
 	static std::set<std::string>                                 source_names;    // Interned filenames; stable addresses.
 
-	static const char*              cur_source;    // Source filename.
-	static int                      cur_line;      // Line #.
-	static int                      cur_column;    // Byte column, 1-based.
-	static int                      cur_length;    // Length of token on its first line.
-	static int                      next_line;
-	static int                      next_column;
-	static std::vector<Uc_location> diagnostic_context;
-	static int                      num_errors;      // Total #.
-	static bool                     strict_mode;     // If all blocks are required to have braces
-	static bool                     color_output;    // If output should be colorized.
+	static const char*               cur_source;    // Source filename.
+	static int                       cur_line;      // Line #.
+	static int                       cur_column;    // Byte column, 1-based.
+	static int                       cur_length;    // Length of token on its first line.
+	static int                       next_line;
+	static int                       next_column;
+	static std::vector<Uc_location>& diagnostic_context();
+	static int                       num_errors;      // Total #.
+	static bool                      strict_mode;     // If all blocks are required to have braces
+	static bool                      color_output;    // If output should be colorized.
 
 	const char* source;
 	int         line;
@@ -117,8 +117,9 @@ public:
 
 	// Use current location.
 	Uc_location() : source(cur_source), line(cur_line), column(cur_column), length(cur_length) {
-		if (!diagnostic_context.empty()) {
-			*this = diagnostic_context.back();
+		const auto& context = diagnostic_context();
+		if (!context.empty()) {
+			*this = context.back();
 		}
 	}
 
@@ -238,11 +239,11 @@ public:
 class Uc_location::Context {
 public:
 	explicit Context(Uc_location loc) {
-		diagnostic_context.push_back(loc);
+		diagnostic_context().push_back(loc);
 	}
 
 	~Context() {
-		diagnostic_context.pop_back();
+		diagnostic_context().pop_back();
 	}
 
 	Context(const Context&)            = delete;
