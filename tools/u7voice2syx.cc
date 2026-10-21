@@ -265,6 +265,9 @@ int main(int argc, char* argv[]) {
 			}
 
 			const uint32 num_timbres = ds.read1();
+			if (ds.fail() || num_timbres > 255) {
+				throw exult_exception("Failed to read timbre count. Wont convert.");
+			}
 			std::cout << num_timbres << " custom timbres..." << std::endl;
 
 			if (ds.getSize() != 247 * num_timbres + 1) {
