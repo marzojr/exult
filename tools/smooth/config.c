@@ -46,13 +46,12 @@ FILE* open_config(const char* configfile) {
 }
 
 int read_config(FILE* f) {
-	char*       pluginname = NULL;
+	char        pluginname[MAX_LINE_LENGTH + 16] = "";
 	libhandle_t a_hdl      = NULL;
+	char        line[MAX_LINE_LENGTH];
 
 	rewind(f);
-	while (!feof(f)) {
-		char line[MAX_LINE_LENGTH];
-		fgets(line, MAX_LINE_LENGTH, f);
+	while (fgets(line, sizeof(line), f) != NULL) {
 		int line_length = strlen(line);
 		if (g_statics.debug > 2) {
 			printf("length of line: %d\n", line_length);
@@ -67,26 +66,21 @@ int read_config(FILE* f) {
 		if (line_length != 0) {
 			if (line[0] == '[') {
 				// new plugin section
-				if (pluginname != NULL) {
-					if (g_statics.debug > 2) {
-						printf("freeing %s\n", pluginname);
-						fflush(stdout);
-					}
-					free(pluginname);
-				}
 				if (g_statics.debug) {
 					printf("\nsection %s", line);
 					fflush(stdout);
 				}
-				const size_t namelen = (16 + line_length) * sizeof(char);
-				pluginname           = (char*)malloc(namelen);
+				const size_t section_length = strcspn(line, "\r\n");
+				if (section_length < 3 || line[section_length - 1] != ']') {
+					fprintf(stderr, "ERROR: Invalid plugin section: %s\n", line);
+					return -1;
+				}
 				// what's between the '[' and the ']'
-				memmove(line, line + 1, line_length - 3);
-				line[line_length - 3] = '\0';    // and add a \0 at the end
+				line[section_length - 1] = '\0';
 #ifdef _WIN32
-				snprintf(pluginname, namelen, "libsmooth_%s.dll", line);
+				snprintf(pluginname, sizeof(pluginname), "libsmooth_%s.dll", line + 1);
 #else
-				snprintf(pluginname, namelen, "libsmooth_%s.so", line);
+				snprintf(pluginname, sizeof(pluginname), "libsmooth_%s.so", line + 1);
 #endif
 				if (g_statics.debug > 2) {
 					printf("Plugin to load: %s\n", pluginname);
@@ -101,6 +95,11 @@ int read_config(FILE* f) {
 					// initialise the plugin
 					void* (*init)(glob_statics* g_var);
 					*(void**)&init = plug_load_func(a_hdl, "init_plugin");
+					if (init == NULL) {
+						fprintf(stderr, "ERROR: Missing init_plugin in %s\n", pluginname);
+						plug_unload(a_hdl);
+						return -1;
+					}
 					(*init)(&g_statics);
 					hdl_list = add_handle(a_hdl, hdl_list);
 				}
@@ -117,7 +116,7 @@ int read_config(FILE* f) {
 				// send the line to the plugin_process_line from pluginname
 				// we should use the head of hdl_list as the handle of the
 				// loaded plugin
-				if (pluginname == NULL || a_hdl == NULL) {
+				if (pluginname[0] == '\0' || a_hdl == NULL) {
 					fprintf(stderr,
 							"WARNING: line entered before first section. Use "
 							"comments (# or ;) please.\nIgnoring line: %s",
@@ -153,13 +152,9 @@ int read_config(FILE* f) {
 			}
 		}
 	}
-	// clear up the last pluginname loaded
-	if (pluginname != NULL) {
-		if (g_statics.debug > 2) {
-			printf("freeing %s\n", pluginname);
-			fflush(stdout);
-		}
-		free(pluginname);
+	if (ferror(f)) {
+		fprintf(stderr, "ERROR: Couldn't read config file\n");
+		return -1;
 	}
 	if (g_statics.debug) {
 		printf("********************\nEnd of config file\n\n");
